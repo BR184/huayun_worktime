@@ -17,6 +17,7 @@ import '../utils/date_helper.dart';
 import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
 import '../widgets/pull_refresh_guide.dart';
+import '../utils/holiday_utils.dart'; // [NEW] Import
 import 'feature_guide_page.dart';
 import 'photo_preview_screen.dart';
 
@@ -147,7 +148,10 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 切换置顶目标
   Future<void> _togglePinnedTarget(int target) async {
-    final newTarget = _pinnedTarget == target ? null : target;
+    final newTarget = WorkTimeCalculator.calculateNewPinnedTarget(
+      _pinnedTarget,
+      target,
+    );
     await _storage.savePinnedTarget(newTarget);
     setState(() {
       _pinnedTarget = newTarget;
@@ -181,10 +185,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 生成目标列表，确保包含基础目标
   List<int> _generateTargetList(int baseTarget) {
-    final targets = <int>{100, 110, 120, 130, 140, 150, 160};
-    targets.add(baseTarget); // 确保基础目标在列表中
-    final sortedList = targets.toList()..sort();
-    return sortedList;
+    return WorkTimeCalculator.generateTargetList(baseTarget);
   }
 
   /// 公开方法:从其他页面切换回来时刷新数据
@@ -873,9 +874,6 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
   }
 
   Widget _buildHoursCard(double hours, String type) {
-    // 截断到2位小数(不四舍五入)
-    final hoursTruncated = (hours * 100).truncate() / 100;
-
     return Column(
       children: [
         Card(
@@ -902,7 +900,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text(
-                      hoursTruncated.toStringAsFixed(2),
+                      WorkTimeCalculator.formatHours(hours),
                       style: TextStyle(
                         fontSize: 56,
                         fontWeight: FontWeight.bold,
@@ -925,7 +923,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 if (type != AppConstants.typeOvertime && type != AppConstants.typeRestDay && type != '休息') ...[
                   const SizedBox(height: 8),
                   Text(
-                    '已完成 ${((hours / 8.0 * 100 * 100).truncate() / 100).toStringAsFixed(2)}%',
+                    '已完成 ${WorkTimeCalculator.formatHours(hours / 8.0 * 100)}%',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
@@ -1094,19 +1092,16 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     );
 
     // 截断到2位小数(不四舍五入)
-    final actualHoursTruncated = (actualHours * 100).truncate() / 100;
-    final estimatedHoursTruncated = (estimatedHours * 100).truncate() / 100;
+    // 使用 formatHours 统一处理
 
     final actualPercentageRaw = (actualHours / 8.0 * 100).toDouble().clamp(
       0.0,
       200.0,
     );
-    final actualPercentage = (actualPercentageRaw * 100).truncate() / 100;
 
     final estimatedPercentageRaw = (estimatedHours / 8.0 * 100)
         .toDouble()
         .clamp(0.0, 200.0);
-    final estimatedPercentage = (estimatedPercentageRaw * 100).truncate() / 100;
 
     Color getPercentageColor(double percentage) {
       if (percentage >= _baseTarget) return Colors.green;
@@ -1132,20 +1127,20 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  '工时: ${actualHoursTruncated.toStringAsFixed(2)}h',
+                  '工时: ${WorkTimeCalculator.formatHours(actualHours)}h',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: getPercentageColor(actualPercentage),
+                    color: getPercentageColor(actualPercentageRaw),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  '${actualPercentage.toStringAsFixed(2)}%',
+                  '${WorkTimeCalculator.formatHours(actualPercentageRaw)}%',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: getPercentageColor(actualPercentage),
+                    color: getPercentageColor(actualPercentageRaw),
                   ),
                 ),
               ],
@@ -1162,20 +1157,20 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  '工时: ${estimatedHoursTruncated.toStringAsFixed(2)}h',
+                  '工时: ${WorkTimeCalculator.formatHours(estimatedHours)}h',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: getPercentageColor(estimatedPercentage),
+                    color: getPercentageColor(estimatedPercentageRaw),
                   ),
                 ),
                 const SizedBox(width: 12),
                 Text(
-                  '${estimatedPercentage.toStringAsFixed(2)}%',
+                  '${WorkTimeCalculator.formatHours(estimatedPercentageRaw)}%',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.bold,
-                    color: getPercentageColor(estimatedPercentage),
+                    color: getPercentageColor(estimatedPercentageRaw),
                   ),
                 ),
               ],
@@ -1192,11 +1187,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final checkOut = _attendanceData?['checkOutTime'] as String?;
 
     // 计算工时完成率 - 截断到2位小数
-    final completionRaw = (hours / 8.0 * 100).clamp(0, 200);
-    final completion = (completionRaw * 100).truncate() / 100;
-
-    // 截断工时到2位小数
-    final hoursTruncated = (hours * 100).truncate() / 100;
+    final completionRaw = (hours / 8.0 * 100).clamp(0.0, 200.0);
 
     // 计算上班时长(如果有打卡记录)
     String workDuration = '--';
@@ -1209,16 +1200,15 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         final totalMinutes = outMinutes - inMinutes;
         final totalHours = totalMinutes / 60;
         // 截断到2位小数
-        final totalHoursTruncated = (totalHours * 100).truncate() / 100;
-        workDuration = '${totalHoursTruncated.toStringAsFixed(2)}小时';
+        workDuration = '${WorkTimeCalculator.formatHours(totalHours)}小时';
       } catch (e) {
         workDuration = '--';
       }
     }
 
     Color getCompletionColor() {
-      if (completion >= 100) return Colors.green;
-      if (completion >= 80) return Colors.orange;
+      if (completionRaw >= 100) return Colors.green;
+      if (completionRaw >= 80) return Colors.orange;
       return Colors.red;
     }
 
@@ -1251,7 +1241,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                       style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
                     Text(
-                      '${completion.toStringAsFixed(2)}%',
+                      '${WorkTimeCalculator.formatHours(completionRaw)}%',
                       style: TextStyle(
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
@@ -1262,7 +1252,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 ),
                 const SizedBox(height: 12),
                 LinearProgressIndicator(
-                  value: (completion / 100).clamp(0.0, 1.0),
+                  value: (completionRaw / 100).clamp(0.0, 1.0),
                   backgroundColor: Colors.grey[200],
                   valueColor: AlwaysStoppedAnimation<Color>(
                     getCompletionColor(),
@@ -1279,7 +1269,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     Expanded(
                       child: _buildStatItem(
                         '实际工时',
-                        '${hoursTruncated.toStringAsFixed(2)}h',
+                        '${WorkTimeCalculator.formatHours(hours)}h',
                         Icons.access_time,
                         Colors.blue,
                       ),
@@ -1644,7 +1634,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
               ],
               const Spacer(),
               Text(
-                '${currentHours.toStringAsFixed(1)}h / ${targetHours.toStringAsFixed(1)}h',
+                '${WorkTimeCalculator.formatHours(currentHours)}h / ${WorkTimeCalculator.formatHours(targetHours)}h',
                 style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
             ],
@@ -1665,9 +1655,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     bool isNextToAchieve = false,
   }) {
     final progress = currentHours / targetHours;
-    final progressPercentageRaw = (progress * 100).clamp(0, 100);
-    // 截断到2位小数
-    final progressPercentage = (progressPercentageRaw * 100).truncate() / 100;
+    final progressPercentageRaw = (progress * 100).clamp(0.0, 100.0);
 
     Color getProgressColor() {
       if (isCompleted) return Colors.green;
@@ -1813,7 +1801,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     ),
                   const Spacer(),
                   Text(
-                    '${(currentHours * 100).truncate() / 100} / ${(targetHours * 100).truncate() / 100}h',
+                    '${WorkTimeCalculator.formatHours(currentHours)} / ${WorkTimeCalculator.formatHours(targetHours)}h',
                     style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
                 ],
@@ -1835,7 +1823,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${progressPercentage.toStringAsFixed(2)}%',
+                        '${WorkTimeCalculator.formatHours(progressPercentageRaw)}%',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -1985,64 +1973,19 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 更新节假日
   Future<void> _updateHolidays() async {
-    // 验证年份范围:2010年到下个月末
-    final now = DateTime.now();
-    final nextMonthEnd = DateTime(now.year, now.month + 2, 0); // 下个月最后一天
-    final targetMonthEnd = DateTime(
-      _selectedDate.year,
-      _selectedDate.month + 1,
-      0,
-    ); // 选择月份最后一天
-
-    if (_selectedDate.year < 2010) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('无法更新2010年之前的节假日'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (targetMonthEnd.isAfter(nextMonthEnd)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('无法更新${now.year}年${now.month + 1}月之后的节假日'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-      }
-      return;
-    }
-
-    setState(() => _isLoading = true);
-
-    try {
-      final success = await _storage.updateHolidaysFromAPI(_selectedDate.year);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(success ? '节假日更新成功' : '节假日更新失败，使用默认规则'),
-            backgroundColor: success ? Colors.green : Colors.orange,
-          ),
-        );
-      }
-
-      // 重新加载数据
-      await _loadDailyData();
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('节假日更新失败: $e'), backgroundColor: Colors.red),
-        );
-      }
-    } finally {
-      setState(() => _isLoading = false);
-    }
+    await HolidayUtils.handleUpdateHolidays(
+      context: context,
+      year: _selectedDate.year,
+      month: _selectedDate.month,
+      storage: _storage,
+      onLoading: (isLoading) {
+        if (mounted) setState(() => _isLoading = isLoading);
+      },
+      onSuccess: () async {
+        // 重新加载数据
+        await _loadDailyData();
+      },
+    );
   }
 }
 

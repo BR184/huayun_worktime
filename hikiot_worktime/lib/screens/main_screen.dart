@@ -4,7 +4,9 @@ import '../core/theme/theme.dart';
 import 'daily_hours_screen.dart';
 import 'monthly_calendar_screen.dart';
 import 'settings_screen.dart';
-import '../utils/haptic_utils.dart';
+import 'monthly_calendar_screen.dart';
+import 'settings_screen.dart';
+import '../widgets/home_button.dart';
 
 /// 主框架页面 - 包含底部导航栏
 class MainScreen extends StatefulWidget {
@@ -18,7 +20,7 @@ class MainScreen extends StatefulWidget {
 
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
-  int? _pressedIndex; // 追踪当前按下的按钮
+
 
   final GlobalKey<MonthlyCalendarScreenState> _monthlyKey = GlobalKey();
   final GlobalKey<DailyHoursScreenState> _dailyKey = GlobalKey();
@@ -26,7 +28,6 @@ class _MainScreenState extends State<MainScreen> {
   void _onTabTap(int index) {
     setState(() {
       _currentIndex = index;
-      _pressedIndex = null;
     });
 
     // 切换到每日页面时,刷新数据（包括从月度页面修改的手动标记）
@@ -85,58 +86,37 @@ class _MainScreenState extends State<MainScreen> {
   Widget _buildNavItem(int index, IconData icon, String label) {
     final theme = Theme.of(context);
     final isSelected = _currentIndex == index;
-    final isPressed = _pressedIndex == index;
 
     final color = isSelected
         ? theme.colorScheme.primary
         : theme.colorScheme.onSurface.withValues(alpha: 0.6);
-
     return Expanded(
-      child: GestureDetector(
-        onTapDown: (_) async {
-          setState(() => _pressedIndex = index);
-          await HapticUtils.homeButtonDown();
-        },
-        onTapUp: (_) async {
-          await HapticUtils.homeButtonUp();
-          _onTabTap(index);
-        },
-        onTapCancel: () {
-          setState(() => _pressedIndex = null);
-          HapticUtils.lightImpact();
-        },
-        child: AnimatedScale(
-          scale: isPressed ? 0.92 : 1.0,
-          duration: const Duration(milliseconds: 100),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 100),
-            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? theme.colorScheme.primary.withValues(alpha: 0.1)
-                  : (isPressed
-                        ? theme.colorScheme.primary.withValues(alpha: 0.05)
-                        : Colors.transparent),
-              borderRadius: BorderRadius.circular(12),
+      child: HomeButton(
+        onPressed: () => _onTabTap(index),
+        backgroundColor: isSelected
+            ? theme.colorScheme.primary.withValues(alpha: 0.1)
+            : Colors.transparent,
+        pressedBackgroundColor: isSelected
+            ? theme.colorScheme.primary.withValues(alpha: 0.1)
+            : theme.colorScheme.primary.withValues(alpha: 0.05),
+        pressedScale: 0.92,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+        borderRadius: BorderRadius.circular(12),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: isSelected ? 26 : 24),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 11,
+                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
+              ),
             ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(icon, color: color, size: isSelected ? 26 : 24),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
-                    color: color,
-                    fontSize: 11,
-                    fontWeight: isSelected
-                        ? FontWeight.w600
-                        : FontWeight.normal,
-                  ),
-                ),
-              ],
-            ),
-          ),
+          ],
         ),
       ),
     );

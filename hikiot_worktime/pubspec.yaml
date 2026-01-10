@@ -51,7 +51,7 @@ dependencies:
   provider: ^6.1.1
 
   # 图表库
-  fl_chart: ^0.69.0
+  fl_chart: ^1.1.1
 
   # JSON序列化
   json_annotation: ^4.8.1
@@ -63,16 +63,16 @@ dependencies:
   url_launcher: ^6.2.2
 
   # 本地通知
-  flutter_local_notifications: ^18.0.1
+  flutter_local_notifications: ^19.5.0
 
   # 精确闹钟
-  android_alarm_manager_plus: ^4.0.6
+  android_alarm_manager_plus: ^5.0.0
 
   # 权限管理
-  permission_handler: ^11.3.1
+  permission_handler: ^12.0.1
 
   # 设备信息
-  device_info_plus: ^11.2.0
+  device_info_plus: ^12.3.0
   gal: ^2.3.2
   path_provider: ^2.1.5
 
@@ -85,7 +85,7 @@ dev_dependencies:
   # activated in the `analysis_options.yaml` file located at the root of your
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
-  flutter_lints: ^5.0.0
+  flutter_lints: ^6.0.0
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

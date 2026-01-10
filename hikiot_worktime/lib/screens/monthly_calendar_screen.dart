@@ -11,6 +11,9 @@ import '../utils/work_time_calculator.dart';
 import '../utils/attendance_parser.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
+import '../utils/smart_day_type_helper.dart';
+
+import '../utils/holiday_utils.dart'; // [NEW] Import
 import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
 
@@ -97,15 +100,15 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
   /// 生成目标列表，确保包含基础目标
   List<int> _generateTargetList(int baseTarget) {
-    final targets = <int>{100, 110, 120, 130, 140, 150, 160};
-    targets.add(baseTarget); // 确保基础目标在列表中
-    final sortedList = targets.toList()..sort();
-    return sortedList;
+    return WorkTimeCalculator.generateTargetList(baseTarget);
   }
 
   /// 切换置顶目标
   Future<void> _togglePinnedTarget(int target) async {
-    final newTarget = _pinnedTarget == target ? null : target;
+    final newTarget = WorkTimeCalculator.calculateNewPinnedTarget(
+      _pinnedTarget,
+      target,
+    );
     await _storage.savePinnedTarget(newTarget);
     setState(() {
       _pinnedTarget = newTarget;
@@ -328,18 +331,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               _monthlyData[todayStr]!['checkIn'] = attendance.checkIn;
               _monthlyData[todayStr]!['checkOut'] = attendance.checkOut;
 
-              // 智能识别逻辑 (Bug 2 修复对应)
-              // 1. 休息日有打卡 -> 自动改为加班日
-              if (attendance.hours > 0 && 
-                  (_monthlyData[todayStr]!['type'] == '休息' || 
-                   _monthlyData[todayStr]!['type'] == AppConstants.typeRestDay || 
-                   _monthlyData[todayStr]!['type'] == '节假日')) {
-                _monthlyData[todayStr]!['type'] = AppConstants.typeOvertime;
+              // 使用统一工具类处理智能类型
+              final newType = SmartDayTypeHelper.inferDayType(
+                currentType: _monthlyData[todayStr]!['type'],
+                hours: attendance.hours,
+                dateStr: todayStr,
+                isManual: false,
+              );
+              if (newType != null) {
+                _monthlyData[todayStr]!['type'] = newType;
               }
-              // 2. 工作日无打卡 -> 自动改为请假 (如果是通过refreshTodayData触发，说明是"今天"，所以通常不设请假，除非当前时间很晚了)
-              // 但 refreshTodayData 通常用于刷新"今天"，如果今天还没打卡，设为请假可能不妥（用户可能只是迟到）
-              // 只有 DailyHoursScreen 会对"过去"的时间设为请假
-              // 这里我们只处理"加班"的实时更新
             });
 
             // 同步更新缓存
@@ -456,6 +457,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     if (!forceRefresh) {
       final cachedData = await _storage.loadMonthlyData(_teamNo!, monthStr);
       if (cachedData != null) {
+        // 应用智能日期类型（修复缓存数据未应用智能逻辑的问题）
+        SmartDayTypeHelper.applyToMonthlyData(cachedData);
         setState(() {
           _monthlyData = cachedData;
           _monthlyDataCache[monthKey] = cachedData;
@@ -598,21 +601,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           'isEarlyLeave': record['isEarlyLeave'] ?? false,
         };
 
-        // 智能加班识别：如果是非工作日但有工时，自动改为加班日
-        if (hours > 0 &&
-            dataMap[date]!['type'] == AppConstants.typeRestDay &&
-            !dataMap[date]!['isManual']) {
-          dataMap[date]!['type'] = AppConstants.typeOvertime;
-        }
+        // 统一使用 SmartDayTypeHelper 进行智能类型推断
+        final newType = SmartDayTypeHelper.inferDayType(
+          currentType: dataMap[date]!['type'],
+          hours: hours,
+          dateStr: date,
+          isManual: dataMap[date]!['isManual'] ?? false,
+        );
 
-        // 智能请假识别：如果是工作日但无工时(且非今天)，自动改为请假
-        final now = DateTime.now();
-        final today = DateFormat('yyyy-MM-dd').format(now);
-        if (hours == 0 &&
-            dataMap[date]!['type'] == AppConstants.typeWorkday &&
-            date != today &&
-            !dataMap[date]!['isManual']) {
-          dataMap[date]!['type'] = AppConstants.typeLeave;
+        if (newType != null) {
+          dataMap[date]!['type'] = newType;
         }
       }
 
@@ -673,74 +671,25 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
   /// 更新节假日
   Future<void> _updateHolidays() async {
-    // 验证年份范围:2010年到下个月末
-    final now = DateTime.now();
-    final nextMonthEnd = DateTime(now.year, now.month + 2, 0); // 下个月最后一天
-    final targetMonthEnd = DateTime(
-      _selectedMonth.year,
-      _selectedMonth.month + 1,
-      0,
-    ); // 选择月份最后一天
-
-    if (_selectedMonth.year < 2010) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Text('无法更新2010年之前的节假日'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
-      }
-      return;
-    }
-
-    if (targetMonthEnd.isAfter(nextMonthEnd)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('无法更新${now.year}年${now.month + 1}月之后的节假日'),
-            backgroundColor: AppColors.warning,
-          ),
-        );
-      }
-      return;
-    }
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final success = await _storage.updateHolidaysFromAPI(_selectedMonth.year);
-
-      if (success) {
+    await HolidayUtils.handleUpdateHolidays(
+      context: context,
+      year: _selectedMonth.year,
+      month: _selectedMonth.month,
+      storage: _storage,
+      onLoading: (isLoading) {
+        if (mounted) {
+          setState(() {
+            _isLoading = isLoading;
+          });
+        }
+      },
+      onSuccess: () async {
         // 重新加载节假日计划
         _holidayPlan = await _storage.getHolidayPlan(_selectedMonth.year);
-      }
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              success ? '节假日更新成功,共${_holidayPlan.length}天' : '节假日API失败,使用默认规则',
-            ),
-            backgroundColor: success ? AppColors.success : AppColors.warning,
-          ),
-        );
-      }
-
-      // 重新加载数据(应用新的节假日计划)
-      await _loadMonthlyData(forceRefresh: true);
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('节假日更新失败: $e'), backgroundColor: AppColors.error),
-        );
-      }
-      setState(() {
-        _isLoading = false;
-      });
-    }
+        // 重新加载数据(应用新的节假日计划)
+        await _loadMonthlyData(forceRefresh: true);
+      },
+    );
   }
 
   /// 更新工时数据
@@ -877,22 +826,17 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       );
       final apiData = AttendanceParser.parseFromResponse(apiResponse);
 
-      // 检查是否需要类型修正 (Bug 2 Fix 核心逻辑)
-      bool needsTypeCorrection = false;
       final currentType = _monthlyData[dateStr]!['type'];
+
+      // 检查是否需要类型修正 (使用统一工具类)
+      final typeCorrection = SmartDayTypeHelper.inferDayType(
+        currentType: currentType,
+        hours: apiData.hours,
+        dateStr: dateStr,
+        isManual: false,
+      );
       
-      // 1. 休息日有打卡 -> 应为加班日
-      if (apiData.hours > 0 && 
-          (currentType == '休息' || currentType == AppConstants.typeRestDay || currentType == '节假日')) {
-        needsTypeCorrection = true;
-      }
-      // 2. 工作日无打卡(且是过去日期) -> 应为请假
-      final todayStr = DateFormat('yyyy-MM-dd').format(now);
-      if (apiData.hours == 0 &&
-          currentType == AppConstants.typeWorkday &&
-          dateStr != todayStr) {
-        needsTypeCorrection = true;
-      }
+      final needsTypeCorrection = typeCorrection != null && typeCorrection != currentType;
 
       // 比较是否一致 (只有当数据一致且不需要类型修正时，才停止更新)
       if (localData.hasValidData && localData.isConsistentWith(apiData) && !needsTypeCorrection) {
@@ -910,13 +854,9 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           _monthlyData[dateStr]!['isEarlyLeave'] = apiData.isEarlyLeave;
 
           // 应用类型修正
-          if (needsTypeCorrection) {
-             if (apiData.hours > 0) {
-               _monthlyData[dateStr]!['type'] = AppConstants.typeOvertime;
-             } else if (apiData.hours == 0) {
-               _monthlyData[dateStr]!['type'] = AppConstants.typeLeave;
-             }
-             print('$dateStr 类型智能修正 -> ${_monthlyData[dateStr]!['type']}');
+          if (needsTypeCorrection && typeCorrection != null) {
+             _monthlyData[dateStr]!['type'] = typeCorrection;
+             print('$dateStr 类型智能修正 -> $typeCorrection');
           }
 
           updatedCount++;
@@ -2259,12 +2199,12 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               children: [
                 _buildStatColumn(
                   '总工作日',
-                  '$totalWorkDays天/$totalWorkDaysAll天\n${totalWorkHours.toStringAsFixed(1)}h',
+                  '$totalWorkDays天/$totalWorkDaysAll天\n${WorkTimeCalculator.formatHours(totalWorkHours)}h',
                   Colors.green,
                 ),
                 _buildStatColumn(
                   '总加班日',
-                  '$totalOvertimeDays天/$totalOvertimeDaysAll天\n${totalOvertimeHours.toStringAsFixed(1)}h',
+                  '$totalOvertimeDays天/$totalOvertimeDaysAll天\n${WorkTimeCalculator.formatHours(totalOvertimeHours)}h',
                   Colors.purple,
                 ),
                 _buildStatColumn(
@@ -2283,13 +2223,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               children: [
                 _buildStatItem(
                   '总工时',
-                  totalHours.toStringAsFixed(1),
+                  WorkTimeCalculator.formatHours(totalHours),
                   '小时',
                   Colors.blue,
                 ),
                 _buildStatItem(
                   '日均工时',
-                  avgHours.toStringAsFixed(1),
+                  WorkTimeCalculator.formatHours(avgHours),
                   '小时/天',
                   Colors.orange,
                 ),
@@ -2332,7 +2272,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '达成$_baseTarget%目标，今日需 ${(totalWorkDays * 8.0 * _baseTarget / 100).toStringAsFixed(0)}h，截至昨日需 ${(totalWorkDaysExcludingToday * 8.0 * _baseTarget / 100).toStringAsFixed(0)}h',
+                  '达成$_baseTarget%目标，今日需 ${WorkTimeCalculator.formatHours(totalWorkDays * 8.0 * _baseTarget / 100)}h，截至昨日需 ${WorkTimeCalculator.formatHours(totalWorkDaysExcludingToday * 8.0 * _baseTarget / 100)}h',
                   style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
@@ -2379,7 +2319,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ),
               const SizedBox(height: 8),
               Text(
-                '${percentage.toStringAsFixed(1)}%',
+                '${WorkTimeCalculator.formatHours(percentage)}%',
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
@@ -2397,7 +2337,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ],
               const SizedBox(height: 8),
               Text(
-                '${hours.toStringAsFixed(1)}h / ${targetHours.toStringAsFixed(0)}h',
+                '${WorkTimeCalculator.formatHours(hours)}h / ${WorkTimeCalculator.formatHours(targetHours)}h',
                 style: const TextStyle(fontSize: 11),
               ),
             ],
@@ -2795,7 +2735,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ],
               const Spacer(),
               Text(
-                '${currentHours.toStringAsFixed(1)}h / ${targetHours.toStringAsFixed(1)}h',
+                '${WorkTimeCalculator.formatHours(currentHours)}h / ${WorkTimeCalculator.formatHours(targetHours)}h',
                 style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
             ],
@@ -2823,8 +2763,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     bool isNextToAchieve = false,
   }) {
     final progress = currentHours / targetHours;
-    final progressPercentage = (progress * 100).clamp(0, 100);
-    final avgProgressPercentage = (avgProgress * 100).clamp(0, 100);
+    final progressPercentage = (progress * 100).clamp(0.0, 100.0);
+    final avgProgressPercentage = (avgProgress * 100).clamp(0.0, 100.0);
 
     Color getProgressColor() {
       if (isCompleted) return Colors.green;
@@ -2978,7 +2918,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     ),
                   const Spacer(),
                   Text(
-                    '${currentHours.toStringAsFixed(1)} / ${targetHours.toStringAsFixed(1)}h',
+                    '${WorkTimeCalculator.formatHours(currentHours)} / ${WorkTimeCalculator.formatHours(targetHours)}h',
                     style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
                 ],
@@ -3000,7 +2940,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${progressPercentage.toStringAsFixed(1)}%',
+                        '${WorkTimeCalculator.formatHours(progressPercentage)}%',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -3038,7 +2978,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       ),
                       const SizedBox(width: 8),
                       Text(
-                        '${avgProgressPercentage.toStringAsFixed(1)}% (${avgHoursPerDay.toStringAsFixed(1)}h/天)',
+                        '${WorkTimeCalculator.formatHours(avgProgressPercentage)}% (${WorkTimeCalculator.formatHours(avgHoursPerDay)}h/天)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -3062,11 +3002,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               const SizedBox(height: 8),
 
               // 提示信息
-              if (!isCompleted && gapHours > 0)
                 Text(
                   remainingDays > 0
-                      ? '还需 ${gapHours.toStringAsFixed(1)}h，每天需上 ${dailyNeed.toStringAsFixed(1)}h'
-                      : '还需 ${gapHours.toStringAsFixed(1)}h (本月已无工作日)',
+                      ? '还需 ${WorkTimeCalculator.formatHours(gapHours)}h，每天需上 ${WorkTimeCalculator.formatHours(dailyNeed)}h'
+                      : '还需 ${WorkTimeCalculator.formatHours(gapHours)}h (本月已无工作日)',
                   style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                 ),
             ],
@@ -3086,7 +3025,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        '$label: $count天 ${hours > 0 ? "${hours.toStringAsFixed(1)}h" : ""}',
+        '$label: $count天 ${hours > 0 ? "${WorkTimeCalculator.formatHours(hours)}h" : ""}',
         style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.9)),
       ),
     );

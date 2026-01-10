@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:fl_chart/fl_chart.dart';
 import '../services/hikiot_api_client.dart';
 import '../services/token_expired_service.dart';
+import '../utils/work_time_calculator.dart';
 
 /// 工时统计页面
 class StatisticsScreen extends StatefulWidget {
@@ -274,8 +275,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     if (_monthlyStats == null) return const SizedBox.shrink();
 
     final workDays = _monthlyStats!['workDays'] ?? 0;
-    final totalHours = (_monthlyStats!['totalHours'] ?? 0.0).toStringAsFixed(1);
-    final avgHours = (_monthlyStats!['avgHours'] ?? 0.0).toStringAsFixed(1);
+    final totalHours = WorkTimeCalculator.formatHours(_monthlyStats!['totalHours'] ?? 0.0);
+    final avgHours = WorkTimeCalculator.formatHours(_monthlyStats!['avgHours'] ?? 0.0);
     final lateCount = _monthlyStats!['lateCount'] ?? 0;
 
     return Card(
@@ -488,7 +489,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final date = record['date'] ?? '';
     final checkIn = record['checkIn'] ?? '--:--';
     final checkOut = record['checkOut'] ?? '--:--';
-    final hours = (record['hours'] ?? 0.0).toStringAsFixed(1);
+    final hours = WorkTimeCalculator.formatHours(record['hours'] ?? 0.0);
     final isLate = record['isLate'] ?? false;
     final isEarlyLeave = record['isEarlyLeave'] ?? false;
 

@@ -220,8 +220,32 @@ class WorkTimeCalculator {
   ///
   /// [hours] 工时小时数
   ///
-  /// 返回：格式化的字符串，如 "8.50"
+  /// 返回：格式化的字符串，如 "8.55" (直接截断2位，不四舍五入)
   static String formatHours(double hours) {
-    return hours.toStringAsFixed(2);
+    if (hours == 0) return '0.00';
+    // 强制截断到2位小数，不进行四舍五入
+    // 例如: 5.559 -> 5.55
+    final truncated = (hours * 100).truncateToDouble() / 100;
+    return truncated.toStringAsFixed(2);
+  }
+
+  // ========== 目标管理逻辑 (KISS: 复用此类) ==========
+
+  /// 生成目标列表，确保包含基础目标
+  static List<int> generateTargetList(int baseTarget) {
+    final targets = <int>{100, 110, 120, 130, 140, 150, 160};
+    targets.add(baseTarget); // 确保基础目标在列表中
+    final sortedList = targets.toList()..sort();
+    return sortedList;
+  }
+
+  /// 计算新的置顶目标（切换逻辑）
+  ///
+  /// [currentTarget] 当前置顶目标
+  /// [targetToToggle] 想要切换的目标
+  ///
+  /// 返回：新的置顶目标（如果相同则取消置顶返回null，否则返回新目标）
+  static int? calculateNewPinnedTarget(int? currentTarget, int targetToToggle) {
+    return currentTarget == targetToToggle ? null : targetToToggle;
   }
 }

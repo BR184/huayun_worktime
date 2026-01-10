@@ -12,6 +12,8 @@ class HomeButton extends StatefulWidget {
   final BorderRadius? borderRadius;
   final bool isOutlined;
   final double? elevation;
+  final Color? pressedBackgroundColor;
+  final double pressedScale;
 
   const HomeButton({
     super.key,
@@ -23,6 +25,8 @@ class HomeButton extends StatefulWidget {
     this.borderRadius,
     this.isOutlined = false,
     this.elevation,
+    this.pressedBackgroundColor,
+    this.pressedScale = 0.95,
   });
 
   @override
@@ -44,7 +48,7 @@ class _HomeButtonState extends State<HomeButton>
     );
     _scaleAnimation = Tween<double>(
       begin: 1.0,
-      end: 0.95,
+      end: widget.pressedScale,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
@@ -103,7 +107,9 @@ class _HomeButtonState extends State<HomeButton>
               const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
           decoration: BoxDecoration(
             color: _isPressed
-                ? (widget.backgroundColor ?? defaultBgColor).withValues(alpha: 0.8)
+                ? (widget.pressedBackgroundColor ??
+                    (widget.backgroundColor ?? defaultBgColor)
+                        .withValues(alpha: 0.8))
                 : (widget.backgroundColor ?? defaultBgColor),
             borderRadius: widget.borderRadius ?? BorderRadius.circular(12),
             border: widget.isOutlined
@@ -112,7 +118,9 @@ class _HomeButtonState extends State<HomeButton>
                     width: 1.5,
                   )
                 : null,
-            boxShadow: widget.isOutlined || _isPressed
+            boxShadow: widget.isOutlined ||
+                    _isPressed ||
+                    (widget.elevation == 0)
                 ? null
                 : [
                     BoxShadow(

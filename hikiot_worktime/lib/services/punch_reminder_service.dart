@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/constants.dart';
 import 'notification_service.dart';
 import '../utils/attendance_parser.dart';
+import '../utils/work_time_calculator.dart';
 
 /// 打卡提醒检测服务
 class PunchReminderService {
@@ -121,14 +122,14 @@ class PunchReminderService {
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态',
-          body: '已打下班卡：$checkOutTime，工时 ${_formatHours(workHours)} 小时不足8H',
+          body: '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时不足8H',
         );
       } else {
         // 已打卡且工时充足
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态',
-          body: '已打下班卡：$checkOutTime，工时 ${_formatHours(workHours)} 小时',
+          body: '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时',
         );
       }
     } catch (e) {
@@ -256,13 +257,13 @@ class PunchReminderService {
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态 (3/3)',
-          body: '已打下班卡：$checkOutTime，工时 ${_formatHours(workHours)} 小时不足8H',
+          body: '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时不足8H',
         );
       } else {
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态 (3/3)',
-          body: '已打下班卡：$checkOutTime，工时 ${_formatHours(workHours)} 小时',
+          body: '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时',
         );
       }
     } catch (e) {
@@ -374,12 +375,7 @@ class PunchReminderService {
     return parsed.hours;
   }
 
-  /// 格式化工时 - 保留两位小数，截断不四舍五入
-  static String _formatHours(double hours) {
-    // 截断到两位小数
-    final truncated = (hours * 100).floor() / 100;
-    return truncated.toStringAsFixed(2);
-  }
+
 
   /// 检查是否为休息日（不需要提醒）
   /// 休息日包括：法定节假日、普通周末（非调休）
