@@ -9,6 +9,7 @@ class AttendanceData {
   final bool isEarlyLeave;
   final String? checkInPhotoUrl;  // 上班打卡照片
   final String? checkOutPhotoUrl; // 下班打卡照片
+  final bool isRestDay;           // 是否为休息日/节假日 (海康原生识别)
 
   const AttendanceData({
     this.checkIn,
@@ -18,6 +19,7 @@ class AttendanceData {
     this.isEarlyLeave = false,
     this.checkInPhotoUrl,
     this.checkOutPhotoUrl,
+    this.isRestDay = false,
   });
 
   /// 是否有有效的打卡数据（至少有上班打卡）
@@ -71,6 +73,12 @@ class AttendanceParser {
     bool isLate = false;
     bool isEarlyLeave = false;
 
+    // 海康原生休息日/节假日识别：
+    // shiftId == -1 且 shiftName 包含 "休息"
+    final shiftId = dailyDetail['shiftId'] as int? ?? 0;
+    final shiftName = dailyDetail['shiftName'] as String? ?? '';
+    final isRestDay = shiftId == -1 || shiftName.contains('休息');
+
     // 优先从 shiftDetails 取（V2 API 总是返回 shiftDetails）
     if (shiftDetails != null && shiftDetails.isNotEmpty) {
       final firstShift = shiftDetails[0] as Map<String, dynamic>;
@@ -117,6 +125,7 @@ class AttendanceParser {
       isEarlyLeave: isEarlyLeave,
       checkInPhotoUrl: clockInPhoto,
       checkOutPhotoUrl: clockOutPhoto,
+      isRestDay: isRestDay,
     );
   }
 

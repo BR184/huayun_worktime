@@ -1,150 +1,79 @@
-# 海康工时统计移动端应用# hikiot_worktime
+# Hikiot Worktime (海康自动工时)
 
+这是一个基于 Flutter 开发的移动应用，旨在自动同步海康互联 (Hikiot) 的考勤数据，并提供精准的个人工时管理、统计和提醒功能。
 
+## 面向开发者 (Developer Guide)
 
-这是基于Flutter开发的海康互联工时统计系统移动端应用。A new Flutter project.
+本文档描述了程序的内部架构、核心逻辑以及所使用的海康互联私有 API。
 
+### 项目架构
 
+项目遵循标准的 Flutter 层级结构，核心逻辑位于 `lib/` 目录下：
 
-## 📱 功能特点## Getting Started
+- **`core/`**: 包含全局常量 (`AppConstants`, `ApiConstants`)、主题配置和基础组件。
+- **`services/`**: 业务服务层。
+    - `HikiotApiClient`: 封装 Rest API 请求。
+    - `StorageService`: 基于 `SharedPreferences` 的本地数据持久化，包含考勤缓存、标记和设置。
+    - `PunchReminderService`: 背景提醒逻辑，基于本地通知和 WorkManager。
+- **`utils/`**: 工具类。
+    - `AttendanceParser`: 核心解析逻辑，负责将海康 V2 API 的复杂 JSON 转换为应用内部的 `AttendanceData`。
+    - `WorkTimeCalculator`: 工时计算逻辑，支持午休扣除、严谨的浮点数处理（保留两位截断）。
+    - `DateHelper`: 统一的日期处理和“工作日期”判定（支持午夜跨天判定）。
+    - `HolidayUtils`: 节假日同步与判定逻辑。
+- **`screens/`**: UI 页面，包含每日详情、月度日历、统计分析和设置等。
 
+---
 
+### 海康互联 API 规范
 
-- ✅ 自动登录海康互联（WebView）This project is a starting point for a Flutter application.
+应用通过抓包获取并使用了海康互联的移动端私有 API。
 
-- ✅ 提取并保存登录Token
+#### 1. 基础配置
+- **Base URL**: `https://api.hikiot.com`
+- **Headers**:
+    - `Authorization`: `Bearer {TOKEN}`
+    - `UNI-Request-Source`: `1` (移动端)
+    - `appNo`: `__UNI__89A1A02`
+    - `terminal`: `1`
+    - `versionCode`: `1778` (当前使用的版本号)
 
-- ✅ 嵌入Streamlit工时统计页面A few resources to get you started if this is your first Flutter project:
+#### 2. 核心 Endpoint
+- **每日考勤 (V2)**: `GET /api-attendance/v1/statistics/v2/individual/single/daily?date={yyyy-MM-dd}&ID=myStatic`
+    - 这是该应用获取数据的核心。返回包含照片、打卡状态、位置和**班次信息**的 `dailyDetail`。
+- **账户详情**: `GET /api-saas/v1/account/detail`
+    - 用于验证 Token 有效性并获取 `personNo` 等基础信息。
+- **月度统计**: `GET /api-attendance/v1/statistics/myAttendance?month={yyyy-MM}&ID=myStatic`
+    - 注意：当前应用由于需要照片和更细致的状态，主要采用对具体月份天数并发循环调用“每日考勤 API”的方式来填充数据。
+- **请假/异常记录**: `GET /api-attendance/leaveRecord/getTodayRecords?date={yyyy-MM-dd}`
+    - 用于获取当天的请假、出差等特殊记录。
 
-- ✅ 支持退出登录
+#### 3. 关键字段逻辑
+- **班次判定 (Shift)**:
+    - 响应中的 `dailyDetail.shiftId == -1` 或 `dailyDetail.shiftName` 包含 "休息" 即判定为原生休息日/节假日。
+    - 正常工作日会有关联的 `shiftId` 且 `shiftName` 包含时间段（如 `(08:30-17:30)`）。
+- **打卡状态**:
+    - `clockInStatusType == 1`: 迟到。
+    - `clockOffStatusType == 4`: 早退。
+- **照片 URL**: 提取自 `remoteClockInInfo.photo` 和 `remoteClockOffInfo.photo`。
 
-- ✅ 可配置服务器地址- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+---
 
-- ✅ 启动画面- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+### 重要技术特性
 
+#### 1. 智能数据同步 (Smart Sync)
+应用不会盲目刷新所有数据。`HikiotApiClient.getMonthlyAttendance` 采用了“遇到缓存一致即停止”的机制（在快速更新模式下），并结合 `isManual` 标记保护用户的手动修改不被服务器数据覆盖。
 
+#### 2. 工时计算逻辑 (`WorkTimeCalculator`)
+- **严谨显示**: 遵循 `int` 原样输出，`double` 两位截断 (`truncate`) 原则，避免 `8.009` 显示为 `8.01` 而导致的不满 8 小时误报。
+- **由于存在 24:00 之后的打卡**: 应用通过 `DateHelper.getWorkDate()` 处理凌晨下班逻辑，确保凌晨 1 点打卡仍计入前一天的工时。
 
-## 🚀 使用说明For help getting started with Flutter development, view the
+#### 3. 约束条件
+- **最早日期**: `2025-08-20` (`AppConstants.earliestDate`)，早于此日期的数据无法查询。
+- **未来禁用**: 禁止选择未来日期。
 
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
+### 开发环境
+- **Flutter SDK**: 建议 3.x 或更高版本。
+- **依赖管理**: 使用 `pubspec.yaml` 中的标准库（如 `dio` 用于网络通讯，`shared_preferences` 用于本地存储，`flutter_local_notifications` 用于提醒）。
 
-### 首次使用samples, guidance on mobile development, and a full API reference.
-
-
-1. 安装APK到Android设备
-2. 打开应用，会自动跳转到海康互联登录页面
-3. 输入账号密码登录
-4. 登录成功后，Token会自动保存，下次启动无需重新登录
-5. 主页面会加载Streamlit工时统计系统
-
-### 配置Streamlit服务器地址
-
-1. 在主页面点击右上角"设置"图标
-2. 输入Streamlit服务器地址：
-   - 本地测试：`http://10.0.2.2:8501` （Android模拟器）
-   - 真实服务器：`http://your-server.com:8501`
-3. 点击"保存"，页面会自动重新加载
-
-### 退出登录
-
-点击主页面右上角的"退出"图标，确认后会清除Token并返回登录页面。
-
-## 🛠️ 开发说明
-
-### 项目结构
-
-```
-lib/
-├── main.dart              # 主入口和启动画面
-└── screens/
-    ├── login_screen.dart  # 登录页面（WebView）
-    └── home_screen.dart   # 主页面（Streamlit）
-```
-
-### 依赖包
-
-- `flutter_inappwebview`: WebView组件
-- `shared_preferences`: 本地存储
-- `http`: HTTP请求
-- `provider`: 状态管理
-- `url_launcher`: URL启动器
-
-## 📦 打包说明
-
-### 准备工作
-
-1. 确保Flutter环境正常：
-```bash
-flutter doctor
-```
-
-2. 如果提示Android工具链问题，在Android Studio中：
-   - 打开 SDK Manager
-   - 安装 "Android SDK Command-line Tools (latest)"
-   - 运行 `flutter doctor --android-licenses` 接受许可
-
-### 打包APK
-
-```bash
-# 进入项目目录
-cd d:\tool\auto_worktime\mobile\hikiot_worktime
-
-# 打包debug版本（测试用）
-C:\Flutter\flutter\bin\flutter.bat build apk --debug
-
-# 打包release版本（正式发布）
-C:\Flutter\flutter\bin\flutter.bat build apk --release
-
-# 生成的APK路径：
-# build/app/outputs/flutter-apk/app-release.apk
-```
-
-### 配置签名（可选，用于正式发布）
-
-1. 生成密钥：
-```bash
-keytool -genkey -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload
-```
-
-2. 创建 `android/key.properties`：
-```properties
-storePassword=your_password
-keyPassword=your_password
-keyAlias=upload
-storeFile=D:/path/to/upload-keystore.jks
-```
-
-3. 更新 `android/app/build.gradle.kts` 配置签名
-
-## 🔧 常见问题
-
-### Q: 无法加载Streamlit页面？
-A: 
-1. 检查网络连接
-2. 确认Streamlit服务器地址正确
-3. 确保服务器允许跨域访问
-4. 检查Android的网络权限（已在AndroidManifest.xml中配置）
-
-### Q: Token提取失败？
-A: 
-1. 确认海康互联的Cookie名称是否为 `www_token`
-2. 检查WebView的JavaScript是否启用
-3. 查看控制台日志
-
-### Q: 应用闪退？
-A: 
-1. 检查Android版本（需要API 21+，即Android 5.0+）
-2. 查看错误日志：`flutter logs`
-
-## 📝 后续优化建议
-
-- [ ] 添加指纹/面容识别
-- [ ] 支持离线模式
-- [ ] 添加推送通知
-- [ ] 优化WebView性能
-- [ ] 添加深色模式
-- [ ] 支持多语言
-
-## 📄 许可证
-
-内部使用项目
+---
+*注：本 README 基于 2026-01-10 的代码版本汇总生成。*

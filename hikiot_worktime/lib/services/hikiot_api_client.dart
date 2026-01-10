@@ -212,6 +212,18 @@ class HikiotApiClient {
             'hours': attendance.hours,
             'isLate': attendance.isLate,
             'isEarlyLeave': attendance.isEarlyLeave,
+            'isRestDay': attendance.isRestDay, // 新增: 海康原生休息日标记
+          });
+        } else {
+          // 即使没有有效打卡，也要记录原生的休息日状态（关键：用于更新节假日计划）
+          dailyRecords.add({
+            'date': dateStr,
+            'checkIn': attendance.checkIn,
+            'checkOut': attendance.checkOut,
+            'hours': attendance.hours,
+            'isLate': attendance.isLate,
+            'isEarlyLeave': attendance.isEarlyLeave,
+            'isRestDay': attendance.isRestDay,
           });
         }
       }

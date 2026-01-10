@@ -473,49 +473,15 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     });
 
     try {
-      // 1. 加载节假日计划
-      // 先检查该年份是否有节假日数据
+      // 1. 加载节假日计划 (仅从本地加载，由 API 刷新时自动同步)
       var yearHolidayPlan = await _storage.getHolidayPlan(_selectedMonth.year);
 
-      // 如果本地没有该年份的节假日数据，自动调用API更新
       if (yearHolidayPlan.isEmpty) {
-
-        // 验证年份范围:2010年到下个月末
-        final now = DateTime.now();
-        final nextMonthEnd = DateTime(now.year, now.month + 2, 0);
-        final targetMonthEnd = DateTime(
+        // 本地没有任何年份数据时使用默认规则
+        yearHolidayPlan = _storage.generateDefaultPlan(
           _selectedMonth.year,
-          _selectedMonth.month + 1,
-          0,
+          _selectedMonth.month,
         );
-
-        // 只有在合法范围内才调用API
-        if (_selectedMonth.year >= 2010 &&
-                targetMonthEnd.isBefore(nextMonthEnd) ||
-            targetMonthEnd.isAtSameMomentAs(nextMonthEnd)) {
-          final success = await _storage.updateHolidaysFromAPI(
-            _selectedMonth.year,
-          );
-          if (success) {
-            yearHolidayPlan = await _storage.getHolidayPlan(
-              _selectedMonth.year,
-            );
-          } else {
-            // 节假日API调用失败，使用默认规则
-          }
-        } else {
-          // 年份超出范围，使用默认规则
-        }
-
-        // 如果API失败或超出范围，使用默认规则
-        if (yearHolidayPlan.isEmpty) {
-          yearHolidayPlan = _storage.generateDefaultPlan(
-            _selectedMonth.year,
-            _selectedMonth.month,
-          );
-        }
-      } else {
-        // 从本地加载节假日计划
       }
 
       _holidayPlan = yearHolidayPlan;
@@ -576,9 +542,26 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       }
 
       // 再填充API返回的打卡数据
+      bool holidayPlanChanged = false;
       for (var record in dailyRecords) {
         final date = record['date'] as String;
         final hours = record['hours'] ?? 0.0;
+        final isRestDay = record['isRestDay'] ?? false;
+
+        // 1. 同步海康原生日历类型
+        if (dataMap.containsKey(date)) {
+          final newNativeType = HolidayUtils.determineNativeType(
+            isRestDay: isRestDay,
+            currentType: dataMap[date]!['type'],
+            isManual: dataMap[date]!['isManual'] == true,
+          );
+
+          if (newNativeType != null) {
+            dataMap[date]!['type'] = newNativeType;
+            _holidayPlan[date] = newNativeType;
+            holidayPlanChanged = true;
+          }
+        }
 
         dataMap[date] = {
           ...dataMap[date]!,
@@ -601,6 +584,11 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         if (newType != null) {
           dataMap[date]!['type'] = newType;
         }
+      }
+
+      // 异步保存更新后的节假日计划
+      if (holidayPlanChanged) {
+        _storage.saveHolidayPlan(_selectedMonth.year, _holidayPlan);
       }
 
       // 最后应用用户的手动标记（覆盖）
@@ -658,28 +646,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }
   }
 
-  /// 更新节假日
-  Future<void> _updateHolidays() async {
-    await HolidayUtils.handleUpdateHolidays(
-      context: context,
-      year: _selectedMonth.year,
-      month: _selectedMonth.month,
-      storage: _storage,
-      onLoading: (isLoading) {
-        if (mounted) {
-          setState(() {
-            _isLoading = isLoading;
-          });
-        }
-      },
-      onSuccess: () async {
-        // 重新加载节假日计划
-        _holidayPlan = await _storage.getHolidayPlan(_selectedMonth.year);
-        // 重新加载数据(应用新的节假日计划)
-        await _loadMonthlyData(forceRefresh: true);
-      },
-    );
-  }
+
 
   /// 更新工时数据
   /// [forceAll] = true: 全量更新，调用月度API更新所有日期
@@ -866,6 +833,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     int? selectedYear;
     int? selectedMonth;
 
+    final now = DateTime.now();
+    final earliestYear = AppConstants.earliestDate.year;
+    final earliestMonth = AppConstants.earliestDate.month;
+
     await showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -874,6 +845,41 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
         return StatefulBuilder(
           builder: (context, setState) {
+            // 生成可选年份列表（从最早年份到当前年份）
+            final years = List.generate(
+              now.year - earliestYear + 1,
+              (index) => earliestYear + index,
+            );
+
+            // 生成可选月份列表（根据年份过滤）
+            List<int> getAvailableMonths() {
+              if (selectedYear == earliestYear && selectedYear == now.year) {
+                // 最早年份也是当前年份
+                return List.generate(
+                  now.month - earliestMonth + 1,
+                  (index) => earliestMonth + index,
+                );
+              } else if (selectedYear == earliestYear) {
+                // 最早年份，从最早月份开始
+                return List.generate(
+                  12 - earliestMonth + 1,
+                  (index) => earliestMonth + index,
+                );
+              } else if (selectedYear == now.year) {
+                // 当前年份，到当前月份为止
+                return List.generate(now.month, (index) => index + 1);
+              } else {
+                // 中间年份，全部月份可选
+                return List.generate(12, (index) => index + 1);
+              }
+            }
+
+            final availableMonths = getAvailableMonths();
+            // 确保当前选中的月份在可选范围内
+            if (!availableMonths.contains(selectedMonth)) {
+              selectedMonth = availableMonths.last;
+            }
+
             return AlertDialog(
               title: const Text('选择年月'),
               content: SizedBox(
@@ -890,20 +896,21 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                           child: DropdownButton<int>(
                             value: selectedYear,
                             isExpanded: true,
-                            items:
-                                List.generate(
-                                  DateTime.now().year - 2020 + 1,
-                                  (index) => 2020 + index,
-                                ).map((year) {
-                                  return DropdownMenuItem(
-                                    value: year,
-                                    child: Text('$year年'),
-                                  );
-                                }).toList(),
+                            items: years.map((year) {
+                              return DropdownMenuItem(
+                                value: year,
+                                child: Text('$year年'),
+                              );
+                            }).toList(),
                             onChanged: (value) {
                               HapticUtils.selectionClick(); // 选择年份时震动
                               setState(() {
                                 selectedYear = value;
+                                // 重新验证月份
+                                final newAvailableMonths = getAvailableMonths();
+                                if (!newAvailableMonths.contains(selectedMonth)) {
+                                  selectedMonth = newAvailableMonths.last;
+                                }
                               });
                             },
                           ),
@@ -920,9 +927,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                           child: DropdownButton<int>(
                             value: selectedMonth,
                             isExpanded: true,
-                            items: List.generate(12, (index) => index + 1).map((
-                              month,
-                            ) {
+                            items: availableMonths.map((month) {
                               return DropdownMenuItem(
                                 value: month,
                                 child: Text('$month月'),
@@ -954,7 +959,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     HapticUtils.mediumImpact();
                     Navigator.pop(context);
                     if (selectedYear != null && selectedMonth != null) {
-                      setState(() {
+                      this.setState(() {
                         _selectedMonth = DateTime(
                           selectedYear!,
                           selectedMonth!,
@@ -1178,32 +1183,49 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   /// 月份选择器
   Widget _buildMonthSelector() {
     final monthStr = DateFormat('yyyy年MM月').format(_selectedMonth);
+    final now = DateTime.now();
+    final isCurrentMonth = _selectedMonth.year == now.year && _selectedMonth.month == now.month;
 
     return Card(
       elevation: 2,
-      child: InkWell(
-        onTap: _selectMonth,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Row(
-                children: [
-                  const Icon(Icons.calendar_month, size: 28),
-                  const SizedBox(width: 12),
-                  Text(
-                    monthStr,
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Row(
+          children: [
+            const Icon(Icons.calendar_month, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: GestureDetector(
+                onTap: _selectMonth,
+                child: Text(
+                  monthStr,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
                   ),
-                ],
+                ),
               ),
-              const Icon(Icons.arrow_drop_down),
-            ],
-          ),
+            ),
+            if (!isCurrentMonth)
+              TextButton.icon(
+                onPressed: () async {
+                  await HapticUtils.selectionClick();
+                  setState(() {
+                    _selectedMonth = DateTime(now.year, now.month);
+                  });
+                  await _loadMonthlyData();
+                },
+                icon: const Icon(Icons.today, size: 18),
+                label: const Text('本月'),
+                style: TextButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(horizontal: 8),
+                ),
+              ),
+            IconButton(
+              icon: const Icon(Icons.arrow_drop_down),
+              onPressed: _selectMonth,
+            ),
+          ],
         ),
       ),
     );
@@ -1235,19 +1257,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 const Text(
                   '📅 日历视图',
                   style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-                TextButton.icon(
-                  onPressed: _updateHolidays,
-                  icon: const Icon(Icons.event, size: 16),
-                  label: const Text('更新节假日', style: TextStyle(fontSize: 12)),
-                  style: TextButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    minimumSize: Size.zero,
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
                 ),
               ],
             ),

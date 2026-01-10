@@ -202,46 +202,7 @@ class StorageService {
     return allPlans[year.toString()] ?? {};
   }
 
-  /// 更新节假日 (从API获取)
-  Future<bool> updateHolidaysFromAPI(int year) async {
-    try {
-      final url = 'https://timor.tech/api/holiday/year/$year';
-      final headers = {
-        'User-Agent':
-            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
-      };
-      final response = await http.get(Uri.parse(url), headers: headers);
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(utf8.decode(response.bodyBytes));
-        if (data['code'] == 0) {
-          final Map<String, String> plan = {};
-          final holiday = data['holiday'] as Map<String, dynamic>;
-
-          // 解析节假日数据 (API键格式是 MM-DD，需要转换为 YYYY-MM-DD)
-          holiday.forEach((mmdd, info) {
-            final isHoliday = info['holiday'] as bool;
-            // 将 MM-DD 转换为 YYYY-MM-DD
-            final fullDate = '$year-$mmdd';
-
-            if (isHoliday) {
-              // 法定节假日
-              plan[fullDate] = AppConstants.typeRestDay;
-            } else {
-              // 调休工作日
-              plan[fullDate] = AppConstants.typeWorkday;
-            }
-          });
-
-          await saveHolidayPlan(year, plan);
-          return true;
-        }
-      }
-      return false;
-    } catch (e) {
-      return false;
-    }
-  }
 
   /// 生成默认节假日计划 (周一至周五工作日)
   Map<String, String> generateDefaultPlan(int year, int month) {

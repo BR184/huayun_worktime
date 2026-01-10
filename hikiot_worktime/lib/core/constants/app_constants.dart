@@ -26,6 +26,9 @@ class AppConstants {
   /// 默认跨天时间点（分钟，04:00 = 240）
   static const int defaultCrossDayMinutes = 4 * 60;
 
+  /// 最早可查询日期
+  static final DateTime earliestDate = DateTime(2025, 8, 20);
+
   // ============ 目标设置 ============
   /// 默认基础目标百分比
   static const int defaultBaseTarget = 120;
