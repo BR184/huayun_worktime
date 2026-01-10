@@ -16,6 +16,7 @@ import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
 import '../widgets/pull_refresh_guide.dart';
 import 'feature_guide_page.dart';
+import 'photo_preview_screen.dart';
 
 class DailyHoursScreen extends StatefulWidget {
   const DailyHoursScreen({super.key});
@@ -524,13 +525,13 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
               if (checkInPhotoUrl != null) ...[
                 const Text('上班打卡', style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
-                _buildPhotoWidget(checkInPhotoUrl),
+                _buildPhotoWidget(checkInPhotoUrl, 'checkIn'),
                 const SizedBox(height: 16),
               ],
               if (checkOutPhotoUrl != null) ...[
                 const Text('下班打卡', style: TextStyle(fontWeight: FontWeight.w500)),
                 const SizedBox(height: 8),
-                _buildPhotoWidget(checkOutPhotoUrl),
+                _buildPhotoWidget(checkOutPhotoUrl, 'checkOut'),
               ],
               const SizedBox(height: 16),
               TextButton(
@@ -544,28 +545,29 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     );
   }
 
-  /// 构建照片组件（处理萤石云URL）
-  Widget _buildPhotoWidget(String photoUrl) {
-    return FutureBuilder<String?>(
-      future: _fetchActualPhotoUrl(photoUrl),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const SizedBox(
-            height: 150,
-            child: Center(child: CircularProgressIndicator()),
-          );
-        }
-        if (snapshot.hasError || snapshot.data == null) {
-          return Container(
-            height: 150,
-            color: Colors.grey[200],
-            child: const Center(child: Text('照片加载失败')),
-          );
-        }
-        return ClipRRect(
+  /// 构建照片组件
+  Widget _buildPhotoWidget(String photoUrl, String label) {
+    // 使用URL作为Hero Tag，保证唯一性
+    final heroTag = 'photo_$label$photoUrl';
+    
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PhotoPreviewScreen(
+              photoUrl: photoUrl,
+              heroTag: heroTag,
+            ),
+          ),
+        );
+      },
+      child: Hero(
+        tag: heroTag,
+        child: ClipRRect(
           borderRadius: BorderRadius.circular(8),
           child: Image.network(
-            snapshot.data!,
+            photoUrl,
             height: 200,
             fit: BoxFit.contain,
             loadingBuilder: (context, child, loadingProgress) {
@@ -585,30 +587,20 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
             errorBuilder: (context, error, stackTrace) => Container(
               height: 150,
               color: Colors.grey[200],
-              child: const Center(child: Text('照片加载失败')),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.broken_image, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  const Text('照片加载失败', style: TextStyle(color: Colors.grey)),
+                  // 移除详细错误显示，保持界面整洁(KISS)
+                ],
+              ),
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
-  }
-
-  /// 获取实际照片URL（从萤石云API）
-  Future<String?> _fetchActualPhotoUrl(String apiUrl) async {
-    try {
-      final response = await http.get(Uri.parse(apiUrl));
-      if (response.statusCode == 200) {
-        final data = json.decode(response.body);
-        // 萤石云API返回格式: {"code":"200","data":{"url":"实际图片地址"}}
-        if (data['code'] == '200' && data['data'] != null) {
-          return data['data']['url'] as String?;
-        }
-      }
-      return null;
-    } catch (e) {
-      print('获取照片URL失败: $e');
-      return null;
-    }
   }
 
   @override
