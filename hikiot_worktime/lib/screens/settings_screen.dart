@@ -5,6 +5,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:async';
+import '../core/theme/theme.dart';
 import '../services/storage_service.dart';
 import '../services/hikiot_api_client.dart';
 import '../services/notification_service.dart';
@@ -569,7 +570,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 activeTrackColor: Colors.blue[700],
                 inactiveTrackColor: Colors.blue[100],
                 thumbColor: Colors.blue[700],
-                overlayColor: Colors.blue.withOpacity(0.2),
+                overlayColor: Colors.blue.withValues(alpha: 0.2),
                 valueIndicatorColor: Colors.blue[700],
                 valueIndicatorTextStyle: const TextStyle(
                   color: Colors.white,

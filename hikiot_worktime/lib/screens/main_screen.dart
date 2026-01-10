@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../core/theme/theme.dart';
 import 'daily_hours_screen.dart';
 import 'monthly_calendar_screen.dart';
 import 'settings_screen.dart';
@@ -57,7 +58,7 @@ class _MainScreenState extends State<MainScreen> {
           color: theme.colorScheme.surface,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.1),
+              color: AppColors.shadow,
               blurRadius: 8,
               offset: const Offset(0, -2),
             ),
@@ -88,7 +89,7 @@ class _MainScreenState extends State<MainScreen> {
 
     final color = isSelected
         ? theme.colorScheme.primary
-        : theme.colorScheme.onSurface.withOpacity(0.6);
+        : theme.colorScheme.onSurface.withValues(alpha: 0.6);
 
     return Expanded(
       child: GestureDetector(
@@ -112,9 +113,9 @@ class _MainScreenState extends State<MainScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
             decoration: BoxDecoration(
               color: isSelected
-                  ? theme.colorScheme.primary.withOpacity(0.1)
+                  ? theme.colorScheme.primary.withValues(alpha: 0.1)
                   : (isPressed
-                        ? theme.colorScheme.primary.withOpacity(0.05)
+                        ? theme.colorScheme.primary.withValues(alpha: 0.05)
                         : Colors.transparent),
               borderRadius: BorderRadius.circular(12),
             ),

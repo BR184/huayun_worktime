@@ -5,6 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants/constants.dart';
+import '../core/theme/theme.dart';
 import '../services/hikiot_api_client.dart';
 import '../services/storage_service.dart';
 import '../services/token_expired_service.dart';
@@ -228,7 +230,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       // 2. 确定默认类型(从节假日计划)
       final defaultType =
           _holidayPlan[dateKey] ??
-          (_selectedDate.weekday <= 5 ? '工作日' : '非工作日');
+          (_selectedDate.weekday <= 5 ? AppConstants.typeWorkday : AppConstants.typeRestDay);
 
       // 3. 初始化dayData为默认值
       _dayData = {'type': defaultType, 'isManual': false, 'hours': 0.0};
@@ -246,7 +248,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
           _dayData!['isOvertime'] = savedMark['isOvertime'];
         }
 
-        if (savedMark['type'] == '自定义') {
+        if (savedMark['type'] == AppConstants.typeCustom) {
           _dayData!['customCheckIn'] = savedMark['customCheckIn'];
           _dayData!['customCheckOut'] = savedMark['customCheckOut'];
           // 根据自定义时间计算工时
@@ -258,10 +260,10 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
               checkOut,
             );
           }
-        } else if (savedMark['type'] == '出差') {
+        } else if (savedMark['type'] == AppConstants.typeBusinessTrip) {
           // 出差固定8小时
           _dayData!['hours'] = 8.0;
-        } else if (savedMark['type'] == '请假') {
+        } else if (savedMark['type'] == AppConstants.typeLeave) {
           // 请假0小时
           _dayData!['hours'] = 0.0;
         }
@@ -345,19 +347,19 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
             // 之前的代码似乎用了'加班'，但这可能导致颜色匹配失败(如果buildTypeWarning用'加班日')
             // 查看_buildTypeWarning: case '加班日'
             // 所以应该统一用 '加班日'
-            if ((type == '休息' || type == '非工作日' || type == '节假日') && hasCheckIn) {
+            if ((type == '休息' || type == AppConstants.typeRestDay || type == '节假日') && hasCheckIn) {
                // 修正颜色显示问题：使用标准类型字符串 '加班日'
-              _dayData!['type'] = '加班日';
+              _dayData!['type'] = AppConstants.typeOvertime;
               _dayData!['hours'] = attendance.hours;
               changed = true;
             }
             // 2. 工作日无打卡 -> 自动识别为请假 (仅限过去日期)
-            else if (type == '工作日') {
+            else if (type == AppConstants.typeWorkday) {
               final now = DateTime.now();
               final today = DateTime(now.year, now.month, now.day);
               
               if (!hasCheckIn && _selectedDate.isBefore(today)) {
-                _dayData!['type'] = '请假';
+                _dayData!['type'] = AppConstants.typeLeave;
                 _dayData!['hours'] = 0.0;
                 changed = true;
               } else {
@@ -376,7 +378,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 'type': _dayData!['type'],
                 'hours': _dayData!['hours'],
                 'isManual': false, // 标记为自动，允许后续再次智能修正
-                'isOvertime': _dayData!['type'] == '加班日',
+                'isOvertime': _dayData!['type'] == AppConstants.typeOvertime,
               });
             }
           }
@@ -400,15 +402,15 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 计算工时
   double _calculateHours() {
-    final type = _dayData?['type'] ?? '工作日';
+    final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
     // 出差恒定8小时
-    if (type == '出差') {
+    if (type == AppConstants.typeBusinessTrip) {
       return 8.0;
     }
 
     // 如果是自定义类型,从dayData获取工时
-    if (type == '自定义' && _dayData != null) {
+    if (type == AppConstants.typeCustom && _dayData != null) {
       final hours = _dayData!['hours'];
       if (hours is double) return hours;
       if (hours is int) return hours.toDouble();
@@ -467,11 +469,11 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 修改类型/工时
   Future<void> _showEditDialog() async {
-    final type = _dayData?['type'] ?? '工作日';
+    final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
     // 没有打卡的休息日不能改为请假/加班/工作
     final hasAttendance = _attendanceData?['checkInTime'] != null;
-    final isRest = type == '非工作日' || type == '休息';
+    final isRest = type == AppConstants.typeRestDay || type == '休息';
     final isManual = _dayData?['isManual'] ?? false;
 
     await showDialog(
@@ -523,7 +525,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   // 从节假日计划获取默认类型
                   final defaultType =
                       _holidayPlan[dateKey] ??
-                      (_selectedDate.weekday <= 5 ? '工作日' : '非工作日');
+                      (_selectedDate.weekday <= 5 ? AppConstants.typeWorkday : AppConstants.typeRestDay);
 
                   // 删除手动标记
                   final marks = await _storage.loadCalendarMarks(_teamNo!);
@@ -660,7 +662,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
   @override
   Widget build(BuildContext context) {
     final hours = _calculateHours();
-    final type = _dayData?['type'] ?? '工作日';
+    final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
     return Stack(
       children: [
@@ -920,7 +922,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   ],
                 ),
                 // 只有非加班、非休息日才显示工时百分比
-                if (type != '加班日' && type != '非工作日' && type != '休息') ...[
+                if (type != AppConstants.typeOvertime && type != AppConstants.typeRestDay && type != '休息') ...[
                   const SizedBox(height: 8),
                   Text(
                     '已完成 ${((hours / 8.0 * 100 * 100).truncate() / 100).toStringAsFixed(2)}%',
@@ -938,7 +940,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         const SizedBox(height: 12),
         _buildCheckInOutCard(),
         // 自定义类型显示设置的时间
-        if (type == '自定义') ...[
+        if (type == AppConstants.typeCustom) ...[
           const SizedBox(height: 12),
           Card(
             elevation: 2,
@@ -1293,7 +1295,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     ),
                   ],
                 ),
-                if (type == '出差') ...[
+                if (type == AppConstants.typeBusinessTrip) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(8),
@@ -1320,7 +1322,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     ),
                   ),
                 ],
-                if (type == '自定义') ...[
+                if (type == AppConstants.typeCustom) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(8),
@@ -1380,15 +1382,15 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 目标进度(仿照每月样式) 或 历史统计
   Widget _buildTargetProgress(double hours) {
-    final type = _dayData?['type'] ?? '工作日';
+    final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
     // 加班日、非工作日、请假、出差 不显示目标进度
     // 出差固定8小时无需显示目标进度
-    if (type == '加班日' ||
-        type == '非工作日' ||
+    if (type == AppConstants.typeOvertime ||
+        type == AppConstants.typeRestDay ||
         type == '休息' ||
-        type == '请假' ||
-        type == '出差') {
+        type == AppConstants.typeLeave ||
+        type == AppConstants.typeBusinessTrip) {
       return const SizedBox.shrink();
     }
 
@@ -1930,9 +1932,9 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       return Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           children: [
@@ -2074,7 +2076,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
   @override
   void initState() {
     super.initState();
-    currentType = widget.initialData?['type'] ?? '工作日';
+    currentType = widget.initialData?['type'] ?? AppConstants.typeWorkday;
     isOvertime = widget.initialData?['isOvertime'] ?? false;
 
     if (widget.attendanceData != null) {
@@ -2128,8 +2130,8 @@ class _EditDayDialogState extends State<_EditDayDialog> {
   }
 
   double _calculateHours() {
-    if (currentType == '出差') return 8.0;
-    if (currentType == '请假') return 0.0;
+    if (currentType == AppConstants.typeBusinessTrip) return 8.0;
+    if (currentType == AppConstants.typeLeave) return 0.0;
 
     // 先智能解析输入
     final checkIn = _parseTimeInput(_checkInController.text);
@@ -2157,10 +2159,10 @@ class _EditDayDialogState extends State<_EditDayDialog> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: ['工作日', '加班日', '出差', '请假', '自定义', '非工作日'].map((type) {
+              children: AppConstants.allWorkTypes.map((type) {
                 final isDisabled =
                     !widget.canModify &&
-                    (type == '请假' || type == '加班日' || type == '工作日') &&
+                    (type == AppConstants.typeLeave || type == AppConstants.typeOvertime || type == AppConstants.typeWorkday) &&
                     !hasAttendance;
                 final isSelected = currentType == type;
 
@@ -2188,9 +2190,9 @@ class _EditDayDialogState extends State<_EditDayDialog> {
                 return ChoiceChip(
                   label: Text(type),
                   selected: isSelected,
-                  backgroundColor: typeColor.withOpacity(0.2),
+                  backgroundColor: typeColor.withValues(alpha: 0.2),
                   selectedColor: typeColor,
-                  disabledColor: Colors.grey.withOpacity(0.1),
+                  disabledColor: Colors.grey.withValues(alpha: 0.1),
                   onSelected: isDisabled
                       ? null
                       : (selected) async {
@@ -2206,7 +2208,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
             ),
             const SizedBox(height: 16),
 
-            if (currentType == '出差' || currentType == '自定义') ...[
+            if (currentType == AppConstants.typeBusinessTrip || currentType == AppConstants.typeCustom) ...[
               const Text(
                 '工时类型:',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -2236,7 +2238,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
               const SizedBox(height: 16),
             ],
 
-            if (currentType == '自定义') ...[
+            if (currentType == AppConstants.typeCustom) ...[
               const Text(
                 '自定义时间:',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -2300,7 +2302,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
               'hours': hours,
               'isOvertime': isOvertime,
               'isManual': true,
-              if (currentType == '自定义') ...{
+              if (currentType == AppConstants.typeCustom) ...{
                 'customCheckIn': _parseTimeInput(_checkInController.text),
                 'customCheckOut': _parseTimeInput(_checkOutController.text),
               },
@@ -2382,7 +2384,7 @@ class _CongratulationsDialogState extends State<_CongratulationsDialog>
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),

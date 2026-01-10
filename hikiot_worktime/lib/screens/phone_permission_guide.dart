@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:device_info_plus/device_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'dart:io' show Platform;
+import '../core/theme/theme.dart';
 import '../utils/haptic_utils.dart';
 
 /// 手机品牌权限设置指南
@@ -89,7 +90,7 @@ class _PhonePermissionGuideState extends State<PhonePermissionGuide> {
                     '请按以下步骤设置权限',
                     style: TextStyle(
                       fontSize: 14,
-                      color: Colors.white.withOpacity(0.9),
+                      color: Colors.white.withValues(alpha: 0.9),
                     ),
                   ),
                 ],

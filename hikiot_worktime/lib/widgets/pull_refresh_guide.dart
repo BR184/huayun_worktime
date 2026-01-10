@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/theme.dart';
 
 /// 下拉刷新引导提示组件
 /// 不遮挡页面，只显示浮动提示，让用户真正下拉刷新
@@ -93,27 +94,27 @@ class _PullRefreshGuideState extends State<PullRefreshGuide>
                       Icon(
                         Icons.keyboard_double_arrow_down,
                         size: 48,
-                        color: Colors.blue.withOpacity(0.8),
+                        color: AppColors.primary.withValues(alpha: 0.8),
                       ),
                       const SizedBox(height: 8),
                       // 手指图标
                       Container(
                         padding: const EdgeInsets.all(16),
                         decoration: BoxDecoration(
-                          color: Colors.blue,
+                          color: AppColors.primary,
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.blue.withOpacity(0.4),
+                              color: AppColors.primary.withValues(alpha: 0.4),
                               blurRadius: 20,
                               spreadRadius: 5,
                             ),
                           ],
                         ),
-                        child: const Icon(
+                        child: Icon(
                           Icons.touch_app,
                           size: 40,
-                          color: Colors.white,
+                          color: AppColors.onPrimary,
                         ),
                       ),
                     ],
@@ -136,8 +137,8 @@ class _PullRefreshGuideState extends State<PullRefreshGuide>
                   icon: const Icon(Icons.skip_next, size: 20),
                   label: const Text('我知道了'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    foregroundColor: Colors.blue,
+                    backgroundColor: AppColors.surface,
+                    foregroundColor: AppColors.primary,
                     padding: const EdgeInsets.symmetric(
                       horizontal: 24,
                       vertical: 12,
@@ -146,7 +147,7 @@ class _PullRefreshGuideState extends State<PullRefreshGuide>
                       borderRadius: BorderRadius.circular(25),
                     ),
                     elevation: 8,
-                    shadowColor: Colors.black38,
+                    shadowColor: AppColors.shadow,
                   ),
                 ),
               ),
@@ -161,11 +162,11 @@ class _PullRefreshGuideState extends State<PullRefreshGuide>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
+        color: AppColors.surface,
+        borderRadius: AppDimens.borderRadiusLg,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.15),
+            color: AppColors.shadow,
             blurRadius: 20,
             offset: const Offset(0, 10),
           ),
@@ -176,28 +177,28 @@ class _PullRefreshGuideState extends State<PullRefreshGuide>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: Colors.blue.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: AppColors.primary.withValues(alpha: 0.1),
+              borderRadius: AppDimens.borderRadius,
             ),
-            child: const Icon(Icons.swipe_down, color: Colors.blue, size: 28),
+            child: Icon(Icons.swipe_down, color: AppColors.primary, size: 28),
           ),
           const SizedBox(width: 16),
-          const Expanded(
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   '👋 欢迎使用！',
                   style: TextStyle(
-                    fontSize: 18,
+                    fontSize: AppDimens.fontLg,
                     fontWeight: FontWeight.bold,
-                    color: Colors.black87,
+                    color: AppColors.textPrimary,
                   ),
                 ),
-                SizedBox(height: 4),
+                const SizedBox(height: 4),
                 Text(
                   '向下拉动页面即可刷新数据',
-                  style: TextStyle(fontSize: 14, color: Colors.grey),
+                  style: TextStyle(fontSize: AppDimens.fontMd, color: AppColors.textSecondary),
                 ),
               ],
             ),

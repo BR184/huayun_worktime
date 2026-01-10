@@ -103,7 +103,7 @@ class _HomeButtonState extends State<HomeButton>
               const EdgeInsets.symmetric(vertical: 14, horizontal: 20),
           decoration: BoxDecoration(
             color: _isPressed
-                ? (widget.backgroundColor ?? defaultBgColor).withOpacity(0.8)
+                ? (widget.backgroundColor ?? defaultBgColor).withValues(alpha: 0.8)
                 : (widget.backgroundColor ?? defaultBgColor),
             borderRadius: widget.borderRadius ?? BorderRadius.circular(12),
             border: widget.isOutlined
@@ -117,7 +117,7 @@ class _HomeButtonState extends State<HomeButton>
                 : [
                     BoxShadow(
                       color: (widget.backgroundColor ?? defaultBgColor)
-                          .withOpacity(0.3),
+                          .withValues(alpha: 0.3),
                       blurRadius: widget.elevation ?? 4,
                       offset: const Offset(0, 2),
                     ),

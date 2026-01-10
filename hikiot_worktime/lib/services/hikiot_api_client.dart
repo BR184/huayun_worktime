@@ -2,24 +2,16 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import '../core/constants/constants.dart';
+import '../core/error/exceptions.dart';
 import '../utils/attendance_parser.dart';
 
 /// 海康互联API客户端
-
-class TokenExpiredException implements Exception {
-  final String message;
-  const TokenExpiredException(this.message);
-  @override
-  String toString() => message;
-}
-
 class HikiotApiClient {
-  // API地址
-  static const String baseUrl = 'https://api.hikiot.com';
-  static const String accountDetailUrl = '$baseUrl/api-saas/v1/account/detail';
-  // V2 API 包含打卡照片信息
-  static const String dailyAttendanceUrl =
-      '$baseUrl/api-attendance/v1/statistics/v2/individual/single/daily';
+  // 使用常量类中的API地址
+  static const String baseUrl = ApiConstants.baseUrl;
+  static const String accountDetailUrl = ApiConstants.accountDetailUrl;
+  static const String dailyAttendanceUrl = ApiConstants.dailyAttendanceUrl;
 
   String? _token;
 
@@ -33,13 +25,13 @@ class HikiotApiClient {
   /// 获取请求头（移动端格式，支持V2 API照片字段）
   Map<String, String> _getHeaders({bool useBearer = false}) {
     final headers = {
-      'User-Agent': 'Mozilla/5.0 (Linux; Android 12; wv) AppleWebKit/537.36',
+      'User-Agent': ApiConstants.mobileUserAgent,
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'zh-CN,zh;q=0.9',
       'Content-Type': 'application/json',
-      'appNo': '__UNI__89A1A02',
-      'terminal': '1', // 移动端标识
-      'versionCode': '1778',
+      'appNo': ApiConstants.appNo,
+      'terminal': ApiConstants.terminalMobile,
+      'versionCode': ApiConstants.versionCode,
     };
 
     if (_token != null) {
@@ -90,7 +82,7 @@ class HikiotApiClient {
   /// 登录后必须调用此方法，Token才能生效
   Future<bool> changeTeam(String teamNo) async {
     try {
-      const changeUrl = 'https://api.hikiot.com/api-link-saas/v3/team/change';
+      const changeUrl = ApiConstants.changeTeamUrl;
 
       final response = await http.post(
         Uri.parse(changeUrl),
@@ -118,7 +110,7 @@ class HikiotApiClient {
   /// 退出登录
   Future<bool> logout() async {
     try {
-      const logoutUrl = 'https://api.hikiot.com/api-website/v1/logout';
+      const logoutUrl = ApiConstants.logoutUrl;
 
       final response = await http.post(
         Uri.parse(logoutUrl),
@@ -258,12 +250,12 @@ class HikiotApiClient {
   /// 从SharedPreferences加载Token
   static Future<String?> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('hikiot_token');
+    return prefs.getString(StorageKeys.token);
   }
 
   /// 保存Token到SharedPreferences
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('hikiot_token', token);
+    await prefs.setString(StorageKeys.token, token);
   }
 }

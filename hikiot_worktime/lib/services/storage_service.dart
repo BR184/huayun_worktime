@@ -1,103 +1,95 @@
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../core/constants/constants.dart';
 
 /// 本地数据存储服务
 class StorageService {
-  static const String _calendarMarksKey = 'calendar_marks';
-  static const String _holidayPlanKey = 'holiday_plan';
-  static const String _settingsKey = 'settings';
-  static const String _selectedTeamKey = 'selected_team';
-  static const String _tokenKey = 'auth_token';
-  static const String _userNameKey = 'user_name';
-  static const String _pinnedTargetKey = 'pinned_target';
-  static const String _smartSortKey = 'smart_sort';
-  static const String _baseTargetKey = 'base_target';
+  // 使用StorageKeys常量替代硬编码字符串
 
   /// 保存基础目标百分比 (默认120%)
   Future<void> saveBaseTarget(int target) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_baseTargetKey, target);
+    await prefs.setInt(StorageKeys.baseTarget, target);
   }
 
   /// 加载基础目标百分比 (默认120%)
   Future<int> loadBaseTarget() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_baseTargetKey) ?? 120;
+    return prefs.getInt(StorageKeys.baseTarget) ?? AppConstants.defaultBaseTarget;
   }
 
   /// 保存智能排序开关
   Future<void> saveSmartSort(bool enabled) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_smartSortKey, enabled);
+    await prefs.setBool(StorageKeys.smartSort, enabled);
   }
 
   /// 加载智能排序开关 (默认为true)
   Future<bool> loadSmartSort() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_smartSortKey) ?? true;
+    return prefs.getBool(StorageKeys.smartSort) ?? true;
   }
 
   /// 保存置顶的目标
   Future<void> savePinnedTarget(int? target) async {
     final prefs = await SharedPreferences.getInstance();
-    ;
     if (target == null) {
-      await prefs.remove(_pinnedTargetKey);
+      await prefs.remove(StorageKeys.pinnedTarget);
     } else {
-      await prefs.setInt(_pinnedTargetKey, target);
+      await prefs.setInt(StorageKeys.pinnedTarget, target);
     }
   }
 
   /// 加载置顶的目标
   Future<int?> loadPinnedTarget() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getInt(_pinnedTargetKey);
+    return prefs.getInt(StorageKeys.pinnedTarget);
   }
 
   /// 保存Token
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_tokenKey, token);
+    await prefs.setString(StorageKeys.token, token);
   }
 
   /// 加载Token
   Future<String?> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_tokenKey);
+    return prefs.getString(StorageKeys.token);
   }
 
   /// 保存用户名
   Future<void> saveUserName(String userName) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_userNameKey, userName);
+    await prefs.setString(StorageKeys.userName, userName);
   }
 
   /// 加载用户名
   Future<String?> loadUserName() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_userNameKey);
+    return prefs.getString(StorageKeys.userName);
   }
 
   /// 清除所有数据（退出登录时使用）
   /// 清除认证信息 (保留设置、手动标记和教程状态)
   Future<void> clearAuthInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_userNameKey);
-    // 注意：不要清除 _calendarMarksKey, _settingsKey, _holidayPlanKey 等
+    await prefs.remove(StorageKeys.token);
+    await prefs.remove(StorageKeys.userName);
+    // 注意：不要清除日历标记、设置、节假日计划等
   }
 
   /// 保存选择的团队
   Future<void> saveSelectedTeam(String teamNo) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_selectedTeamKey, teamNo);
+    await prefs.setString(StorageKeys.selectedTeam, teamNo);
   }
 
   /// 加载选择的团队
   Future<String?> loadSelectedTeam() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(_selectedTeamKey);
+    return prefs.getString(StorageKeys.selectedTeam);
   }
 
   /// 保存日历标记（按团队区分）
@@ -106,7 +98,7 @@ class StorageService {
     Map<String, Map<String, dynamic>> marks,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = '${_calendarMarksKey}_$teamNo'; // 每个团队独立的key
+    final key = StorageKeys.calendarMarksKey(teamNo);
     final jsonStr = jsonEncode(marks);
     await prefs.setString(key, jsonStr);
     print('保存日历标记到: $key');
@@ -128,7 +120,7 @@ class StorageService {
     String teamNo,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = '${_calendarMarksKey}_$teamNo'; // 每个团队独立的key
+    final key = StorageKeys.calendarMarksKey(teamNo);
     final jsonStr = prefs.getString(key);
     if (jsonStr == null) {
       print('未找到团队 $teamNo 的日历标记');
@@ -148,7 +140,6 @@ class StorageService {
   }
 
   // ========== 月度考勤数据缓存 ==========
-  static const String _monthlyDataKey = 'monthly_data';
 
   /// 保存月度考勤数据（按团队+月份）
   Future<void> saveMonthlyData(
@@ -157,7 +148,7 @@ class StorageService {
     Map<String, Map<String, dynamic>> data,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = '${_monthlyDataKey}_${teamNo}_$monthKey';
+    final key = StorageKeys.monthlyDataKey(teamNo, monthKey);
     final jsonStr = jsonEncode(data);
     await prefs.setString(key, jsonStr);
     print('保存月度数据缓存: $key');
@@ -169,7 +160,7 @@ class StorageService {
     String monthKey,
   ) async {
     final prefs = await SharedPreferences.getInstance();
-    final key = '${_monthlyDataKey}_${teamNo}_$monthKey';
+    final key = StorageKeys.monthlyDataKey(teamNo, monthKey);
     final jsonStr = prefs.getString(key);
     if (jsonStr == null) {
       print('未找到月度数据缓存: $key');
@@ -194,13 +185,13 @@ class StorageService {
     final allPlans = await loadAllHolidayPlans();
     allPlans[year.toString()] = plan;
     final jsonStr = jsonEncode(allPlans);
-    await prefs.setString(_holidayPlanKey, jsonStr);
+    await prefs.setString(StorageKeys.holidayPlan, jsonStr);
   }
 
   /// 加载所有年份的节假日计划
   Future<Map<String, Map<String, String>>> loadAllHolidayPlans() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonStr = prefs.getString(_holidayPlanKey);
+    final jsonStr = prefs.getString(StorageKeys.holidayPlan);
     if (jsonStr == null) return {};
 
     try {
@@ -244,10 +235,10 @@ class StorageService {
 
             if (isHoliday) {
               // 法定节假日
-              plan[fullDate] = '非工作日';
+              plan[fullDate] = AppConstants.typeRestDay;
             } else {
               // 调休工作日
-              plan[fullDate] = '工作日';
+              plan[fullDate] = AppConstants.typeWorkday;
             }
           });
 
@@ -274,9 +265,9 @@ class StorageService {
 
       String type;
       if (weekday >= 1 && weekday <= 5) {
-        type = '工作日';
+        type = AppConstants.typeWorkday;
       } else {
-        type = '非工作日';
+        type = AppConstants.typeRestDay;
       }
 
       final dateStr =
@@ -302,26 +293,26 @@ class StorageService {
 
     // 否则按周一至周五规则
     final weekday = date.weekday;
-    return (weekday >= 1 && weekday <= 5) ? '工作日' : '非工作日';
+    return (weekday >= 1 && weekday <= 5) ? AppConstants.typeWorkday : AppConstants.typeRestDay;
   }
 
   /// 保存设置
   Future<void> saveSettings(Map<String, dynamic> settings) async {
     final prefs = await SharedPreferences.getInstance();
     final jsonStr = jsonEncode(settings);
-    await prefs.setString(_settingsKey, jsonStr);
+    await prefs.setString(StorageKeys.settings, jsonStr);
   }
 
   /// 加载设置
   Future<Map<String, dynamic>> loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
-    final jsonStr = prefs.getString(_settingsKey);
+    final jsonStr = prefs.getString(StorageKeys.settings);
     if (jsonStr == null) {
       // 返回默认设置
       return {
-        'targets': [100, 120, 130, 140, 150, 160],
-        'lunch_break': {'start': '12:00', 'end': '13:00'},
-        'day_change_hour': 4,
+        'targets': AppConstants.standardTargets,
+        'lunch_break': {'start': AppConstants.defaultLunchStart, 'end': AppConstants.defaultLunchEnd},
+        'day_change_hour': AppConstants.defaultCrossDayMinutes ~/ 60,
         'display_name': '',
       };
     }

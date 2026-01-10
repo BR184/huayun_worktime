@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/theme/theme.dart';
 import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -50,8 +51,8 @@ class _LoginScreenState extends State<LoginScreen> {
       return Scaffold(
         appBar: AppBar(
           title: const Text('正在退出...'),
-          backgroundColor: Colors.blue,
-          foregroundColor: Colors.white,
+          backgroundColor: AppColors.primary,
+          foregroundColor: AppColors.onPrimary,
         ),
         body: const Center(child: CircularProgressIndicator()),
       );
@@ -60,8 +61,8 @@ class _LoginScreenState extends State<LoginScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('登录海康互联'),
-        backgroundColor: Colors.blue,
-        foregroundColor: Colors.white,
+        backgroundColor: AppColors.primary,
+        foregroundColor: AppColors.onPrimary,
         actions: [
           IconButton(
             icon: const Icon(Icons.home),
@@ -215,7 +216,7 @@ class _LoginScreenState extends State<LoginScreen> {
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text('加载错误: ${error.description}'),
-                  backgroundColor: Colors.red,
+                  backgroundColor: AppColors.error,
                 ),
               );
             },
@@ -281,10 +282,10 @@ class _LoginScreenState extends State<LoginScreen> {
       // 显示成功提示
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('登录成功！'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 2),
+          SnackBar(
+            content: const Text('登录成功！'),
+            backgroundColor: AppColors.success,
+            duration: const Duration(seconds: 2),
           ),
         );
 
