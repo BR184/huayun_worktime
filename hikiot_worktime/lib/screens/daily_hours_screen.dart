@@ -848,7 +848,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         Icon(Icons.photo_camera, size: 14, color: Colors.blue[700]),
                         const SizedBox(width: 4),
                         Text(
-                          '打卡照片',
+                          '查看打卡照片',
                           style: TextStyle(fontSize: 11, color: Colors.blue[700]),
                         ),
                       ],

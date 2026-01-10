@@ -25,6 +25,16 @@ class _MainScreenState extends State<MainScreen> {
   final GlobalKey<MonthlyCalendarScreenState> _monthlyKey = GlobalKey();
   final GlobalKey<DailyHoursScreenState> _dailyKey = GlobalKey();
 
+  @override
+  void initState() {
+    super.initState();
+    // 应用启动时自动刷新数据
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _dailyKey.currentState?.refreshData();
+      _monthlyKey.currentState?.smartUpdate();
+    });
+  }
+
   void _onTabTap(int index) {
     setState(() {
       _currentIndex = index;

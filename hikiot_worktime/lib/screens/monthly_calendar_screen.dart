@@ -771,6 +771,12 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }
   }
 
+  /// 公开方法: 静默触发智能更新（用于应用启动时）
+  Future<void> smartUpdate() async {
+    if (_personNo == null || _teamNo == null) return;
+    await _smartQuickUpdate();
+  }
+
   /// 智能快速更新
   /// 从今天开始往前遍历当月日期:
   /// - 无工时数据 → 更新这一天
