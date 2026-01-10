@@ -5,6 +5,7 @@ import '../core/constants/constants.dart';
 import 'notification_service.dart';
 import '../utils/attendance_parser.dart';
 import '../utils/work_time_calculator.dart';
+import '../core/constants/storage_keys.dart';
 
 /// 打卡提醒检测服务
 class PunchReminderService {
@@ -379,7 +380,7 @@ class PunchReminderService {
     // 检查是否在节假日计划中 (使用正确的存储键 'holiday_plan')
     try {
       final prefs = await SharedPreferences.getInstance();
-      final holidayPlanJson = prefs.getString('holiday_plan');
+      final holidayPlanJson = prefs.getString(StorageKeys.holidayPlan);
       if (holidayPlanJson != null) {
         final allPlans = json.decode(holidayPlanJson) as Map<String, dynamic>;
         final yearPlan = allPlans[now.year.toString()] as Map<String, dynamic>?;

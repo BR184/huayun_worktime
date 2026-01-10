@@ -72,11 +72,11 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
       color: Colors.indigo,
       title: '节假日管理',
       points: [
-        '调用 https://timor.tech/api/holiday/year/{year} 获取法定节假日',
-        '获取成功后覆盖本月的节假日标记',
-        'API异常时降级为周一至五上班、周六日休息',
-        '第三方数据可能与公司实际安排有差异',
-        '如有出入请在日历中手动调整',
+        '自动同步海康服务器配置的休息日与节假日',
+        '无需手动维护，刷新考勤时自动更新状态',
+        '识别逻辑基于海康原生的班次信息（Shift）',
+        '原生数据反映了公司实际的排班与调休日',
+        '如有出入请在日历中手动调整，手动标记优先',
       ],
     ),
     _FeatureItem(

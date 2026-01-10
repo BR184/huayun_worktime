@@ -459,7 +459,7 @@ Row(
 | **工时完成度** | 本月完成率百分比（含今日/不含今日） |
 | **目标进度** | 多档位进度条，双进度（总进度+日均进度） |
 | **智能更新** | 快速更新和全量更新 |
-| **节假日更新** | 从API获取法定节假日 |
+| **节假日同步** | 自动同步海康服务器配置的节假日 |
 
 #### 4.4.2 日历颜色编码
 
@@ -637,25 +637,25 @@ HapticUtils.homeButtonPress();  // Home键风格（按下+释放）
 |-----|-----|------|------|
 | 账户详情 | GET | `/api-saas/v1/account/detail` | 获取用户信息和团队列表 |
 | 切换团队 | POST | `/api-link-saas/v3/team/change` | 激活团队上下文 |
-| 每日考勤 | GET | `/api-attendance/v1/statistics/individual/single/daily` | 获取单日考勤 |
+| 每日考勤 (V2) | GET | `/api-attendance/v1/statistics/v2/individual/single/daily` | 获取单日考勤 (含照片) |
 | 退出登录 | POST | `/api-website/v1/logout` | 登出 |
+| 月度考勤 [备用] | GET | `/api-attendance/v1/statistics/myAttendance` | 考勤统计 (App内改用每日聚合) |
+| 请假记录 [备用] | GET | `/api-attendance/leaveRecord/getTodayRecords` | 今日请假记录 |
 
 #### 5.1.2 请求头配置
 
 ```dart
 Map<String, String> _getHeaders({bool useBearer = false}) {
   return {
-    'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
+    'User-Agent': 'Mozilla/5.0 (Linux; Android 12; wv) AppleWebKit/537.36',
     'Accept': 'application/json, text/plain, */*',
     'Accept-Language': 'zh-CN,zh;q=0.9',
     'Content-Type': 'application/json',
     'Origin': 'https://www.hikiot.com',
     'Referer': 'https://www.hikiot.com/',
-    'authPerm': 'MYSTATISTICSFUN',
-    'deviceid': 'unHotjaMGfLZCj0N',
-    'devicename': 'Android 10',
-    'terminal': '2',
-    'STN-PhoneType': 'Android 10',
+    'appNo': '__UNI__89A1A02',
+    'terminal': '1',        // 1: 移动端 (支持V2照片), 2: Web端
+    'versionCode': '1778',
     if (_token != null) ...{
       'token': _token!,
       'www_token': _token!,
@@ -697,12 +697,14 @@ Map<String, String> _getHeaders({bool useBearer = false}) {
           "clockInTime": "08:30",
           "clockOffTime": "18:05",
           "clockInStatusType": 0,
-          "clockOffStatusType": 0
+          "clockOffStatusType": 0,
+          "remoteClockInInfo": {
+            "photo": "https://open.ys7.com/api/lapp/mq/downloadurl?..."
+          },
+          "remoteClockOffInfo": {
+            "photo": "https://open.ys7.com/api/lapp/mq/downloadurl?..."
+          }
         }
-      ],
-      "restClockTime": [
-        { "clockTime": "08:30" },
-        { "clockTime": "18:05" }
       ]
     }
   }
@@ -710,32 +712,34 @@ Map<String, String> _getHeaders({bool useBearer = false}) {
 ```
 
 **注意事项**:
-- `shiftDetails`: 正常工作日的打卡数据
-- `restClockTime`: 加班日/休息日的打卡数据
-- `clockInStatusType`: 0=正常, 1=迟到
-- `clockOffStatusType`: 0=正常, 4=早退
+- `shiftDetails`: 考勤详情核心列表。
+- `remoteClockInInfo.photo`: 上班打卡照片 URL (萤石云链接)。
+- `remoteClockOffInfo.photo`: 下班打卡照片 URL (萤石云链接)。
+- `clockInStatusType`: 0=正常, 1=迟到。
+- `clockOffStatusType`: 0=正常, 4=早退。
 
-### 5.2 节假日API
+### 5.2 海康原生节假日同步
 
-#### 5.2.1 第三方API
+#### 5.2.1 同步机制
 
-```
-GET https://timor.tech/api/holiday/year/{year}
-```
+应用不再依赖外部第三方节假日 API，而是直接利用海康互联考勤 API 返回的班次（Shift）信息进行自动判定。
 
-#### 5.2.2 响应结构
+#### 5.2.2 判定逻辑
 
-```json
-{
-  "code": 0,
-  "holiday": {
-    "01-01": { "holiday": true, "name": "元旦" },
-    "02-01": { "holiday": false, "name": "春节调休" }
-  }
-}
+```dart
+// 在 AttendanceParser 中实现
+final shiftId = dailyDetail['shiftId'] as int? ?? 0;
+final shiftName = dailyDetail['shiftName'] as String? ?? '';
+
+// shiftId 为 -1 或 shiftName 包含 "休息" 即为休息日
+final isRestDay = shiftId == -1 || shiftName.contains('休息');
 ```
 
-**注意**: API返回的日期格式是 `MM-DD`，需要拼接年份转换为 `YYYY-MM-DD`。
+#### 5.2.3 自动更新流程
+
+1. 每次调用 `getDailyAttendance` 或 `getMonthlyAttendance` 时，都会提取 `isRestDay` 标记。
+2. 如果该日期未被用户 `isManual` 标记，则自动更新本地 `holidayPlan`。
+3. 这种方式确保了应用内的日历与公司实际的排班计划（包括特殊的调休安排）保持绝对一致。
 
 ### 5.3 登录流程关键顺序
 
@@ -751,6 +755,24 @@ GET https://timor.tech/api/holiday/year/{year}
 5️⃣ 保存Token和personNo: 从选中团队的对象中提取
     ↓
 6️⃣ 登录成功! 开始查询工时
+```
+
+### 5.4 萤石云照片下载
+
+#### 5.4.1 下载流程
+
+打卡照片存储在萤石云 (YS7) 平台上。API 返回的 `photo` 字段包含一个带有鉴权参数的链接。
+
+#### 5.4.2 下载方法
+
+直接使用 `GET` 请求该 URL 即可。不需要特殊的自定义 Header，但建议设置合理的 `User-Agent` 以匹配移动端环境。
+
+```dart
+// 直接下载示例
+final response = await http.get(Uri.parse(photoUrl));
+if (response.statusCode == 200) {
+  // 处理图片二进制数据
+}
 ```
 
 ---
@@ -1179,8 +1201,8 @@ if (mounted) {
 
 | 版本 | 日期 | 主要更新 |
 |-----|------|---------|
-| 2.0.0 | 2025-01 | 完整重构，添加每日工时页面、优化UI、添加打卡提醒 |
-| 1.0.0 | 2024 | 初始版本，基础功能 |
+| 2.0.0 | 2025-12 | 完整重构，添加每日工时页面、优化UI、添加打卡提醒 |
+| 1.0.0 | 2025-12 | 初始版本，基础功能 |
 
 ### 12.2 踩坑记录摘要
 
@@ -1207,11 +1229,10 @@ if (mounted) {
    - key用 `calendar_marks_{teamNo}` 和 `{teamNo}_{YYYY-MM}`
    - 切换团队时 forceRefresh
 
-#### 节假日API
-
-5. **API日期格式**
-   - timor.tech返回 `MM-DD`，需要拼接年份
-   - 需要加User-Agent避免403
+5. **原生节假日同步**
+   - 弃用第三方 API，改用海康 `shiftId == -1` 判定
+   - 刷新考勤时自动静默更新，体验更平滑
+   - 解决了第三方 API 与公司实际放假安排不符的问题
 
 #### 路由和登录
 
@@ -1230,7 +1251,6 @@ if (mounted) {
 - [Flutter 官方文档](https://flutter.dev/docs)
 - [Dart 语言指南](https://dart.dev/guides)
 - [flutter_inappwebview 文档](https://pub.dev/packages/flutter_inappwebview)
-- [节假日API (timor.tech)](https://timor.tech/api/holiday/)
 
 ### B. 联系方式
 
