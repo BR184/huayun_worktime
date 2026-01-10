@@ -14,20 +14,21 @@ class TokenExpiredService {
   static bool isTokenExpiredError(dynamic error) {
     if (error == null) return false;
 
-    final errorStr = error.toString().toLowerCase();
-    return errorStr.contains('无法获取账户信息') ||
-        errorStr.contains('token') ||
-        errorStr.contains('登录') ||
-        errorStr.contains('999999') ||
-        errorStr.contains('失效') ||
-        errorStr.contains('过期') ||
-        errorStr.contains('unauthorized') ||
-        errorStr.contains('认证');
+    // 优先检查是否为自定义异常 (简单字符串匹配，避免强依赖import)
+    final errorStr = error.toString();
+    if (errorStr.contains('TokenExpiredException')) return true;
+
+    // 兼容旧的字符串判断，但收窄范围，避免网络错误误判
+    final lower = errorStr.toLowerCase();
+    return lower.contains('code: 999999') ||
+        lower.contains('status code: 401') ||
+        lower.contains('status code: 403') ||
+        lower.contains('登录状态已失效');
   }
 
   /// 检查API响应是否表示Token失效
   static bool isTokenExpiredResponse(Map<String, dynamic>? response) {
-    if (response == null) return true; // 无法获取响应通常意味着Token问题
+    if (response == null) return false; // null可能是网络错误，不一定是Token失效
 
     final code = response['code'];
     return code == 999999 || code == 401 || code == 403;
@@ -88,16 +89,17 @@ class TokenExpiredService {
       // 清除 WebView cookies（关键！否则自动登录会生效）
       final cookieManager = CookieManager.instance();
       await cookieManager.deleteAllCookies();
-      await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
-      await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
-      await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
+      try {
+        await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
+        await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
+        await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
+      } catch (e) {
+        // 忽略URL解析错误
+      }
 
-      // 清除所有本地数据
-      await prefs.clear();
-
-      // 清除 storage
+      // 使用 StorageService 清除认证信息 (保留用户设置)
       final storage = StorageService();
-      await storage.clearAll();
+      await storage.clearAuthInfo();
 
       // 跳转到登录页（使用 forceLogout 确保 WebView 也清除 cookies）
       if (context.mounted) {

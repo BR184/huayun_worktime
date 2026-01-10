@@ -1946,11 +1946,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
     await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
 
-    // 清除所有本地数据
-    await prefs.clear();
-
-    // 清除 storage
-    await _storage.clearAll();
+    // 使用 StorageService 清除认证信息 (保留用户设置)
+    await _storage.clearAuthInfo();
 
     if (mounted) {
       // 跳转到登录页（使用 forceLogout 确保 WebView 也清除 cookies）

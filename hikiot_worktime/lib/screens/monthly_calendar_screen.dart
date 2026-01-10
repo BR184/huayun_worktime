@@ -326,6 +326,19 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               _monthlyData[todayStr]!['hours'] = attendance.hours;
               _monthlyData[todayStr]!['checkIn'] = attendance.checkIn;
               _monthlyData[todayStr]!['checkOut'] = attendance.checkOut;
+
+              // 智能识别逻辑 (Bug 2 修复对应)
+              // 1. 休息日有打卡 -> 自动改为加班日
+              if (attendance.hours > 0 && 
+                  (_monthlyData[todayStr]!['type'] == '休息' || 
+                   _monthlyData[todayStr]!['type'] == '非工作日' || 
+                   _monthlyData[todayStr]!['type'] == '节假日')) {
+                _monthlyData[todayStr]!['type'] = '加班日';
+              }
+              // 2. 工作日无打卡 -> 自动改为请假 (如果是通过refreshTodayData触发，说明是"今天"，所以通常不设请假，除非当前时间很晚了)
+              // 但 refreshTodayData 通常用于刷新"今天"，如果今天还没打卡，设为请假可能不妥（用户可能只是迟到）
+              // 只有 DailyHoursScreen 会对"过去"的时间设为请假
+              // 这里我们只处理"加班"的实时更新
             });
 
             // 同步更新缓存
@@ -863,13 +876,30 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       );
       final apiData = AttendanceParser.parseFromResponse(apiResponse);
 
-      // 比较是否一致
-      if (localData.hasValidData && localData.isConsistentWith(apiData)) {
+      // 检查是否需要类型修正 (Bug 2 Fix 核心逻辑)
+      bool needsTypeCorrection = false;
+      final currentType = _monthlyData[dateStr]!['type'];
+      
+      // 1. 休息日有打卡 -> 应为加班日
+      if (apiData.hours > 0 && 
+          (currentType == '休息' || currentType == '非工作日' || currentType == '节假日')) {
+        needsTypeCorrection = true;
+      }
+      // 2. 工作日无打卡(且是过去日期) -> 应为请假
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      if (apiData.hours == 0 &&
+          currentType == '工作日' &&
+          dateStr != todayStr) {
+        needsTypeCorrection = true;
+      }
+
+      // 比较是否一致 (只有当数据一致且不需要类型修正时，才停止更新)
+      if (localData.hasValidData && localData.isConsistentWith(apiData) && !needsTypeCorrection) {
         // 一致！信任该天及之前的所有数据，停止更新
-        print('$dateStr 数据一致(${apiData.checkIn}~${apiData.checkOut})，停止更新');
+        print('$dateStr 数据一致且类型正确，停止更新');
         break;
       } else {
-        // 不一致或无数据，更新这一天
+        // 不一致或需要修正，更新这一天
         if (_monthlyData.containsKey(dateStr)) {
           _monthlyData[dateStr]!['hours'] = apiData.hours;
           _monthlyData[dateStr]!['apiHours'] = apiData.hours;
@@ -877,6 +907,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           _monthlyData[dateStr]!['checkOut'] = apiData.checkOut;
           _monthlyData[dateStr]!['isLate'] = apiData.isLate;
           _monthlyData[dateStr]!['isEarlyLeave'] = apiData.isEarlyLeave;
+
+          // 应用类型修正
+          if (needsTypeCorrection) {
+             if (apiData.hours > 0) {
+               _monthlyData[dateStr]!['type'] = '加班日';
+             } else if (apiData.hours == 0) {
+               _monthlyData[dateStr]!['type'] = '请假';
+             }
+             print('$dateStr 类型智能修正 -> ${_monthlyData[dateStr]!['type']}');
+          }
 
           updatedCount++;
           print(

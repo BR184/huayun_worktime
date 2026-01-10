@@ -80,9 +80,12 @@ class StorageService {
   }
 
   /// 清除所有数据（退出登录时使用）
-  Future<void> clearAll() async {
+  /// 清除认证信息 (保留设置、手动标记和教程状态)
+  Future<void> clearAuthInfo() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_userNameKey);
+    // 注意：不要清除 _calendarMarksKey, _settingsKey, _holidayPlanKey 等
   }
 
   /// 保存选择的团队
@@ -107,6 +110,17 @@ class StorageService {
     final jsonStr = jsonEncode(marks);
     await prefs.setString(key, jsonStr);
     print('保存日历标记到: $key');
+  }
+
+  /// 保存单个日历标记
+  Future<void> saveSingleCalendarMark(
+    String teamNo,
+    String dateStr,
+    Map<String, dynamic> markData,
+  ) async {
+    final marks = await loadCalendarMarks(teamNo);
+    marks[dateStr] = markData;
+    await saveCalendarMarks(teamNo, marks);
   }
 
   /// 加载日历标记（按团队区分）

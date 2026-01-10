@@ -5,6 +5,14 @@ import 'package:intl/intl.dart';
 import '../utils/attendance_parser.dart';
 
 /// 海康互联API客户端
+
+class TokenExpiredException implements Exception {
+  final String message;
+  const TokenExpiredException(this.message);
+  @override
+  String toString() => message;
+}
+
 class HikiotApiClient {
   // API地址
   static const String baseUrl = 'https://api.hikiot.com';
@@ -151,14 +159,18 @@ class HikiotApiClient {
         if (data['code'] == 0) {
           return data['data'];
         } else if (data['code'] == 999999) {
-          print('登录状态已失效');
-          return null;
+          throw const TokenExpiredException('登录状态已失效');
         }
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        throw const TokenExpiredException('未授权访问');
       }
       return null;
+    } on TokenExpiredException {
+      rethrow;
     } catch (e) {
       print('获取每日考勤失败: $e');
-      return null;
+      // 网络错误抛出以便上层处理，不要吞掉，否则会被误判为Token失效
+      throw Exception('网络请求失败: $e');
     }
   }
 

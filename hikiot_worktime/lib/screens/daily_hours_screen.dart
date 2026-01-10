@@ -240,7 +240,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       if (savedMark != null) {
         // 应用手动标记(覆盖默认类型)
         _dayData!['type'] = savedMark['type'] ?? defaultType;
-        _dayData!['isManual'] = true;
+        _dayData!['isManual'] = savedMark['isManual'] ?? true;
 
         if (savedMark['isOvertime'] != null) {
           _dayData!['isOvertime'] = savedMark['isOvertime'];
@@ -333,13 +333,67 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
             'checkInPhotoUrl': attendance.checkInPhotoUrl,
             'checkOutPhotoUrl': attendance.checkOutPhotoUrl,
           };
+
+          // 智能识别逻辑 (Bug 2 修复 & 增强持久化)
+          if (_dayData != null && (_dayData!['isManual'] == null || _dayData!['isManual'] == false)) {
+            final type = _dayData!['type'];
+            final hasCheckIn = attendance.hasValidData;
+            bool changed = false;
+            
+            // 1. 节假日/休息日有打卡 -> 自动识别为加班日
+            // 注意：DailyHoursScreen使用'加班'还是'加班日'? Monthly使用的是'加班日'
+            // 之前的代码似乎用了'加班'，但这可能导致颜色匹配失败(如果buildTypeWarning用'加班日')
+            // 查看_buildTypeWarning: case '加班日'
+            // 所以应该统一用 '加班日'
+            if ((type == '休息' || type == '非工作日' || type == '节假日') && hasCheckIn) {
+               // 修正颜色显示问题：使用标准类型字符串 '加班日'
+              _dayData!['type'] = '加班日';
+              _dayData!['hours'] = attendance.hours;
+              changed = true;
+            }
+            // 2. 工作日无打卡 -> 自动识别为请假 (仅限过去日期)
+            else if (type == '工作日') {
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              
+              if (!hasCheckIn && _selectedDate.isBefore(today)) {
+                _dayData!['type'] = '请假';
+                _dayData!['hours'] = 0.0;
+                changed = true;
+              } else {
+                // 正常工作日，更新实际工时
+                _dayData!['hours'] = attendance.hours;
+              }
+            } else {
+               // 其他情况
+               _dayData!['hours'] = attendance.hours;
+            }
+
+            // 如果发生了类型智能变更，保存到storage以便日历页面也能同步显示
+            if (changed && _teamNo != null) {
+              final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
+              _storage.saveSingleCalendarMark(_teamNo!, dateKey, {
+                'type': _dayData!['type'],
+                'hours': _dayData!['hours'],
+                'isManual': false, // 标记为自动，允许后续再次智能修正
+                'isOvertime': _dayData!['type'] == '加班日',
+              });
+            }
+          }
         });
       }
     } catch (e) {
       print('获取每日考勤数据失败: $e');
-      // 检查是否是Token失效导致的错误
+      // 修复Bug 1：只在明确的Token失效异常时才弹出提示
       if (mounted && TokenExpiredService.isTokenExpiredError(e)) {
         await TokenExpiredService.handleTokenExpired(context);
+      } else {
+        // 网络错误等其他异常，可以显示SnackBar提示用户，但不要弹登录框
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('刷新失败: ${e.toString().replaceAll('Exception: ', '')}')),
+          );
+        }
       }
     }
   }
