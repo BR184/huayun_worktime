@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants/constants.dart';
 import 'notification_service.dart';
 import '../utils/attendance_parser.dart';
 
@@ -399,9 +400,9 @@ class PunchReminderService {
           final dayType = yearPlan[dateStr] as String;
           // 非工作日 = 不需要提醒
           // 工作日（调休）= 需要提醒
-          if (dayType == '非工作日') {
+          if (dayType == AppConstants.typeRestDay) {
             return true; // 休息日，不提醒
-          } else if (dayType == '工作日') {
+          } else if (dayType == AppConstants.typeWorkday) {
             return false; // 调休工作日，需要提醒
           }
         }

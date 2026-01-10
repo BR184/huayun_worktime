@@ -2,15 +2,16 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:intl/intl.dart';
+import '../core/constants/constants.dart';
+import '../core/error/exceptions.dart';
 import '../utils/attendance_parser.dart';
 
 /// 海康互联API客户端
 class HikiotApiClient {
-  // API地址
-  static const String baseUrl = 'https://api.hikiot.com';
-  static const String accountDetailUrl = '$baseUrl/api-saas/v1/account/detail';
-  static const String dailyAttendanceUrl =
-      '$baseUrl/api-attendance/v1/statistics/individual/single/daily';
+  // 使用常量类中的API地址
+  static const String baseUrl = ApiConstants.baseUrl;
+  static const String accountDetailUrl = ApiConstants.accountDetailUrl;
+  static const String dailyAttendanceUrl = ApiConstants.dailyAttendanceUrl;
 
   String? _token;
 
@@ -21,20 +22,16 @@ class HikiotApiClient {
     _token = token;
   }
 
-  /// 获取请求头
+  /// 获取请求头（移动端格式，支持V2 API照片字段）
   Map<String, String> _getHeaders({bool useBearer = false}) {
     final headers = {
-      'User-Agent': 'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
+      'User-Agent': ApiConstants.mobileUserAgent,
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'zh-CN,zh;q=0.9',
       'Content-Type': 'application/json',
-      'Origin': 'https://www.hikiot.com',
-      'Referer': 'https://www.hikiot.com/',
-      'authPerm': 'MYSTATISTICSFUN',
-      'deviceid': 'unHotjaMGfLZCj0N',
-      'devicename': 'Android 10',
-      'terminal': '2',
-      'STN-PhoneType': 'Android 10',
+      'appNo': ApiConstants.appNo,
+      'terminal': ApiConstants.terminalMobile,
+      'versionCode': ApiConstants.versionCode,
     };
 
     if (_token != null) {
@@ -85,7 +82,7 @@ class HikiotApiClient {
   /// 登录后必须调用此方法，Token才能生效
   Future<bool> changeTeam(String teamNo) async {
     try {
-      const changeUrl = 'https://api.hikiot.com/api-link-saas/v3/team/change';
+      const changeUrl = ApiConstants.changeTeamUrl;
 
       final response = await http.post(
         Uri.parse(changeUrl),
@@ -113,7 +110,7 @@ class HikiotApiClient {
   /// 退出登录
   Future<bool> logout() async {
     try {
-      const logoutUrl = 'https://api.hikiot.com/api-website/v1/logout';
+      const logoutUrl = ApiConstants.logoutUrl;
 
       final response = await http.post(
         Uri.parse(logoutUrl),
@@ -134,16 +131,16 @@ class HikiotApiClient {
     }
   }
 
-  /// 获取每日考勤数据
+  /// 获取每日考勤数据 (V2 API，包含照片信息)
   /// [date] 格式: yyyy-MM-dd
-  /// [personNo] 员工编号
+  /// [personNo] 保留参数以兼容旧代码，V2 API通过Token识别用户
   Future<Map<String, dynamic>?> getDailyAttendance(
     String date,
     String personNo,
   ) async {
     try {
-      final url =
-          '$dailyAttendanceUrl?date=$date&personNo=$personNo&ID=myStatic';
+      // V2 API 不需要personNo，通过Token自动识别
+      final url = '$dailyAttendanceUrl?date=$date&ID=myStatic';
       final response = await http.get(
         Uri.parse(url),
         headers: _getHeaders(useBearer: true),
@@ -154,14 +151,18 @@ class HikiotApiClient {
         if (data['code'] == 0) {
           return data['data'];
         } else if (data['code'] == 999999) {
-          print('登录状态已失效');
-          return null;
+          throw const TokenExpiredException('登录状态已失效');
         }
+      } else if (response.statusCode == 401 || response.statusCode == 403) {
+        throw const TokenExpiredException('未授权访问');
       }
       return null;
+    } on TokenExpiredException {
+      rethrow;
     } catch (e) {
       print('获取每日考勤失败: $e');
-      return null;
+      // 网络错误抛出以便上层处理，不要吞掉，否则会被误判为Token失效
+      throw Exception('网络请求失败: $e');
     }
   }
 
@@ -249,12 +250,12 @@ class HikiotApiClient {
   /// 从SharedPreferences加载Token
   static Future<String?> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('hikiot_token');
+    return prefs.getString(StorageKeys.token);
   }
 
   /// 保存Token到SharedPreferences
   static Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('hikiot_token', token);
+    await prefs.setString(StorageKeys.token, token);
   }
 }

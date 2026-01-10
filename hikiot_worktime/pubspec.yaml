@@ -73,6 +73,8 @@ dependencies:
 
   # 设备信息
   device_info_plus: ^11.2.0
+  gal: ^2.3.2
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

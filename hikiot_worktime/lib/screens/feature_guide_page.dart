@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../core/theme/theme.dart';
 import '../utils/haptic_utils.dart';
 
 /// 功能说明页面
@@ -20,7 +21,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
   final List<_FeatureItem> _features = [
     _FeatureItem(
       icon: Icons.today,
-      color: Colors.blue,
+      color: AppColors.primary,
       title: '每日工时',
       points: [
         '查看今日上下班打卡时间',
@@ -44,7 +45,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
     ),
     _FeatureItem(
       icon: Icons.swipe_down,
-      color: Colors.orange,
+      color: AppColors.warning,
       title: '下拉刷新',
       points: [
         '在任意页面下拉即可刷新数据',
@@ -104,7 +105,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
     ),
     _FeatureItem(
       icon: Icons.push_pin,
-      color: Colors.red,
+      color: AppColors.error,
       title: '目标置顶',
       points: [
         '长按任意目标卡片可置顶',
@@ -158,7 +159,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.grey[100],
+      backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text('功能说明'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -185,7 +186,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
                     borderRadius: BorderRadius.circular(4),
                     color: _currentPage == index
                         ? _features[index].color
-                        : Colors.grey[300],
+                        : AppColors.border,
                   ),
                 ),
               ),
@@ -238,7 +239,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
                       onPressed: _nextPage,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: _features[_currentPage].color,
-                        foregroundColor: Colors.white,
+                        foregroundColor: AppColors.onPrimary,
                         padding: const EdgeInsets.symmetric(vertical: 14),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(12),
@@ -276,7 +277,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
                     width: 56,
                     height: 56,
                     decoration: BoxDecoration(
-                      color: feature.color.withOpacity(0.1),
+                      color: feature.color.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(14),
                     ),
                     child: Icon(feature.icon, size: 28, color: feature.color),
@@ -296,7 +297,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
               const SizedBox(height: 20),
 
               // 分隔线
-              Divider(color: Colors.grey[200], height: 1),
+              Divider(color: AppColors.divider, height: 1),
 
               const SizedBox(height: 16),
 
@@ -314,7 +315,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
                           width: 24,
                           height: 24,
                           decoration: BoxDecoration(
-                            color: feature.color.withOpacity(0.1),
+                            color: feature.color.withValues(alpha: 0.1),
                             shape: BoxShape.circle,
                           ),
                           child: Center(
@@ -332,10 +333,10 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
                         Expanded(
                           child: Text(
                             feature.points[index],
-                            style: const TextStyle(
-                              fontSize: 16,
+                            style: TextStyle(
+                              fontSize: AppDimens.font,
                               height: 1.4,
-                              color: Colors.black87,
+                              color: AppColors.textPrimary,
                             ),
                           ),
                         ),

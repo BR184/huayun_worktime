@@ -1,8 +1,12 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants/constants.dart';
+import '../core/theme/theme.dart';
 import '../services/hikiot_api_client.dart';
 import '../services/storage_service.dart';
 import '../services/token_expired_service.dart';
@@ -14,6 +18,7 @@ import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
 import '../widgets/pull_refresh_guide.dart';
 import 'feature_guide_page.dart';
+import 'photo_preview_screen.dart';
 
 class DailyHoursScreen extends StatefulWidget {
   const DailyHoursScreen({super.key});
@@ -225,7 +230,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       // 2. 确定默认类型(从节假日计划)
       final defaultType =
           _holidayPlan[dateKey] ??
-          (_selectedDate.weekday <= 5 ? '工作日' : '非工作日');
+          (_selectedDate.weekday <= 5 ? AppConstants.typeWorkday : AppConstants.typeRestDay);
 
       // 3. 初始化dayData为默认值
       _dayData = {'type': defaultType, 'isManual': false, 'hours': 0.0};
@@ -237,13 +242,13 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       if (savedMark != null) {
         // 应用手动标记(覆盖默认类型)
         _dayData!['type'] = savedMark['type'] ?? defaultType;
-        _dayData!['isManual'] = true;
+        _dayData!['isManual'] = savedMark['isManual'] ?? true;
 
         if (savedMark['isOvertime'] != null) {
           _dayData!['isOvertime'] = savedMark['isOvertime'];
         }
 
-        if (savedMark['type'] == '自定义') {
+        if (savedMark['type'] == AppConstants.typeCustom) {
           _dayData!['customCheckIn'] = savedMark['customCheckIn'];
           _dayData!['customCheckOut'] = savedMark['customCheckOut'];
           // 根据自定义时间计算工时
@@ -255,10 +260,10 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
               checkOut,
             );
           }
-        } else if (savedMark['type'] == '出差') {
+        } else if (savedMark['type'] == AppConstants.typeBusinessTrip) {
           // 出差固定8小时
           _dayData!['hours'] = 8.0;
-        } else if (savedMark['type'] == '请假') {
+        } else if (savedMark['type'] == AppConstants.typeLeave) {
           // 请假0小时
           _dayData!['hours'] = 0.0;
         }
@@ -327,29 +332,85 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
           _attendanceData = {
             'checkInTime': attendance.checkIn,
             'checkOutTime': attendance.checkOut,
+            'checkInPhotoUrl': attendance.checkInPhotoUrl,
+            'checkOutPhotoUrl': attendance.checkOutPhotoUrl,
           };
+
+          // 智能识别逻辑 (Bug 2 修复 & 增强持久化)
+          if (_dayData != null && (_dayData!['isManual'] == null || _dayData!['isManual'] == false)) {
+            final type = _dayData!['type'];
+            final hasCheckIn = attendance.hasValidData;
+            bool changed = false;
+            
+            // 1. 节假日/休息日有打卡 -> 自动识别为加班日
+            // 注意：DailyHoursScreen使用'加班'还是'加班日'? Monthly使用的是'加班日'
+            // 之前的代码似乎用了'加班'，但这可能导致颜色匹配失败(如果buildTypeWarning用'加班日')
+            // 查看_buildTypeWarning: case '加班日'
+            // 所以应该统一用 '加班日'
+            if ((type == '休息' || type == AppConstants.typeRestDay || type == '节假日') && hasCheckIn) {
+               // 修正颜色显示问题：使用标准类型字符串 '加班日'
+              _dayData!['type'] = AppConstants.typeOvertime;
+              _dayData!['hours'] = attendance.hours;
+              changed = true;
+            }
+            // 2. 工作日无打卡 -> 自动识别为请假 (仅限过去日期)
+            else if (type == AppConstants.typeWorkday) {
+              final now = DateTime.now();
+              final today = DateTime(now.year, now.month, now.day);
+              
+              if (!hasCheckIn && _selectedDate.isBefore(today)) {
+                _dayData!['type'] = AppConstants.typeLeave;
+                _dayData!['hours'] = 0.0;
+                changed = true;
+              } else {
+                // 正常工作日，更新实际工时
+                _dayData!['hours'] = attendance.hours;
+              }
+            } else {
+               // 其他情况
+               _dayData!['hours'] = attendance.hours;
+            }
+
+            // 如果发生了类型智能变更，保存到storage以便日历页面也能同步显示
+            if (changed && _teamNo != null) {
+              final dateKey = DateFormat('yyyy-MM-dd').format(_selectedDate);
+              _storage.saveSingleCalendarMark(_teamNo!, dateKey, {
+                'type': _dayData!['type'],
+                'hours': _dayData!['hours'],
+                'isManual': false, // 标记为自动，允许后续再次智能修正
+                'isOvertime': _dayData!['type'] == AppConstants.typeOvertime,
+              });
+            }
+          }
         });
       }
     } catch (e) {
       print('获取每日考勤数据失败: $e');
-      // 检查是否是Token失效导致的错误
+      // 修复Bug 1：只在明确的Token失效异常时才弹出提示
       if (mounted && TokenExpiredService.isTokenExpiredError(e)) {
         await TokenExpiredService.handleTokenExpired(context);
+      } else {
+        // 网络错误等其他异常，可以显示SnackBar提示用户，但不要弹登录框
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('刷新失败: ${e.toString().replaceAll('Exception: ', '')}')),
+          );
+        }
       }
     }
   }
 
   /// 计算工时
   double _calculateHours() {
-    final type = _dayData?['type'] ?? '工作日';
+    final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
     // 出差恒定8小时
-    if (type == '出差') {
+    if (type == AppConstants.typeBusinessTrip) {
       return 8.0;
     }
 
     // 如果是自定义类型,从dayData获取工时
-    if (type == '自定义' && _dayData != null) {
+    if (type == AppConstants.typeCustom && _dayData != null) {
       final hours = _dayData!['hours'];
       if (hours is double) return hours;
       if (hours is int) return hours.toDouble();
@@ -408,11 +469,11 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 修改类型/工时
   Future<void> _showEditDialog() async {
-    final type = _dayData?['type'] ?? '工作日';
+    final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
     // 没有打卡的休息日不能改为请假/加班/工作
     final hasAttendance = _attendanceData?['checkInTime'] != null;
-    final isRest = type == '非工作日' || type == '休息';
+    final isRest = type == AppConstants.typeRestDay || type == '休息';
     final isManual = _dayData?['isManual'] ?? false;
 
     await showDialog(
@@ -464,7 +525,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   // 从节假日计划获取默认类型
                   final defaultType =
                       _holidayPlan[dateKey] ??
-                      (_selectedDate.weekday <= 5 ? '工作日' : '非工作日');
+                      (_selectedDate.weekday <= 5 ? AppConstants.typeWorkday : AppConstants.typeRestDay);
 
                   // 删除手动标记
                   final marks = await _storage.loadCalendarMarks(_teamNo!);
@@ -499,10 +560,109 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     );
   }
 
+  /// 显示打卡照片弹窗
+  void _showPhotoDialog() {
+    final checkInPhotoUrl = _attendanceData?['checkInPhotoUrl'] as String?;
+    final checkOutPhotoUrl = _attendanceData?['checkOutPhotoUrl'] as String?;
+
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text(
+                '打卡照片',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 16),
+              if (checkInPhotoUrl != null) ...[
+                const Text('上班打卡', style: TextStyle(fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                _buildPhotoWidget(checkInPhotoUrl, 'checkIn'),
+                const SizedBox(height: 16),
+              ],
+              if (checkOutPhotoUrl != null) ...[
+                const Text('下班打卡', style: TextStyle(fontWeight: FontWeight.w500)),
+                const SizedBox(height: 8),
+                _buildPhotoWidget(checkOutPhotoUrl, 'checkOut'),
+              ],
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('关闭'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// 构建照片组件
+  Widget _buildPhotoWidget(String photoUrl, String label) {
+    // 使用URL作为Hero Tag，保证唯一性
+    final heroTag = 'photo_$label$photoUrl';
+    
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => PhotoPreviewScreen(
+              photoUrl: photoUrl,
+              heroTag: heroTag,
+            ),
+          ),
+        );
+      },
+      child: Hero(
+        tag: heroTag,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(8),
+          child: Image.network(
+            photoUrl,
+            height: 200,
+            fit: BoxFit.contain,
+            loadingBuilder: (context, child, loadingProgress) {
+              if (loadingProgress == null) return child;
+              return SizedBox(
+                height: 150,
+                child: Center(
+                  child: CircularProgressIndicator(
+                    value: loadingProgress.expectedTotalBytes != null
+                        ? loadingProgress.cumulativeBytesLoaded /
+                            loadingProgress.expectedTotalBytes!
+                        : null,
+                  ),
+                ),
+              );
+            },
+            errorBuilder: (context, error, stackTrace) => Container(
+              height: 150,
+              color: Colors.grey[200],
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.broken_image, color: Colors.grey),
+                  const SizedBox(height: 8),
+                  const Text('照片加载失败', style: TextStyle(color: Colors.grey)),
+                  // 移除详细错误显示，保持界面整洁(KISS)
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final hours = _calculateHours();
-    final type = _dayData?['type'] ?? '工作日';
+    final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
     return Stack(
       children: [
@@ -619,6 +779,10 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         typeIcon = Icons.help_outline;
     }
 
+    // 检查是否有照片
+    final hasPhoto = _attendanceData?['checkInPhotoUrl'] != null ||
+        _attendanceData?['checkOutPhotoUrl'] != null;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
@@ -630,42 +794,71 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
             ? Border.all(color: typeColor.withValues(alpha: 0.3))
             : null,
       ),
-      child: Wrap(
-        crossAxisAlignment: WrapCrossAlignment.center,
-        spacing: 8,
-        runSpacing: 4,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(typeIcon, color: typeColor, size: 20),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: typeColor.withValues(alpha: 0.15),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Text(
-              type,
-              style: TextStyle(
-                color: typeColor,
-                fontWeight: FontWeight.bold,
-                fontSize: 13,
+          Row(
+            children: [
+              Icon(typeIcon, color: typeColor, size: 20),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: typeColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  type,
+                  style: TextStyle(
+                    color: typeColor,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
               ),
-            ),
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-            decoration: BoxDecoration(
-              color: isManual ? Colors.orange[50] : Colors.green[50],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              isManual ? '手动' : '自动',
-              style: TextStyle(
-                fontSize: 10,
-                color: isManual ? Colors.orange[700] : Colors.green[700],
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: isManual ? Colors.orange[50] : Colors.green[50],
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  isManual ? '手动' : '自动',
+                  style: TextStyle(
+                    fontSize: 10,
+                    color: isManual ? Colors.orange[700] : Colors.green[700],
+                  ),
+                ),
               ),
-            ),
+              const Spacer(),
+              // 查看照片按钮
+              if (hasPhoto)
+                GestureDetector(
+                  onTap: () => _showPhotoDialog(),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.photo_camera, size: 14, color: Colors.blue[700]),
+                        const SizedBox(width: 4),
+                        Text(
+                          '打卡照片',
+                          style: TextStyle(fontSize: 11, color: Colors.blue[700]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
           ),
-          if (warningText != null)
+          if (warningText != null) ...[
+            const SizedBox(height: 6),
             Text(
               warningText,
               style: TextStyle(
@@ -673,6 +866,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 color: typeColor.withValues(alpha: 0.8),
               ),
             ),
+          ],
         ],
       ),
     );
@@ -728,7 +922,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   ],
                 ),
                 // 只有非加班、非休息日才显示工时百分比
-                if (type != '加班日' && type != '非工作日' && type != '休息') ...[
+                if (type != AppConstants.typeOvertime && type != AppConstants.typeRestDay && type != '休息') ...[
                   const SizedBox(height: 8),
                   Text(
                     '已完成 ${((hours / 8.0 * 100 * 100).truncate() / 100).toStringAsFixed(2)}%',
@@ -746,7 +940,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         const SizedBox(height: 12),
         _buildCheckInOutCard(),
         // 自定义类型显示设置的时间
-        if (type == '自定义') ...[
+        if (type == AppConstants.typeCustom) ...[
           const SizedBox(height: 12),
           Card(
             elevation: 2,
@@ -1101,7 +1295,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     ),
                   ],
                 ),
-                if (type == '出差') ...[
+                if (type == AppConstants.typeBusinessTrip) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(8),
@@ -1128,7 +1322,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     ),
                   ),
                 ],
-                if (type == '自定义') ...[
+                if (type == AppConstants.typeCustom) ...[
                   const SizedBox(height: 12),
                   Container(
                     padding: const EdgeInsets.all(8),
@@ -1188,15 +1382,15 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 目标进度(仿照每月样式) 或 历史统计
   Widget _buildTargetProgress(double hours) {
-    final type = _dayData?['type'] ?? '工作日';
+    final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
     // 加班日、非工作日、请假、出差 不显示目标进度
     // 出差固定8小时无需显示目标进度
-    if (type == '加班日' ||
-        type == '非工作日' ||
+    if (type == AppConstants.typeOvertime ||
+        type == AppConstants.typeRestDay ||
         type == '休息' ||
-        type == '请假' ||
-        type == '出差') {
+        type == AppConstants.typeLeave ||
+        type == AppConstants.typeBusinessTrip) {
       return const SizedBox.shrink();
     }
 
@@ -1738,9 +1932,9 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       return Container(
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: color.withOpacity(0.3), width: 1),
+          border: Border.all(color: color.withValues(alpha: 0.3), width: 1),
         ),
         child: Row(
           children: [
@@ -1882,7 +2076,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
   @override
   void initState() {
     super.initState();
-    currentType = widget.initialData?['type'] ?? '工作日';
+    currentType = widget.initialData?['type'] ?? AppConstants.typeWorkday;
     isOvertime = widget.initialData?['isOvertime'] ?? false;
 
     if (widget.attendanceData != null) {
@@ -1936,8 +2130,8 @@ class _EditDayDialogState extends State<_EditDayDialog> {
   }
 
   double _calculateHours() {
-    if (currentType == '出差') return 8.0;
-    if (currentType == '请假') return 0.0;
+    if (currentType == AppConstants.typeBusinessTrip) return 8.0;
+    if (currentType == AppConstants.typeLeave) return 0.0;
 
     // 先智能解析输入
     final checkIn = _parseTimeInput(_checkInController.text);
@@ -1965,10 +2159,10 @@ class _EditDayDialogState extends State<_EditDayDialog> {
             Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: ['工作日', '加班日', '出差', '请假', '自定义', '非工作日'].map((type) {
+              children: AppConstants.allWorkTypes.map((type) {
                 final isDisabled =
                     !widget.canModify &&
-                    (type == '请假' || type == '加班日' || type == '工作日') &&
+                    (type == AppConstants.typeLeave || type == AppConstants.typeOvertime || type == AppConstants.typeWorkday) &&
                     !hasAttendance;
                 final isSelected = currentType == type;
 
@@ -1996,9 +2190,9 @@ class _EditDayDialogState extends State<_EditDayDialog> {
                 return ChoiceChip(
                   label: Text(type),
                   selected: isSelected,
-                  backgroundColor: typeColor.withOpacity(0.2),
+                  backgroundColor: typeColor.withValues(alpha: 0.2),
                   selectedColor: typeColor,
-                  disabledColor: Colors.grey.withOpacity(0.1),
+                  disabledColor: Colors.grey.withValues(alpha: 0.1),
                   onSelected: isDisabled
                       ? null
                       : (selected) async {
@@ -2014,7 +2208,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
             ),
             const SizedBox(height: 16),
 
-            if (currentType == '出差' || currentType == '自定义') ...[
+            if (currentType == AppConstants.typeBusinessTrip || currentType == AppConstants.typeCustom) ...[
               const Text(
                 '工时类型:',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -2044,7 +2238,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
               const SizedBox(height: 16),
             ],
 
-            if (currentType == '自定义') ...[
+            if (currentType == AppConstants.typeCustom) ...[
               const Text(
                 '自定义时间:',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -2108,7 +2302,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
               'hours': hours,
               'isOvertime': isOvertime,
               'isManual': true,
-              if (currentType == '自定义') ...{
+              if (currentType == AppConstants.typeCustom) ...{
                 'customCheckIn': _parseTimeInput(_checkInController.text),
                 'customCheckOut': _parseTimeInput(_checkOutController.text),
               },
@@ -2190,7 +2384,7 @@ class _CongratulationsDialogState extends State<_CongratulationsDialog>
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
+                      color: Colors.black.withValues(alpha: 0.2),
                       blurRadius: 20,
                       offset: const Offset(0, 10),
                     ),

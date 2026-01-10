@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:http/http.dart' as http;
+import '../core/constants/constants.dart';
+import '../core/error/exceptions.dart';
+import '../core/theme/theme.dart';
 import 'storage_service.dart';
 import '../screens/login_screen.dart';
 
@@ -14,23 +17,27 @@ class TokenExpiredService {
   static bool isTokenExpiredError(dynamic error) {
     if (error == null) return false;
 
-    final errorStr = error.toString().toLowerCase();
-    return errorStr.contains('无法获取账户信息') ||
-        errorStr.contains('token') ||
-        errorStr.contains('登录') ||
-        errorStr.contains('999999') ||
-        errorStr.contains('失效') ||
-        errorStr.contains('过期') ||
-        errorStr.contains('unauthorized') ||
-        errorStr.contains('认证');
+    // 优先检查是否为定义的异常类型
+    if (error is TokenExpiredException) return true;
+
+    // 字符串匹配兼容
+    final errorStr = error.toString();
+    if (errorStr.contains('TokenExpiredException')) return true;
+
+    // 兼容旧的字符串判断，但收窄范围，避免网络错误误判
+    final lower = errorStr.toLowerCase();
+    return lower.contains('code: ${AppConstants.apiCodeTokenExpired}') ||
+        lower.contains('status code: 401') ||
+        lower.contains('status code: 403') ||
+        lower.contains('登录状态已失效');
   }
 
   /// 检查API响应是否表示Token失效
   static bool isTokenExpiredResponse(Map<String, dynamic>? response) {
-    if (response == null) return true; // 无法获取响应通常意味着Token问题
+    if (response == null) return false; // null可能是网络错误，不一定是Token失效
 
     final code = response['code'];
-    return code == 999999 || code == 401 || code == 403;
+    return code == AppConstants.apiCodeTokenExpired || code == 401 || code == 403;
   }
 
   /// 显示Token失效对话框并引导用户重新登录
@@ -88,16 +95,17 @@ class TokenExpiredService {
       // 清除 WebView cookies（关键！否则自动登录会生效）
       final cookieManager = CookieManager.instance();
       await cookieManager.deleteAllCookies();
-      await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
-      await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
-      await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
+      try {
+        await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
+        await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
+        await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
+      } catch (e) {
+        // 忽略URL解析错误
+      }
 
-      // 清除所有本地数据
-      await prefs.clear();
-
-      // 清除 storage
+      // 使用 StorageService 清除认证信息 (保留用户设置)
       final storage = StorageService();
-      await storage.clearAll();
+      await storage.clearAuthInfo();
 
       // 跳转到登录页（使用 forceLogout 确保 WebView 也清除 cookies）
       if (context.mounted) {
@@ -136,16 +144,16 @@ class _TokenExpiredDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: AppDimens.borderRadiusLg),
       title: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: Colors.orange[50],
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.warningLight,
+              borderRadius: AppDimens.borderRadiusMd,
             ),
-            child: Icon(Icons.lock_clock, color: Colors.orange[700], size: 28),
+            child: Icon(Icons.lock_clock, color: AppColors.warningDark, size: 28),
           ),
           const SizedBox(width: 12),
           const Expanded(
@@ -162,23 +170,23 @@ class _TokenExpiredDialog extends StatelessWidget {
         children: [
           Text(
             '您的登录凭证已过期，无法获取考勤数据。',
-            style: TextStyle(fontSize: 14, color: Colors.grey[700]),
+            style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
           ),
           const SizedBox(height: 12),
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.blue[50],
-              borderRadius: BorderRadius.circular(8),
+              color: AppColors.infoLight,
+              borderRadius: AppDimens.borderRadiusMd,
             ),
             child: Row(
               children: [
-                Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                Icon(Icons.info_outline, color: AppColors.infoDark, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(
                     '请重新登录以继续使用应用',
-                    style: TextStyle(fontSize: 13, color: Colors.blue[700]),
+                    style: TextStyle(fontSize: 13, color: AppColors.infoDark),
                   ),
                 ),
               ],
@@ -190,7 +198,7 @@ class _TokenExpiredDialog extends StatelessWidget {
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
-              color: Colors.grey[800],
+              color: AppColors.textPrimary,
             ),
           ),
           const SizedBox(height: 8),
@@ -202,18 +210,18 @@ class _TokenExpiredDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(false),
-          child: Text('稍后再说', style: TextStyle(color: Colors.grey[600])),
+          child: Text('稍后再说', style: TextStyle(color: AppColors.textSecondary)),
         ),
         ElevatedButton.icon(
           onPressed: () => Navigator.of(context).pop(true),
           icon: const Icon(Icons.login, size: 18),
           label: const Text('重新登录'),
           style: ElevatedButton.styleFrom(
-            backgroundColor: Colors.blue,
-            foregroundColor: Colors.white,
+            backgroundColor: AppColors.primary,
+            foregroundColor: AppColors.onPrimary,
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: AppDimens.borderRadiusMd,
             ),
           ),
         ),
@@ -226,7 +234,7 @@ class _TokenExpiredDialog extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 4),
       child: Text(
         text,
-        style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+        style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
       ),
     );
   }

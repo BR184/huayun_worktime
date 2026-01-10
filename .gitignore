@@ -7,13 +7,11 @@ __pycache__/
 env/
 venv/
 ENV/
-build/
 develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
-# lib/
 lib64/
 parts/
 sdist/
@@ -32,22 +30,68 @@ app/data/calendar_marks.json
 app/data/*.json.backup*
 app/data/*.tmp*
 
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+hikiot_worktime/build/
+build/
+coverage/
+*.g.dart
+*.freezed.dart
+*.mocks.dart
+
+# Flutter workspace files
+.flutter-workspace
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# Android related
+hikiot_worktime/android/local.properties
+hikiot_worktime/android/.gradle/
+hikiot_worktime/android/captures/
+hikiot_worktime/android/gradlew
+hikiot_worktime/android/gradlew.bat
+hikiot_worktime/android/key.properties
+hikiot_worktime/android/app/debug
+hikiot_worktime/android/app/profile
+hikiot_worktime/android/app/release
+
+# iOS related
+hikiot_worktime/ios/Pods/
+hikiot_worktime/ios/Podfile.lock
+hikiot_worktime/ios/.symlinks/
+hikiot_worktime/ios/Flutter/flutter_export_environment.sh
+hikiot_worktime/ios/Flutter/Flutter.framework
+hikiot_worktime/ios/Flutter/Flutter.podspec
+hikiot_worktime/ios/Runner.xcworkspace/xcuserdata/
+
 # IDE
 .vscode/
-.idea/
 *.swp
 *.swo
 *~
 
-# 系统文件
+# System files
 .DS_Store
 Thumbs.db
 desktop.ini
 
-# 日志文件
+# Log files
 *.log
 
-# 临时文件
+# Temporary files
+*.tmp
+*~
 *.tmp
 *.bak
 .cache/

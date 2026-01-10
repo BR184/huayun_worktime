@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants/constants.dart';
+import '../core/theme/theme.dart';
 import '../services/hikiot_api_client.dart';
 import '../services/storage_service.dart';
 import '../services/token_expired_service.dart';
@@ -16,8 +18,7 @@ import '../widgets/haptic_refresh_indicator.dart';
 class MonthlyCalendarScreen extends StatefulWidget {
   final String token;
 
-  const MonthlyCalendarScreen({Key? key, required this.token})
-    : super(key: key);
+  const MonthlyCalendarScreen({super.key, required this.token});
 
   @override
   MonthlyCalendarScreenState createState() => MonthlyCalendarScreenState();
@@ -326,6 +327,19 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               _monthlyData[todayStr]!['hours'] = attendance.hours;
               _monthlyData[todayStr]!['checkIn'] = attendance.checkIn;
               _monthlyData[todayStr]!['checkOut'] = attendance.checkOut;
+
+              // 智能识别逻辑 (Bug 2 修复对应)
+              // 1. 休息日有打卡 -> 自动改为加班日
+              if (attendance.hours > 0 && 
+                  (_monthlyData[todayStr]!['type'] == '休息' || 
+                   _monthlyData[todayStr]!['type'] == AppConstants.typeRestDay || 
+                   _monthlyData[todayStr]!['type'] == '节假日')) {
+                _monthlyData[todayStr]!['type'] = AppConstants.typeOvertime;
+              }
+              // 2. 工作日无打卡 -> 自动改为请假 (如果是通过refreshTodayData触发，说明是"今天"，所以通常不设请假，除非当前时间很晚了)
+              // 但 refreshTodayData 通常用于刷新"今天"，如果今天还没打卡，设为请假可能不妥（用户可能只是迟到）
+              // 只有 DailyHoursScreen 会对"过去"的时间设为请假
+              // 这里我们只处理"加班"的实时更新
             });
 
             // 同步更新缓存
@@ -381,16 +395,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             data['isOvertime'] = markData['isOvertime'] ?? false;
 
             // 根据类型计算工时
-            if (markData['type'] == '自定义') {
+            if (markData['type'] == AppConstants.typeCustom) {
               data['customCheckIn'] = markData['customCheckIn'] ?? '09:00';
               data['customCheckOut'] = markData['customCheckOut'] ?? '18:00';
               data['hours'] = _calculateCustomHours(
                 data['customCheckIn'] as String,
                 data['customCheckOut'] as String,
               );
-            } else if (markData['type'] == '出差') {
+            } else if (markData['type'] == AppConstants.typeBusinessTrip) {
               data['hours'] = 8.0;
-            } else if (markData['type'] == '请假') {
+            } else if (markData['type'] == AppConstants.typeLeave) {
               data['hours'] = 0.0;
             }
             // 其他类型保持 API 原始工时（已在上面恢复）
@@ -404,7 +418,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             // 从节假日计划获取默认类型
             final date = DateTime.parse(dateStr);
             final defaultType =
-                _holidayPlan[dateStr] ?? (date.weekday <= 5 ? '工作日' : '非工作日');
+                _holidayPlan[dateStr] ?? (date.weekday <= 5 ? AppConstants.typeWorkday : AppConstants.typeRestDay);
 
             data['type'] = defaultType;
             data['hours'] = data['apiHours'] ?? 0.0;
@@ -555,8 +569,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             _holidayPlan[dateStr] ??
             (DateTime(_selectedMonth.year, _selectedMonth.month, day).weekday <=
                     5
-                ? '工作日'
-                : '非工作日');
+                ? AppConstants.typeWorkday
+                : AppConstants.typeRestDay);
 
         dataMap[dateStr] = {
           'hours': 0.0,
@@ -586,19 +600,19 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
         // 智能加班识别：如果是非工作日但有工时，自动改为加班日
         if (hours > 0 &&
-            dataMap[date]!['type'] == '非工作日' &&
+            dataMap[date]!['type'] == AppConstants.typeRestDay &&
             !dataMap[date]!['isManual']) {
-          dataMap[date]!['type'] = '加班日';
+          dataMap[date]!['type'] = AppConstants.typeOvertime;
         }
 
         // 智能请假识别：如果是工作日但无工时(且非今天)，自动改为请假
         final now = DateTime.now();
         final today = DateFormat('yyyy-MM-dd').format(now);
         if (hours == 0 &&
-            dataMap[date]!['type'] == '工作日' &&
+            dataMap[date]!['type'] == AppConstants.typeWorkday &&
             date != today &&
             !dataMap[date]!['isManual']) {
-          dataMap[date]!['type'] = '请假';
+          dataMap[date]!['type'] = AppConstants.typeLeave;
         }
       }
 
@@ -614,7 +628,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           }
 
           // 如果是自定义类型，恢复自定义时间和工时
-          if (mark['type'] == '自定义') {
+          if (mark['type'] == AppConstants.typeCustom) {
             if (mark['customCheckIn'] != null) {
               dataMap[dateStr]!['customCheckIn'] = mark['customCheckIn'];
             }
@@ -629,7 +643,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 mark['customCheckOut'] as String,
               );
             }
-          } else if (mark['type'] == '出差') {
+          } else if (mark['type'] == AppConstants.typeBusinessTrip) {
             // 出差类型自动设定工时为8小时
             dataMap[dateStr]!['hours'] = 8.0;
           }
@@ -671,9 +685,9 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     if (_selectedMonth.year < 2010) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('无法更新2010年之前的节假日'),
-            backgroundColor: Colors.orange,
+          SnackBar(
+            content: const Text('无法更新2010年之前的节假日'),
+            backgroundColor: AppColors.warning,
           ),
         );
       }
@@ -685,7 +699,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('无法更新${now.year}年${now.month + 1}月之后的节假日'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.warning,
           ),
         );
       }
@@ -710,7 +724,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             content: Text(
               success ? '节假日更新成功,共${_holidayPlan.length}天' : '节假日API失败,使用默认规则',
             ),
-            backgroundColor: success ? Colors.green : Colors.orange,
+            backgroundColor: success ? AppColors.success : AppColors.warning,
           ),
         );
       }
@@ -720,7 +734,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('节假日更新失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('节假日更新失败: $e'), backgroundColor: AppColors.error),
         );
       }
       setState(() {
@@ -802,7 +816,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   ? '智能更新完成，更新了 $updatedCount 天'
                   : '数据已是最新，无需更新',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
             duration: const Duration(seconds: 2),
           ),
         );
@@ -812,7 +826,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('更新失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('更新失败: $e'), backgroundColor: AppColors.error),
         );
       }
       setState(() => _isLoading = false);
@@ -863,13 +877,30 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       );
       final apiData = AttendanceParser.parseFromResponse(apiResponse);
 
-      // 比较是否一致
-      if (localData.hasValidData && localData.isConsistentWith(apiData)) {
+      // 检查是否需要类型修正 (Bug 2 Fix 核心逻辑)
+      bool needsTypeCorrection = false;
+      final currentType = _monthlyData[dateStr]!['type'];
+      
+      // 1. 休息日有打卡 -> 应为加班日
+      if (apiData.hours > 0 && 
+          (currentType == '休息' || currentType == AppConstants.typeRestDay || currentType == '节假日')) {
+        needsTypeCorrection = true;
+      }
+      // 2. 工作日无打卡(且是过去日期) -> 应为请假
+      final todayStr = DateFormat('yyyy-MM-dd').format(now);
+      if (apiData.hours == 0 &&
+          currentType == AppConstants.typeWorkday &&
+          dateStr != todayStr) {
+        needsTypeCorrection = true;
+      }
+
+      // 比较是否一致 (只有当数据一致且不需要类型修正时，才停止更新)
+      if (localData.hasValidData && localData.isConsistentWith(apiData) && !needsTypeCorrection) {
         // 一致！信任该天及之前的所有数据，停止更新
-        print('$dateStr 数据一致(${apiData.checkIn}~${apiData.checkOut})，停止更新');
+        print('$dateStr 数据一致且类型正确，停止更新');
         break;
       } else {
-        // 不一致或无数据，更新这一天
+        // 不一致或需要修正，更新这一天
         if (_monthlyData.containsKey(dateStr)) {
           _monthlyData[dateStr]!['hours'] = apiData.hours;
           _monthlyData[dateStr]!['apiHours'] = apiData.hours;
@@ -877,6 +908,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           _monthlyData[dateStr]!['checkOut'] = apiData.checkOut;
           _monthlyData[dateStr]!['isLate'] = apiData.isLate;
           _monthlyData[dateStr]!['isEarlyLeave'] = apiData.isEarlyLeave;
+
+          // 应用类型修正
+          if (needsTypeCorrection) {
+             if (apiData.hours > 0) {
+               _monthlyData[dateStr]!['type'] = AppConstants.typeOvertime;
+             } else if (apiData.hours == 0) {
+               _monthlyData[dateStr]!['type'] = AppConstants.typeLeave;
+             }
+             print('$dateStr 类型智能修正 -> ${_monthlyData[dateStr]!['type']}');
+          }
 
           updatedCount++;
           print(
@@ -1025,7 +1066,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             Icon(
               isTokenExpired ? Icons.lock_clock : Icons.error_outline,
               size: 72,
-              color: isTokenExpired ? Colors.orange : Colors.red,
+              color: isTokenExpired ? AppColors.warning : AppColors.error,
             ),
             const SizedBox(height: 20),
             Text(
@@ -1033,21 +1074,21 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               style: TextStyle(
                 fontSize: 20,
                 fontWeight: FontWeight.bold,
-                color: isTokenExpired ? Colors.orange[800] : Colors.red,
+                color: isTokenExpired ? AppColors.warningDark : AppColors.error,
               ),
             ),
             const SizedBox(height: 12),
             Text(
               isTokenExpired ? '您的登录凭证已过期，请重新登录以继续使用' : _error ?? '未知错误',
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+              style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
             ),
             const SizedBox(height: 8),
             if (!isTokenExpired)
               Text(
                 _error ?? '',
                 textAlign: TextAlign.center,
-                style: const TextStyle(fontSize: 12, color: Colors.red),
+                style: TextStyle(fontSize: 12, color: AppColors.error),
               ),
             const SizedBox(height: 24),
             if (isTokenExpired) ...[
@@ -1059,8 +1100,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   icon: const Icon(Icons.login),
                   label: const Text('重新登录'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.blue,
-                    foregroundColor: Colors.white,
+                    backgroundColor: AppColors.primary,
+                    foregroundColor: AppColors.onPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 14),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(10),
@@ -1164,7 +1205,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   const SizedBox(height: 4),
                   Text(
                     _teamName ?? '未知',
-                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                    style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -1188,7 +1229,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 icon: Icons.update,
                 label: '全量更新工时',
                 isOutlined: true,
-                foregroundColor: Colors.orange[700],
+                foregroundColor: AppColors.warningDark,
               ),
             ),
             const SizedBox(width: 12),
@@ -1197,7 +1238,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 onPressed: () => _updateAttendance(forceAll: false),
                 icon: Icons.refresh,
                 label: '快速更新工时',
-                backgroundColor: Colors.green,
+                backgroundColor: AppColors.success,
               ),
             ),
           ],
@@ -1293,7 +1334,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                           day,
                           style: TextStyle(
                             fontWeight: FontWeight.bold,
-                            color: Colors.grey[700],
+                            color: AppColors.textSecondary,
                           ),
                         ),
                       ),
@@ -1345,18 +1386,18 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: Colors.amber[50],
+                color: AppColors.warningLight,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.amber[200]!),
+                border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.amber[700]),
+                  Icon(Icons.info_outline, size: 16, color: AppColors.warningDark),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '如某天类型/工时有误，点击该日可手动修改',
-                      style: TextStyle(fontSize: 12, color: Colors.amber[800]),
+                      style: TextStyle(fontSize: 12, color: AppColors.warningDark),
                     ),
                   ),
                 ],
@@ -1381,7 +1422,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       'yyyy-MM-dd',
     ).format(DateTime(_selectedMonth.year, _selectedMonth.month, day));
     final dayData = _monthlyData[dateStr];
-    final dayType = dayData?['type'] ?? '工作日';
+    final dayType = dayData?['type'] ?? AppConstants.typeWorkday;
     final isManual = dayData?['isManual'] ?? false;
 
     // 根据类型选择背景颜色
@@ -1419,13 +1460,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }
 
     // 文字颜色 - 非工作日用深色文字，其他用白色
-    final textColor = (dayType == '非工作日' || opacity < 0.5)
+    final textColor = (dayType == AppConstants.typeRestDay || opacity < 0.5)
         ? Colors.grey.shade800
         : Colors.white;
 
     return Container(
       decoration: BoxDecoration(
-        color: bgColor.withOpacity(opacity),
+        color: bgColor.withValues(alpha: opacity),
         border: isToday
             ? Border.all(color: Colors.orange, width: 2)
             : Border.all(color: Colors.grey[300]!, width: 0.5),
@@ -1485,7 +1526,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     final dayData = _monthlyData[dateStr];
     if (dayData == null) return;
 
-    String currentType = dayData['type'] ?? '工作日';
+    String currentType = dayData['type'] ?? AppConstants.typeWorkday;
     bool isOvertime = dayData['isOvertime'] ?? false; // ☀️=正常 🌙=加班
     String customCheckIn = dayData['customCheckIn'] ?? '09:00';
     String customCheckOut = dayData['customCheckOut'] ?? '18:00';
@@ -1621,15 +1662,15 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: ['工作日', '加班日', '出差', '请假', '自定义', '非工作日'].map((
+                      children: AppConstants.allWorkTypes.map((
                         type,
                       ) {
                         final isSelected = currentType == type;
 
                         // 判断是否应该禁用此按钮
                         final isDisabled =
-                            (type == '加班日' || type == '请假') &&
-                            dayData['type'] == '非工作日' &&
+                            (type == AppConstants.typeOvertime || type == AppConstants.typeLeave) &&
+                            dayData['type'] == AppConstants.typeRestDay &&
                             (dayData['hours'] == null ||
                                 dayData['hours'] == 0.0);
 
@@ -1660,16 +1701,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                             type,
                             style: TextStyle(
                               color: isDisabled
-                                  ? Colors.grey.withOpacity(0.5)
+                                  ? Colors.grey.withValues(alpha: 0.5)
                                   : (isSelected ? Colors.white : Colors.black),
                             ),
                           ),
                           selected: isSelected,
                           backgroundColor: isDisabled
-                              ? Colors.grey.withOpacity(0.1)
-                              : typeColor.withOpacity(0.3),
+                              ? Colors.grey.withValues(alpha: 0.1)
+                              : typeColor.withValues(alpha: 0.3),
                           selectedColor: typeColor,
-                          disabledColor: Colors.grey.withOpacity(0.1),
+                          disabledColor: Colors.grey.withValues(alpha: 0.1),
                           onSelected: isDisabled
                               ? null
                               : (selected) {
@@ -1680,9 +1721,9 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                       currentType = type;
 
                                       // 如果从非工作日切换到出差/自定义，默认为加班
-                                      if ((type == '出差' || type == '自定义') &&
-                                          (previousType == '非工作日' ||
-                                              dayData['type'] == '非工作日')) {
+                                      if ((type == AppConstants.typeBusinessTrip || type == AppConstants.typeCustom) &&
+                                          (previousType == AppConstants.typeRestDay ||
+                                              dayData['type'] == AppConstants.typeRestDay)) {
                                         isOvertime = true;
                                       }
                                     });
@@ -1694,7 +1735,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     const SizedBox(height: 16),
 
                     // 出差/自定义的额外控件
-                    if (currentType == '出差' || currentType == '自定义') ...[
+                    if (currentType == AppConstants.typeBusinessTrip || currentType == AppConstants.typeCustom) ...[
                       Row(
                         children: [
                           const Text(
@@ -1729,7 +1770,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     ],
 
                     // 自定义类型的时间输入
-                    if (currentType == '自定义') ...[
+                    if (currentType == AppConstants.typeCustom) ...[
                       const Text(
                         '自定义时间:',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -1844,7 +1885,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       'type': type,
       'isManual': true,
       'isOvertime': isOvertime,
-      if (type == '自定义') ...{
+      if (type == AppConstants.typeCustom) ...{
         'customCheckIn': customCheckIn,
         'customCheckOut': customCheckOut,
       },
@@ -1858,7 +1899,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         _monthlyData[dateStr]!['isManual'] = true;
         _monthlyData[dateStr]!['isOvertime'] = isOvertime;
 
-        if (type == '自定义') {
+        if (type == AppConstants.typeCustom) {
           _monthlyData[dateStr]!['customCheckIn'] = customCheckIn;
           _monthlyData[dateStr]!['customCheckOut'] = customCheckOut;
           // 计算自定义工时
@@ -1866,10 +1907,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             customCheckIn,
             customCheckOut,
           );
-        } else if (type == '出差') {
+        } else if (type == AppConstants.typeBusinessTrip) {
           // 出差类型自动设定工时为8小时
           _monthlyData[dateStr]!['hours'] = 8.0;
-        } else if (type == '请假') {
+        } else if (type == AppConstants.typeLeave) {
           // 请假类型工时为0
           _monthlyData[dateStr]!['hours'] = 0.0;
         }
@@ -1888,7 +1929,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     // 从default_plan恢复默认类型
     final defaultType =
         _holidayPlan[dateStr] ??
-        (DateTime.parse(dateStr).weekday <= 5 ? '工作日' : '非工作日');
+        (DateTime.parse(dateStr).weekday <= 5 ? AppConstants.typeWorkday : AppConstants.typeRestDay);
 
     // 删除手动标记
     final savedMarks = await _storage.loadCalendarMarks(_teamNo!);
@@ -2042,16 +2083,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       final type = data['type'] as String;
       final isOvertime = (data['isOvertime'] ?? false) as bool;
 
-      if (type == '工作日' ||
-          type == '请假' ||
-          (type == '自定义' && !isOvertime) ||
-          (type == '出差' && !isOvertime)) {
+      if (type == AppConstants.typeWorkday ||
+          type == AppConstants.typeLeave ||
+          (type == AppConstants.typeCustom && !isOvertime) ||
+          (type == AppConstants.typeBusinessTrip && !isOvertime)) {
         totalWorkDaysAll++;
-      } else if (type == '加班日' ||
-          (type == '自定义' && isOvertime) ||
-          (type == '出差' && isOvertime)) {
+      } else if (type == AppConstants.typeOvertime ||
+          (type == AppConstants.typeCustom && isOvertime) ||
+          (type == AppConstants.typeBusinessTrip && isOvertime)) {
         totalOvertimeDaysAll++;
-      } else if (type == '非工作日') {
+      } else if (type == AppConstants.typeRestDay) {
         totalRestDaysAll++;
       }
     });
@@ -2084,20 +2125,20 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         final todayIsOvertime = (todayData['isOvertime'] ?? false) as bool;
 
         // 从总工时中减去今天的工时
-        if (todayType == '工作日' || todayType == '请假') {
+        if (todayType == AppConstants.typeWorkday || todayType == AppConstants.typeLeave) {
           totalHoursExcludingToday -= todayHours;
           totalWorkDaysExcludingToday -= 1;
-        } else if (todayType == '加班日') {
+        } else if (todayType == AppConstants.typeOvertime) {
           totalHoursExcludingToday -= todayHours;
-        } else if (todayType == '自定义' && !todayIsOvertime) {
-          totalHoursExcludingToday -= todayHours;
-          totalWorkDaysExcludingToday -= 1;
-        } else if (todayType == '自定义' && todayIsOvertime) {
-          totalHoursExcludingToday -= todayHours;
-        } else if (todayType == '出差' && !todayIsOvertime) {
+        } else if (todayType == AppConstants.typeCustom && !todayIsOvertime) {
           totalHoursExcludingToday -= todayHours;
           totalWorkDaysExcludingToday -= 1;
-        } else if (todayType == '出差' && todayIsOvertime) {
+        } else if (todayType == AppConstants.typeCustom && todayIsOvertime) {
+          totalHoursExcludingToday -= todayHours;
+        } else if (todayType == AppConstants.typeBusinessTrip && !todayIsOvertime) {
+          totalHoursExcludingToday -= todayHours;
+          totalWorkDaysExcludingToday -= 1;
+        } else if (todayType == AppConstants.typeBusinessTrip && todayIsOvertime) {
           totalHoursExcludingToday -= todayHours;
         }
       }
@@ -2130,31 +2171,31 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               runSpacing: 8,
               children: [
                 _buildTypeChip(
-                  '工作日',
+                  AppConstants.typeWorkday,
                   workDayCountAll,
                   workDayHoursAll,
                   Colors.green,
                 ),
                 _buildTypeChip(
-                  '加班日',
+                  AppConstants.typeOvertime,
                   overtimeDayCountAll,
                   overtimeDayHoursAll,
                   Colors.purple,
                 ),
                 _buildTypeChip(
-                  '出差',
+                  AppConstants.typeBusinessTrip,
                   tripDayCountAll,
                   tripDayHoursAll,
                   Colors.amber,
                 ),
                 _buildTypeChip(
-                  '请假',
+                  AppConstants.typeLeave,
                   leaveDayCountAll,
                   leaveDayHoursAll,
                   Colors.red,
                 ),
                 _buildTypeChip(
-                  '自定义',
+                  AppConstants.typeCustom,
                   customDayCountAll,
                   customDayHoursAll,
                   Colors.blue,
@@ -2291,7 +2332,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: Text(
-                  '达成${_baseTarget}%目标，今日需 ${(totalWorkDays * 8.0 * _baseTarget / 100).toStringAsFixed(0)}h，截至昨日需 ${(totalWorkDaysExcludingToday * 8.0 * _baseTarget / 100).toStringAsFixed(0)}h',
+                  '达成$_baseTarget%目标，今日需 ${(totalWorkDays * 8.0 * _baseTarget / 100).toStringAsFixed(0)}h，截至昨日需 ${(totalWorkDaysExcludingToday * 8.0 * _baseTarget / 100).toStringAsFixed(0)}h',
                   style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
@@ -2396,10 +2437,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         final type = todayData['type'] as String;
         final hours = (todayData['hours'] ?? 0.0) as double;
         todayIsWorkDay =
-            type == '工作日' ||
-            type == '请假' ||
-            (type == '自定义' && !(todayData['isOvertime'] ?? false)) ||
-            (type == '出差' && !(todayData['isOvertime'] ?? false));
+            type == AppConstants.typeWorkday ||
+            type == AppConstants.typeLeave ||
+            (type == AppConstants.typeCustom && !(todayData['isOvertime'] ?? false)) ||
+            (type == AppConstants.typeBusinessTrip && !(todayData['isOvertime'] ?? false));
 
         // 如果开关关闭，需要排除今日数据
         if (!_includeTodayData && todayIsWorkDay) {
@@ -2426,10 +2467,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         if (dayData != null) {
           final type = dayData['type'] as String;
           final isWorkDay =
-              type == '工作日' ||
-              type == '请假' ||
-              (type == '自定义' && !(dayData['isOvertime'] ?? false)) ||
-              (type == '出差' && !(dayData['isOvertime'] ?? false));
+              type == AppConstants.typeWorkday ||
+              type == AppConstants.typeLeave ||
+              (type == AppConstants.typeCustom && !(dayData['isOvertime'] ?? false)) ||
+              (type == AppConstants.typeBusinessTrip && !(dayData['isOvertime'] ?? false));
 
           if (isWorkDay) {
             totalWorkDaysInMonth++;
@@ -2687,7 +2728,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             isHighestAchieved: isHighestAchieved,
             isNextToAchieve: isNextToAchieve,
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -3040,13 +3081,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Text(
-        '$label: $count天 ${hours > 0 ? hours.toStringAsFixed(1) + "h" : ""}',
-        style: TextStyle(fontSize: 12, color: color.withOpacity(0.9)),
+        '$label: $count天 ${hours > 0 ? "${hours.toStringAsFixed(1)}h" : ""}',
+        style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.9)),
       ),
     );
   }

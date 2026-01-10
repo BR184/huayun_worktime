@@ -7,6 +7,8 @@ class AttendanceData {
   final double hours;
   final bool isLate;
   final bool isEarlyLeave;
+  final String? checkInPhotoUrl;  // 上班打卡照片
+  final String? checkOutPhotoUrl; // 下班打卡照片
 
   const AttendanceData({
     this.checkIn,
@@ -14,24 +16,25 @@ class AttendanceData {
     this.hours = 0.0,
     this.isLate = false,
     this.isEarlyLeave = false,
+    this.checkInPhotoUrl,
+    this.checkOutPhotoUrl,
   });
 
-  /// 是否有有效的打卡数据
+  /// 是否有有效的打卡数据（至少有上班打卡）
   bool get hasValidData =>
-      checkIn != null &&
+      checkIn != null && checkIn!.isNotEmpty && checkIn != '-';
+
+  /// 是否有完整的上下班打卡
+  bool get hasFullPunch =>
+      hasValidData &&
       checkOut != null &&
-      checkIn!.isNotEmpty &&
       checkOut!.isNotEmpty &&
-      checkIn != '-' &&
       checkOut != '-';
 
   /// 比较两个考勤数据是否一致（用于智能更新判断）
   bool isConsistentWith(AttendanceData other) {
-    // 如果都没有数据，认为一致
     if (!hasValidData && !other.hasValidData) return true;
-    // 如果一个有数据一个没有，不一致
     if (hasValidData != other.hasValidData) return false;
-    // 比较上下班时间
     return checkIn == other.checkIn && checkOut == other.checkOut;
   }
 
@@ -50,16 +53,11 @@ class AttendanceData {
       'AttendanceData(checkIn: $checkIn, checkOut: $checkOut, hours: $hours)';
 }
 
-/// 考勤数据解析工具
-/// 统一处理工作日(shiftDetails)和加班日(restClockTime)的打卡数据解析
+/// 考勤数据解析工具 (支持V2 API)
 class AttendanceParser {
   /// 从 API 返回的 dailyDetail 解析考勤数据
   ///
-  /// [dailyDetail] - API 返回的 dailyDetail 对象
-  ///
-  /// 解析规则:
-  /// - 工作日: 从 shiftDetails[0] 取 clockInTime/clockOffTime
-  /// - 加班日/休息日: 从 restClockTime 取第一个和最后一个打卡时间
+  /// V2 API 返回 shiftDetails，包含 remoteClockInInfo.photo / remoteClockOffInfo.photo
   static AttendanceData parse(Map<String, dynamic>? dailyDetail) {
     if (dailyDetail == null) return const AttendanceData();
 
@@ -68,23 +66,36 @@ class AttendanceParser {
 
     String? clockIn;
     String? clockOut;
+    String? clockInPhoto;
+    String? clockOutPhoto;
     bool isLate = false;
     bool isEarlyLeave = false;
 
-    // 优先从 shiftDetails 取（正常工作日）
+    // 优先从 shiftDetails 取（V2 API 总是返回 shiftDetails）
     if (shiftDetails != null && shiftDetails.isNotEmpty) {
       final firstShift = shiftDetails[0] as Map<String, dynamic>;
       clockIn = firstShift['clockInTime'] as String?;
       clockOut = firstShift['clockOffTime'] as String?;
       isLate = (firstShift['clockInStatusType'] as int? ?? 0) == 1;
       isEarlyLeave = (firstShift['clockOffStatusType'] as int? ?? 0) == 4;
+
+      // 提取照片URL (V2 API新增)
+      final remoteClockInInfo =
+          firstShift['remoteClockInInfo'] as Map<String, dynamic>?;
+      final remoteClockOffInfo =
+          firstShift['remoteClockOffInfo'] as Map<String, dynamic>?;
+      clockInPhoto = remoteClockInInfo?['photo'] as String?;
+      clockOutPhoto = remoteClockOffInfo?['photo'] as String?;
     }
-    // 如果没有 shiftDetails，从 restClockTime 取（加班日/休息日）
-    else if (restClockTime != null && restClockTime.length >= 2) {
+    // 回退：从 restClockTime 取（旧API兼容）
+    else if (restClockTime != null && restClockTime.isNotEmpty) {
       final first = restClockTime.first as Map<String, dynamic>;
-      final last = restClockTime.last as Map<String, dynamic>;
       clockIn = first['clockTime'] as String?;
-      clockOut = last['clockTime'] as String?;
+      // 多次打卡时取最后一次作为下班
+      if (restClockTime.length >= 2) {
+        final last = restClockTime.last as Map<String, dynamic>;
+        clockOut = last['clockTime'] as String?;
+      }
     }
 
     // 计算工时
@@ -104,10 +115,12 @@ class AttendanceParser {
       hours: hours,
       isLate: isLate,
       isEarlyLeave: isEarlyLeave,
+      checkInPhotoUrl: clockInPhoto,
+      checkOutPhotoUrl: clockOutPhoto,
     );
   }
 
-  /// 从完整的 API 响应解析（包含 dailyDetail 的响应）
+  /// 从完整的 API 响应解析
   static AttendanceData parseFromResponse(Map<String, dynamic>? response) {
     if (response == null) return const AttendanceData();
     final dailyDetail = response['dailyDetail'] as Map<String, dynamic>?;
