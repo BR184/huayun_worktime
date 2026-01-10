@@ -43,7 +43,7 @@ class WorkTimeCalculator {
 
       _initialized = true;
     } catch (e) {
-      print('WorkTimeCalculator初始化失败: $e');
+      // Initialization error - use defaults
     }
   }
 
@@ -221,11 +221,20 @@ class WorkTimeCalculator {
   /// [hours] 工时小时数
   ///
   /// 返回：格式化的字符串，如 "8.55" (直接截断2位，不四舍五入)
-  static String formatHours(double hours) {
-    if (hours == 0) return '0.00';
-    // 强制截断到2位小数，不进行四舍五入
-    // 例如: 5.559 -> 5.55
-    final truncated = (hours * 100).truncateToDouble() / 100;
+  static String formatHours(num hours) {
+    if (hours == 0) return '0';
+    
+    // 严格按照数据类型：
+    // 如果是整数类型 (int)，直接显示
+    if (hours is int) {
+      return hours.toString();
+    }
+
+    // 如果是浮点类型 (double)，保留两位小数截断
+    // 例如: 8.0 (double) -> 8.00
+    // 例如: 5.559 (double) -> 5.55
+    final h = hours.toDouble();
+    final truncated = (h * 100).truncateToDouble() / 100;
     return truncated.toStringAsFixed(2);
   }
 

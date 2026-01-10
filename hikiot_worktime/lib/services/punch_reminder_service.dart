@@ -117,7 +117,7 @@ class PunchReminderService {
           title: '下班打卡提醒',
           body: '今天还没有打下班卡，别忘了打卡！',
         );
-      } else if (workHours < 8.0) {
+      } else if (workHours < 8) {
         // 已打卡但工时不足
         await notification.showNotification(
           id: 102,
@@ -355,15 +355,7 @@ class PunchReminderService {
     return null;
   }
 
-  /// 判断是否有上班打卡 - 使用 AttendanceParser 统一解析
-  static bool _hasCheckIn(Map<String, dynamic> attendance) {
-    return _getCheckInTime(attendance) != null;
-  }
 
-  /// 判断是否有下班打卡 - 使用 AttendanceParser 统一解析
-  static bool _hasCheckOut(Map<String, dynamic> attendance) {
-    return _getCheckOutTime(attendance) != null;
-  }
 
   /// 获取工时 - 使用 AttendanceParser 统一解析
   static double _getWorkHours(Map<String, dynamic> attendance) {
@@ -405,7 +397,7 @@ class PunchReminderService {
       }
     } catch (e) {
       // 忽略解析错误
-      print('解析节假日数据失败: $e');
+      // Ignore parsing error
     }
 
     // 如果没有节假日数据，根据周末判断

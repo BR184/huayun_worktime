@@ -213,7 +213,6 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       _personNo = prefs.getString('personNo');
 
       if (_teamNo == null) {
-        print('未找到teamNo,无法加载数据');
         setState(() => _isLoading = false);
         return;
       }
@@ -287,7 +286,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         _completeOnboarding();
       }
     } catch (e) {
-      print('加载每日数据失败: $e');
+      // 加载每日数据失败
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -386,7 +385,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         });
       }
     } catch (e) {
-      print('获取每日考勤数据失败: $e');
+      // 获取每日考勤数据失败
       // 修复Bug 1：只在明确的Token失效异常时才弹出提示
       if (mounted && TokenExpiredService.isTokenExpiredError(e)) {
         await TokenExpiredService.handleTokenExpired(context);
@@ -923,7 +922,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 if (type != AppConstants.typeOvertime && type != AppConstants.typeRestDay && type != '休息') ...[
                   const SizedBox(height: 8),
                   Text(
-                    '已完成 ${WorkTimeCalculator.formatHours(hours / 8.0 * 100)}%',
+                    '已完成 ${WorkTimeCalculator.formatHours(hours / 8 * 100)}%',
                     style: TextStyle(
                       fontSize: 16,
                       color: Colors.grey[600],
@@ -1094,12 +1093,12 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     // 截断到2位小数(不四舍五入)
     // 使用 formatHours 统一处理
 
-    final actualPercentageRaw = (actualHours / 8.0 * 100).toDouble().clamp(
+    final actualPercentageRaw = (actualHours / 8 * 100).toDouble().clamp(
       0.0,
       200.0,
     );
 
-    final estimatedPercentageRaw = (estimatedHours / 8.0 * 100)
+    final estimatedPercentageRaw = (estimatedHours / 8 * 100)
         .toDouble()
         .clamp(0.0, 200.0);
 
@@ -1187,7 +1186,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final checkOut = _attendanceData?['checkOutTime'] as String?;
 
     // 计算工时完成率 - 截断到2位小数
-    final completionRaw = (hours / 8.0 * 100).clamp(0.0, 200.0);
+    final completionRaw = (hours / 8 * 100).clamp(0.0, 200.0);
 
     // 计算上班时长(如果有打卡记录)
     String workDuration = '--';
@@ -1407,7 +1406,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final baseTargets = _generateTargetList(_baseTarget);
     final extendedTargets = [170, 180, 190, 200, 220, 240, 260, 280, 300];
 
-    final currentPercentage = (displayHours / 8.0 * 100);
+    final currentPercentage = (displayHours / 8 * 100);
     final allTargets = currentPercentage >= 160
         ? [...baseTargets, ...extendedTargets]
         : baseTargets;
@@ -1940,7 +1939,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         ),
       );
     } catch (e) {
-      print('计算预计完成时间失败: $e');
+      // 计算预计完成时间失败
       return const SizedBox.shrink();
     }
   }

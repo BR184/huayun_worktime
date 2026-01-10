@@ -269,7 +269,7 @@ class _LoginScreenState extends State<LoginScreen> {
         await _saveTokenAndNavigate();
       }
     } catch (e) {
-      print('提取Token失败: $e');
+      // 提取Token失败
     }
   }
 

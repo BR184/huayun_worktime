@@ -160,7 +160,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           if (savedTeam != null) {
             // 找到保存的团队,直接使用
             selectedTeam = savedTeam as Map<String, dynamic>;
-            print('自动使用上次选择的团队: $savedTeamNo');
           } else {
             // 保存的团队不在列表中,显示选择对话框
             if (_isShowingTeamDialog) {
@@ -222,11 +221,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       }
       _teamName = selectedTeam['teamName'] as String? ?? '未知团队';
 
-      // 打印调试信息
-      print('团队信息: $_teamName');
-      print('用户姓名: $_userName');
-      print('员工编号: $_personNo');
-      print('团队对象: $selectedTeam');
+      _teamName = selectedTeam['teamName'] as String? ?? '未知团队';
 
       if (_personNo == null) {
         throw Exception('未找到员工编号');
@@ -358,7 +353,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         }
       }
     } catch (e) {
-      print('刷新今日数据失败: $e');
+      // 刷新今日数据失败
     }
   }
 
@@ -449,7 +444,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         _monthlyData = _monthlyDataCache[monthKey]!;
         _isLoading = false;
       });
-      print('从内存缓存加载: $monthKey');
       return;
     }
 
@@ -464,7 +458,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           _monthlyDataCache[monthKey] = cachedData;
           _isLoading = false;
         });
-        print('从本地缓存加载: $monthKey，后台智能更新...');
         // 后台静默智能更新
         _smartQuickUpdate().then((_) {
           // 更新完保存到本地
@@ -474,7 +467,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       }
     }
 
-    print('重新查询API: $monthKey (forceRefresh=$forceRefresh)');
     setState(() {
       _isLoading = true;
       _error = null;
@@ -487,7 +479,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
       // 如果本地没有该年份的节假日数据，自动调用API更新
       if (yearHolidayPlan.isEmpty) {
-        print('本地无${_selectedMonth.year}年节假日数据，自动更新...');
 
         // 验证年份范围:2010年到下个月末
         final now = DateTime.now();
@@ -509,12 +500,11 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             yearHolidayPlan = await _storage.getHolidayPlan(
               _selectedMonth.year,
             );
-            print('自动更新节假日成功: ${yearHolidayPlan.length}天');
           } else {
-            print('节假日API调用失败，使用默认规则');
+            // 节假日API调用失败，使用默认规则
           }
         } else {
-          print('年份超出范围，使用默认规则');
+          // 年份超出范围，使用默认规则
         }
 
         // 如果API失败或超出范围，使用默认规则
@@ -523,10 +513,9 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             _selectedMonth.year,
             _selectedMonth.month,
           );
-          print('使用默认节假日规则');
         }
       } else {
-        print('从本地加载节假日计划: ${yearHolidayPlan.length}天');
+        // 从本地加载节假日计划
       }
 
       _holidayPlan = yearHolidayPlan;
@@ -812,7 +801,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
       // 跳过手动标记的日期
       if (_monthlyData[dateStr]?['isManual'] == true) {
-        print('$dateStr 是手动标记，跳过');
         continue;
       }
 
@@ -841,7 +829,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       // 比较是否一致 (只有当数据一致且不需要类型修正时，才停止更新)
       if (localData.hasValidData && localData.isConsistentWith(apiData) && !needsTypeCorrection) {
         // 一致！信任该天及之前的所有数据，停止更新
-        print('$dateStr 数据一致且类型正确，停止更新');
         break;
       } else {
         // 不一致或需要修正，更新这一天
@@ -856,18 +843,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           // 应用类型修正
           if (needsTypeCorrection && typeCorrection != null) {
              _monthlyData[dateStr]!['type'] = typeCorrection;
-             print('$dateStr 类型智能修正 -> $typeCorrection');
           }
 
           updatedCount++;
-          print(
-            '$dateStr 更新: ${localData.checkIn}~${localData.checkOut} → ${apiData.checkIn}~${apiData.checkOut}',
-          );
         }
       }
     }
 
-    print('智能更新完成，共更新 $updatedCount 天');
     return updatedCount;
   }
 
@@ -1449,7 +1431,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               const SizedBox(height: 2),
               if (hours > 0)
                 Text(
-                  '${hours.toStringAsFixed(2)}H',
+                  '${WorkTimeCalculator.formatHours(hours)}H',
                   style: TextStyle(fontSize: 10, color: textColor),
                   overflow: TextOverflow.visible,
                   softWrap: false,
@@ -1579,7 +1561,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   ),
                                 ),
                                 Text(
-                                  '${hours.toStringAsFixed(2)}h',
+                                  '${WorkTimeCalculator.formatHours(hours)}h',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -1716,25 +1698,25 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
                       const SizedBox(height: 8),
-                      TextField(
+                      TextFormField(
                         decoration: const InputDecoration(
                           labelText: '上班时间',
                           hintText: '08:50 或 0850',
                           border: OutlineInputBorder(),
                         ),
-                        controller: TextEditingController(text: customCheckIn),
+                        initialValue: customCheckIn,
                         onChanged: (value) {
                           customCheckIn = _parseTimeInput(value);
                         },
                       ),
                       const SizedBox(height: 8),
-                      TextField(
+                      TextFormField(
                         decoration: const InputDecoration(
                           labelText: '下班时间',
                           hintText: '18:00 或 1800',
                           border: OutlineInputBorder(),
                         ),
-                        controller: TextEditingController(text: customCheckOut),
+                        initialValue: customCheckOut,
                         onChanged: (value) {
                           customCheckOut = _parseTimeInput(value);
                         },
@@ -2301,7 +2283,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     int days,
     double hours,
   ) {
-    final targetHours = days * 8.0; // 100%目标工时
+    final targetHours = days * 8; // 100%目标工时
 
     return Expanded(
       child: Card(
@@ -2435,7 +2417,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       remainingWorkDays = 0;
     }
 
-    final baseHours = totalWorkDaysInMonth * 8.0;
+    final baseHours = totalWorkDaysInMonth * 8;
 
     // 计算日均工时（使用调整后的数据）
     final avgHoursPerDay = adjustedTotalWorkDays > 0
@@ -2451,14 +2433,14 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
     // 创建目标数据列表用于排序
     List<Map<String, dynamic>> targetData = targets.map((target) {
-      final targetHours = baseHours * (target / 100.0);
+      final targetHours = (baseHours * target) / 100;
       final isCompleted = currentPercentage >= target;
       final gapHours = targetHours - adjustedTotalHours;
       final dailyNeed = remainingWorkDays > 0
           ? gapHours / remainingWorkDays
           : 0.0;
 
-      final targetAvgHours = 8.0 * (target / 100.0);
+      final targetAvgHours = (8 * target) / 100;
       final avgProgress = avgHoursPerDay / targetAvgHours;
       final avgCompleted = avgProgress >= 1.0;
 

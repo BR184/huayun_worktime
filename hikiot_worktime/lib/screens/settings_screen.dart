@@ -143,7 +143,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _apiClient = HikiotApiClient(token: token);
       }
     } catch (e) {
-      print('加载设置失败: $e');
+      // 忽略加载设置失败
     } finally {
       if (mounted) {
         setState(() => _isLoading = false);
@@ -170,7 +170,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
         );
       }
     } catch (e) {
-      print('保存设置失败: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
@@ -1932,9 +1931,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             'terminal': '2',
           },
         );
-        print('登出 API 调用成功');
       } catch (e) {
-        print('登出 API 调用失败: $e');
+        // 登出 API 调用失败，忽略
       }
     }
 
@@ -2170,9 +2168,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'terminal': '2',
             },
           );
-          print('【生成无效Token】先调用logout API成功');
         } catch (e) {
-          print('【生成无效Token】logout API调用失败: $e');
+          // logout API调用失败
         }
       }
 
@@ -2182,7 +2179,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
       await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
       await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
-      print('【生成无效Token】WebView cookies已清除');
+      // WebView cookies已清除
 
       // 生成无效token
       const invalidToken = 'INVALID_TOKEN_FOR_DEBUG_TESTING_12345';

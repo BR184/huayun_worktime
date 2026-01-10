@@ -46,9 +46,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
     try {
       // 获取账户信息
-      print('开始获取账户信息...');
       final accountDetail = await _apiClient.getAccountDetail();
-      print('账户信息结果: $accountDetail');
 
       if (accountDetail == null) {
         // Token失效，弹出对话框引导用户重新登录
@@ -62,11 +60,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         throw Exception('无法获取账户信息，可能Token已失效');
       }
 
-      print('账户详情所有字段: ${accountDetail.keys.toList()}');
 
       // 获取团队列表并切换团队（激活Token）
       final teamInfoList = accountDetail['teamInfoList'] as List<dynamic>?;
-      print('teamInfoList: $teamInfoList');
 
       if (teamInfoList == null || teamInfoList.isEmpty) {
         throw Exception('该账号没有关联任何团队');
@@ -74,26 +70,18 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
       // 选择第一个团队
       final firstTeam = teamInfoList[0] as Map<String, dynamic>;
-      print('第一个团队: $firstTeam');
 
       final teamNo = firstTeam['teamNo'] as String?;
       if (teamNo == null) {
         throw Exception('团队信息不完整');
       }
 
-      // 切换团队上下文（关键步骤：激活Token）
-      print('开始切换团队: $teamNo');
       final teamChanged = await _apiClient.changeTeam(teamNo);
       if (!teamChanged) {
         throw Exception('切换团队失败，Token可能无法正常使用');
       }
-      print('团队切换成功');
 
-      // 提取personNo - personNo在团队信息里，不在顶层！
       final personNo = firstTeam['personNo'] as String?;
-
-      print('从团队信息提取到的personNo: $personNo');
-      print('团队信息完整内容: $firstTeam');
 
       if (personNo == null || personNo.isEmpty) {
         throw Exception('未找到员工编号，团队: ${firstTeam['teamName']}');
@@ -113,8 +101,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('数据加载异常: $e');
-
       // 检查是否是Token失效导致的错误
       if (mounted && TokenExpiredService.isTokenExpiredError(e)) {
         setState(() {

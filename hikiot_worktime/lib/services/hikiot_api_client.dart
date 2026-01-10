@@ -53,27 +53,20 @@ class HikiotApiClient {
         headers: _getHeaders(useBearer: true),
       );
 
-      print('账户详情API响应状态码: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
-        print('账户详情API响应: $data');
 
         if (data['code'] == 0) {
-          print('账户详情data字段: ${data['data']}');
           return data['data'];
         } else if (data['code'] == 999999) {
-          print('登录状态已失效');
           return null;
         } else {
-          print('API返回错误码: ${data['code']}, 消息: ${data['msg']}');
           return null;
         }
       }
-      print('HTTP请求失败，状态码: ${response.statusCode}');
       return null;
     } catch (e) {
-      print('获取账户详情失败: $e');
       return null;
     }
   }
@@ -93,16 +86,13 @@ class HikiotApiClient {
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
         if (data['code'] == 0) {
-          print('团队切换成功: $teamNo');
           return true;
         } else {
-          print('团队切换失败: ${data['msg']}');
           return false;
         }
       }
       return false;
     } catch (e) {
-      print('团队切换异常: $e');
       return false;
     }
   }
@@ -117,16 +107,13 @@ class HikiotApiClient {
         headers: _getHeaders(useBearer: true),
       );
 
-      print('退出登录API响应: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = json.decode(utf8.decode(response.bodyBytes));
-        print('退出登录响应: $data');
         return data['code'] == 0;
       }
       return false;
     } catch (e) {
-      print('退出登录异常: $e');
       return false;
     }
   }
@@ -160,7 +147,6 @@ class HikiotApiClient {
     } on TokenExpiredException {
       rethrow;
     } catch (e) {
-      print('获取每日考勤失败: $e');
       // 网络错误抛出以便上层处理，不要吞掉，否则会被误判为Token失效
       throw Exception('网络请求失败: $e');
     }
@@ -242,7 +228,6 @@ class HikiotApiClient {
         'personName': personName, // 返回用户姓名
       };
     } catch (e) {
-      print('获取月度统计失败: $e');
       return null;
     }
   }

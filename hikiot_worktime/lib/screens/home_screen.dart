@@ -126,7 +126,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     );
                   },
                   onConsoleMessage: (controller, consoleMessage) {
-                    print('Console: ${consoleMessage.message}');
+                    // Console message disabled
                   },
                 ),
                 if (isLoading)

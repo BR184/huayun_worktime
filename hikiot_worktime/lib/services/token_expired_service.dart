@@ -86,9 +86,8 @@ class TokenExpiredService {
               'terminal': '2',
             },
           );
-          print('登出 API 调用成功');
         } catch (e) {
-          print('登出 API 调用失败: $e');
+          // Ignore logout API errors
         }
       }
 
@@ -117,7 +116,6 @@ class TokenExpiredService {
         );
       }
     } catch (e) {
-      print('退出登录过程中出错: $e');
       // 即使出错也尝试跳转到登录页
       if (context.mounted) {
         Navigator.of(context).pushAndRemoveUntil(

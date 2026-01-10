@@ -23,7 +23,7 @@ class DateHelper {
       crossDayMinutes = prefs.getInt(_crossDayKey) ?? (4 * 60);
       _initialized = true;
     } catch (e) {
-      print('DateHelper初始化失败: $e');
+      // Initialization error
     }
   }
 

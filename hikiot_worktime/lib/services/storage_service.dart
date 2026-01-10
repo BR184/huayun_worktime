@@ -101,7 +101,6 @@ class StorageService {
     final key = StorageKeys.calendarMarksKey(teamNo);
     final jsonStr = jsonEncode(marks);
     await prefs.setString(key, jsonStr);
-    print('保存日历标记到: $key');
   }
 
   /// 保存单个日历标记
@@ -123,18 +122,15 @@ class StorageService {
     final key = StorageKeys.calendarMarksKey(teamNo);
     final jsonStr = prefs.getString(key);
     if (jsonStr == null) {
-      print('未找到团队 $teamNo 的日历标记');
       return {};
     }
 
     try {
       final Map<String, dynamic> decoded = jsonDecode(jsonStr);
-      print('加载团队 $teamNo 的日历标记: ${decoded.length} 条');
       return decoded.map(
         (key, value) => MapEntry(key, Map<String, dynamic>.from(value as Map)),
       );
     } catch (e) {
-      print('加载日历标记失败: $e');
       return {};
     }
   }
@@ -151,7 +147,6 @@ class StorageService {
     final key = StorageKeys.monthlyDataKey(teamNo, monthKey);
     final jsonStr = jsonEncode(data);
     await prefs.setString(key, jsonStr);
-    print('保存月度数据缓存: $key');
   }
 
   /// 加载月度考勤数据（按团队+月份）
@@ -163,18 +158,15 @@ class StorageService {
     final key = StorageKeys.monthlyDataKey(teamNo, monthKey);
     final jsonStr = prefs.getString(key);
     if (jsonStr == null) {
-      print('未找到月度数据缓存: $key');
       return null;
     }
 
     try {
       final Map<String, dynamic> decoded = jsonDecode(jsonStr);
-      print('加载月度数据缓存: $key');
       return decoded.map(
         (k, v) => MapEntry(k, Map<String, dynamic>.from(v as Map)),
       );
     } catch (e) {
-      print('加载月度数据缓存失败: $e');
       return null;
     }
   }
@@ -200,7 +192,6 @@ class StorageService {
         (year, plan) => MapEntry(year, Map<String, String>.from(plan as Map)),
       );
     } catch (e) {
-      print('加载节假日计划失败: $e');
       return {};
     }
   }
@@ -243,13 +234,11 @@ class StorageService {
           });
 
           await saveHolidayPlan(year, plan);
-          print('成功保存 ${plan.length} 天的节假日数据');
           return true;
         }
       }
       return false;
     } catch (e) {
-      print('更新节假日失败: $e');
       return false;
     }
   }
@@ -320,7 +309,6 @@ class StorageService {
     try {
       return Map<String, dynamic>.from(jsonDecode(jsonStr));
     } catch (e) {
-      print('加载设置失败: $e');
       return {
         'targets': [100, 120, 130, 140, 150, 160],
         'lunch_break': {'start': '12:00', 'end': '13:00'},
