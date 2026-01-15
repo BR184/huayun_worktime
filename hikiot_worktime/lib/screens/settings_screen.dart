@@ -1418,7 +1418,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '例：凌晨0:10下班，未超02:00算作前一天',
+                      '例：凌晨0:10下班，未超04:00算作前一天',
                       style: TextStyle(fontSize: 12, color: Colors.amber[900]),
                     ),
                   ),
