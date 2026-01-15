@@ -332,6 +332,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 hours: attendance.hours,
                 dateStr: todayStr,
                 isManual: false,
+                hasCheckIn: attendance.hasValidData,
               );
               if (newType != null) {
                 _monthlyData[todayStr]!['type'] = newType;
@@ -399,7 +400,18 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 data['customCheckOut'] as String,
               );
             } else if (markData['type'] == AppConstants.typeBusinessTrip) {
-              data['hours'] = 8.0;
+              if (markData['isCustomHours'] == true) {
+                 data['isCustomHours'] = true;
+                 data['customCheckIn'] = markData['customCheckIn'] ?? '09:00';
+                 data['customCheckOut'] = markData['customCheckOut'] ?? '18:00';
+                 data['hours'] = _calculateCustomHours(
+                   data['customCheckIn'] as String,
+                   data['customCheckOut'] as String,
+                 );
+              } else {
+                 data['hours'] = 8.0;
+                 data['isCustomHours'] = false;
+              }
             } else if (markData['type'] == AppConstants.typeLeave) {
               data['hours'] = 0.0;
             }
@@ -574,11 +586,15 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         };
 
         // 统一使用 SmartDayTypeHelper 进行智能类型推断
+        final checkInStr = record['checkIn'] as String?;
+        final hasCheckIn = checkInStr != null && checkInStr.isNotEmpty && checkInStr != '-';
+
         final newType = SmartDayTypeHelper.inferDayType(
           currentType: dataMap[date]!['type'],
           hours: hours,
           dateStr: date,
           isManual: dataMap[date]!['isManual'] ?? false,
+          hasCheckIn: hasCheckIn,
         );
 
         if (newType != null) {
@@ -618,10 +634,28 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 mark['customCheckOut'] as String,
               );
             }
-          } else if (mark['type'] == AppConstants.typeBusinessTrip) {
-            // 出差类型自动设定工时为8小时
-            dataMap[dateStr]!['hours'] = 8.0;
-          }
+            } else if (mark['type'] == AppConstants.typeBusinessTrip) {
+              // 出差类型: 支持默认8小时或自定义
+              if (mark['isCustomHours'] == true) {
+                 dataMap[dateStr]!['isCustomHours'] = true;
+                 if (mark['customCheckIn'] != null) {
+                   dataMap[dateStr]!['customCheckIn'] = mark['customCheckIn'];
+                 }
+                 if (mark['customCheckOut'] != null) {
+                   dataMap[dateStr]!['customCheckOut'] = mark['customCheckOut'];
+                 }
+                 if (dataMap[dateStr]!['customCheckIn'] != null &&
+                     dataMap[dateStr]!['customCheckOut'] != null) {
+                   dataMap[dateStr]!['hours'] = _calculateCustomHours(
+                     dataMap[dateStr]!['customCheckIn'],
+                     dataMap[dateStr]!['customCheckOut'],
+                   );
+                 }
+              } else {
+                 dataMap[dateStr]!['hours'] = 8.0;
+                 dataMap[dateStr]!['isCustomHours'] = false;
+              }
+            }
         }
       });
 
@@ -795,6 +829,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         hours: apiData.hours,
         dateStr: dateStr,
         isManual: false,
+        hasCheckIn: apiData.hasValidData,
       );
       
       final needsTypeCorrection = typeCorrection != null && typeCorrection != currentType;
@@ -1465,6 +1500,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
     String currentType = dayData['type'] ?? AppConstants.typeWorkday;
     bool isOvertime = dayData['isOvertime'] ?? false; // ☀️=正常 🌙=加班
+    bool isCustomHours = dayData['isCustomHours'] ?? false; // 是否自定义工时(用于出差)
     String customCheckIn = dayData['customCheckIn'] ?? '09:00';
     String customCheckOut = dayData['customCheckOut'] ?? '18:00';
 
@@ -1704,10 +1740,46 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
+                      
+                      // 出差类型的 工时模式选择 (默认8h / 自定义)
+                      if (currentType == AppConstants.typeBusinessTrip) ...[
+                         Row(
+                          children: [
+                            const Text(
+                              '工时设置:',
+                              style: TextStyle(fontWeight: FontWeight.bold),
+                            ),
+                            const Spacer(),
+                            ChoiceChip(
+                              label: const Text('默认 8h'),
+                              selected: !isCustomHours,
+                              onSelected: (selected) {
+                                HapticUtils.selectionClick();
+                                setDialogState(() {
+                                  isCustomHours = !selected;
+                                });
+                              },
+                            ),
+                            const SizedBox(width: 8),
+                            ChoiceChip(
+                              label: const Text('自定义'),
+                              selected: isCustomHours,
+                              onSelected: (selected) {
+                                HapticUtils.selectionClick();
+                                setDialogState(() {
+                                  isCustomHours = selected;
+                                });
+                              },
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 16),
+                      ],
                     ],
 
-                    // 自定义类型的时间输入
-                    if (currentType == AppConstants.typeCustom) ...[
+                    // 自定义类型 或 (出差且开启自定义) 的时间输入
+                    if (currentType == AppConstants.typeCustom || 
+                       (currentType == AppConstants.typeBusinessTrip && isCustomHours)) ...[
                       const Text(
                         '自定义时间:',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -1774,6 +1846,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       dateStr,
                       currentType,
                       isOvertime,
+                      isCustomHours,
                       customCheckIn,
                       customCheckOut,
                     );
@@ -1814,6 +1887,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     String dateStr,
     String type,
     bool isOvertime,
+    bool isCustomHours,
     String customCheckIn,
     String customCheckOut,
   ) async {
@@ -1822,7 +1896,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       'type': type,
       'isManual': true,
       'isOvertime': isOvertime,
-      if (type == AppConstants.typeCustom) ...{
+      'isCustomHours': isCustomHours,
+      if (type == AppConstants.typeCustom || (type == AppConstants.typeBusinessTrip && isCustomHours)) ...{
         'customCheckIn': customCheckIn,
         'customCheckOut': customCheckOut,
       },
@@ -1835,6 +1910,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         _monthlyData[dateStr]!['type'] = type;
         _monthlyData[dateStr]!['isManual'] = true;
         _monthlyData[dateStr]!['isOvertime'] = isOvertime;
+        _monthlyData[dateStr]!['isCustomHours'] = isCustomHours;
 
         if (type == AppConstants.typeCustom) {
           _monthlyData[dateStr]!['customCheckIn'] = customCheckIn;
@@ -1845,8 +1921,17 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             customCheckOut,
           );
         } else if (type == AppConstants.typeBusinessTrip) {
-          // 出差类型自动设定工时为8小时
-          _monthlyData[dateStr]!['hours'] = 8.0;
+          if (isCustomHours) {
+            _monthlyData[dateStr]!['customCheckIn'] = customCheckIn;
+            _monthlyData[dateStr]!['customCheckOut'] = customCheckOut;
+            _monthlyData[dateStr]!['hours'] = _calculateCustomHours(
+              customCheckIn,
+              customCheckOut,
+            );
+          } else {
+            // 出差类型自动设定工时为8小时
+            _monthlyData[dateStr]!['hours'] = 8.0;
+          }
         } else if (type == AppConstants.typeLeave) {
           // 请假类型工时为0
           _monthlyData[dateStr]!['hours'] = 0.0;
@@ -1886,6 +1971,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         currentData['type'] = defaultType;
         currentData['isManual'] = false;
         currentData.remove('isOvertime');
+        currentData.remove('isCustomHours');
         currentData.remove('customCheckIn');
         currentData.remove('customCheckOut');
       }

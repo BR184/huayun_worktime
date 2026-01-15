@@ -27,6 +27,7 @@ class SmartDayTypeHelper {
   /// [hours] 当日工时
   /// [dateStr] 日期字符串 (yyyy-MM-dd)
   /// [isManual] 是否手动标记
+  /// [hasCheckIn] 是否有打卡记录 (用于识别只打了一次卡也算加班的情况)
   /// 
   /// 返回推断后的类型，如果不需要修改则返回 null
   static String? inferDayType({
@@ -34,19 +35,23 @@ class SmartDayTypeHelper {
     required num hours,
     required String dateStr,
     bool isManual = false,
+    bool hasCheckIn = false,
   }) {
     // 手动标记不做修改
     if (isManual) return null;
 
     final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    // 非工作日有工时 → 加班日
-    if (hours > 0 && isRestDayType(currentType)) {
+    // 非工作日有工时 OR 有打卡记录 → 加班日
+    // 即使只打了一次卡(工时为0),只要是休息日且去打卡了,也应视为加班
+    if ((hours > 0 || hasCheckIn) && isRestDayType(currentType)) {
       return AppConstants.typeOvertime;
     }
 
     // 工作日无工时且是过去日期 → 请假
-    if (hours == 0 && isWorkdayType(currentType) && dateStr.compareTo(today) < 0) {
+    // 注意: 这里不考虑 hasCheckIn, 因为工作日只有上班卡没下班卡算异常缺卡, 不算完全的"工作", 但也不算"请假"
+    //      通常工作日缺卡会显示异常, 由用户手动处理或补卡. 此处"请假"主要针对完全未打卡的情况.
+    if (hours == 0 && !hasCheckIn && isWorkdayType(currentType) && dateStr.compareTo(today) < 0) {
       return AppConstants.typeLeave;
     }
 
@@ -62,12 +67,15 @@ class SmartDayTypeHelper {
       final isManual = data['isManual'] == true;
       final hours = (data['hours'] ?? 0.0) as num;
       final currentType = data['type'] as String?;
+      final checkIn = data['checkIn'] as String?;
+      final hasCheckIn = checkIn != null && checkIn.isNotEmpty && checkIn != '-';
 
       final newType = inferDayType(
         currentType: currentType,
         hours: hours,
         dateStr: dateStr,
         isManual: isManual,
+        hasCheckIn: hasCheckIn,
       );
 
       if (newType != null) {
