@@ -1876,10 +1876,19 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }
 
     // 格式化为 HH:MM
-    final hour = padded.substring(0, 2);
-    final minute = padded.substring(2, 4);
+    // 格式化为 HH:MM
+    String hourStr = padded.substring(0, 2);
+    String minuteStr = padded.substring(2, 4);
 
-    return '$hour:$minute';
+    // 严格限制：小时 00-23，分钟 00-59
+    int hour = int.parse(hourStr);
+    int minute = int.parse(minuteStr);
+
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return ''; // Invalid time, return empty string
+    }
+
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
   /// 保存日期设置

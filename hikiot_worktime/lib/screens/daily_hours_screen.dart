@@ -261,8 +261,22 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
             );
           }
         } else if (savedMark['type'] == AppConstants.typeBusinessTrip) {
-          // 出差固定8小时
-          _dayData!['hours'] = 8.0;
+          if (savedMark['isCustomHours'] == true) {
+             _dayData!['isCustomHours'] = true;
+             _dayData!['customCheckIn'] = savedMark['customCheckIn'];
+             _dayData!['customCheckOut'] = savedMark['customCheckOut'];
+             final checkIn = savedMark['customCheckIn'] as String?;
+             final checkOut = savedMark['customCheckOut'] as String?;
+             if (checkIn != null && checkOut != null) {
+               _dayData!['hours'] = WorkTimeCalculator.calculateWorkHoursStr(
+                 checkIn,
+                 checkOut,
+               );
+             }
+          } else {
+             _dayData!['hours'] = 8.0;
+             _dayData!['isCustomHours'] = false;
+          }
         } else if (savedMark['type'] == AppConstants.typeLeave) {
           // 请假0小时
           _dayData!['hours'] = 0.0;
@@ -420,16 +434,16 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
   double _calculateHours() {
     final type = _dayData?['type'] ?? AppConstants.typeWorkday;
 
-    // 出差恒定8小时
-    if (type == AppConstants.typeBusinessTrip) {
-      return 8.0;
-    }
-
-    // 如果是自定义类型,从dayData获取工时
-    if (type == AppConstants.typeCustom && _dayData != null) {
+    // 如果是自定义类型 或 (出差且自定义工时), 从dayData获取工时
+    if ((type == AppConstants.typeCustom || (type == AppConstants.typeBusinessTrip && _dayData?['isCustomHours'] == true)) && _dayData != null) {
       final hours = _dayData!['hours'];
       if (hours is double) return hours;
       if (hours is int) return hours.toDouble();
+    }
+
+    // 出差默认8小时
+    if (type == AppConstants.typeBusinessTrip) {
+      return 8.0;
     }
 
     // 其他情况从考勤数据计算工时
@@ -2037,6 +2051,7 @@ class _EditDayDialog extends StatefulWidget {
 class _EditDayDialogState extends State<_EditDayDialog> {
   late String currentType;
   late bool isOvertime;
+  late bool isCustomHours;
   final TextEditingController _checkInController = TextEditingController();
   final TextEditingController _checkOutController = TextEditingController();
 
@@ -2045,15 +2060,35 @@ class _EditDayDialogState extends State<_EditDayDialog> {
     super.initState();
     currentType = widget.initialData?['type'] ?? AppConstants.typeWorkday;
     isOvertime = widget.initialData?['isOvertime'] ?? false;
+    isCustomHours = widget.initialData?['isCustomHours'] ?? false;
+    
+    // 初始化自定义时间输入
+    String? initialCheckIn;
+    String? initialCheckOut;
+
+    if (widget.initialData != null) {
+      initialCheckIn = widget.initialData!['customCheckIn'] as String?;
+      initialCheckOut = widget.initialData!['customCheckOut'] as String?;
+    }
+
+    if (initialCheckIn != null) _checkInController.text = initialCheckIn;
+    if (initialCheckOut != null) _checkOutController.text = initialCheckOut;
 
     if (widget.attendanceData != null) {
-      _checkInController.text = _formatTime(
-        widget.attendanceData!['checkInTime'],
-      );
-      _checkOutController.text = _formatTime(
-        widget.attendanceData!['checkOutTime'],
-      );
+      final attCheckIn = _formatTime(widget.attendanceData!['checkInTime']);
+      final attCheckOut = _formatTime(widget.attendanceData!['checkOutTime']);
+
+      if (_checkInController.text.isEmpty && attCheckIn.isNotEmpty) {
+        _checkInController.text = attCheckIn;
+      }
+      if (_checkOutController.text.isEmpty && attCheckOut.isNotEmpty) {
+        _checkOutController.text = attCheckOut;
+      }
     }
+
+    // 如果没有数据，设置默认值(与月度页面保持一致)
+    if (_checkInController.text.isEmpty) _checkInController.text = '09:00';
+    if (_checkOutController.text.isEmpty) _checkOutController.text = '18:00';
   }
 
   String _formatTime(dynamic time) {
@@ -2090,14 +2125,22 @@ class _EditDayDialogState extends State<_EditDayDialog> {
     }
 
     // 格式化为 HH:MM
-    final hour = padded.substring(0, 2);
-    final minute = padded.substring(2, 4);
+    String hourStr = padded.substring(0, 2);
+    String minuteStr = padded.substring(2, 4);
 
-    return '$hour:$minute';
+    // 严格限制：小时 00-23，分钟 00-59
+    int hour = int.parse(hourStr);
+    int minute = int.parse(minuteStr);
+
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+      return ''; // Invalid time, return empty string
+    }
+
+    return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
   double _calculateHours() {
-    if (currentType == AppConstants.typeBusinessTrip) return 8.0;
+    if (currentType == AppConstants.typeBusinessTrip && !isCustomHours) return 8.0;
     if (currentType == AppConstants.typeLeave) return 0.0;
 
     // 先智能解析输入
@@ -2205,7 +2248,42 @@ class _EditDayDialogState extends State<_EditDayDialog> {
               const SizedBox(height: 16),
             ],
 
-            if (currentType == AppConstants.typeCustom) ...[
+            // 出差类型的 工时模式选择 (默认8h / 自定义)
+            if (currentType == AppConstants.typeBusinessTrip) ...[
+               const Text(
+                '工时设置:',
+                style: TextStyle(fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text('默认 8h'),
+                    selected: !isCustomHours,
+                    onSelected: (selected) async {
+                      await HapticUtils.selectionClick();
+                      setState(() {
+                        isCustomHours = !selected;
+                      });
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('自定义'),
+                    selected: isCustomHours,
+                    onSelected: (selected) async {
+                      await HapticUtils.selectionClick();
+                      setState(() {
+                        isCustomHours = selected;
+                      });
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
+            if (currentType == AppConstants.typeCustom || (currentType == AppConstants.typeBusinessTrip && isCustomHours)) ...[
               const Text(
                 '自定义时间:',
                 style: TextStyle(fontWeight: FontWeight.bold),
@@ -2214,26 +2292,50 @@ class _EditDayDialogState extends State<_EditDayDialog> {
               Row(
                 children: [
                   Expanded(
-                    child: TextField(
-                      controller: _checkInController,
-                      decoration: const InputDecoration(
-                        labelText: '上班',
-                        hintText: '08:30',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (_) => setState(() {}),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('上班', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 4),
+                        TextField(
+                          controller: _checkInController,
+                          decoration: const InputDecoration(
+                            hintText: '09:00',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          inputFormatters: [
+                             FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
+                             LengthLimitingTextInputFormatter(5),
+                          ],
+                          keyboardType: TextInputType.datetime,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  const SizedBox(width: 12),
                   Expanded(
-                    child: TextField(
-                      controller: _checkOutController,
-                      decoration: const InputDecoration(
-                        labelText: '下班',
-                        hintText: '17:30',
-                        border: OutlineInputBorder(),
-                      ),
-                      onChanged: (_) => setState(() {}),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Text('下班', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                        const SizedBox(height: 4),
+                        TextField(
+                          controller: _checkOutController,
+                          decoration: const InputDecoration(
+                            hintText: '18:00',
+                            border: OutlineInputBorder(),
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                          inputFormatters: [
+                             FilteringTextInputFormatter.allow(RegExp(r'[0-9:]')),
+                             LengthLimitingTextInputFormatter(5),
+                          ],
+                          keyboardType: TextInputType.datetime,
+                        ),
+                      ],
                     ),
                   ),
                 ],
@@ -2269,7 +2371,8 @@ class _EditDayDialogState extends State<_EditDayDialog> {
               'hours': hours,
               'isOvertime': isOvertime,
               'isManual': true,
-              if (currentType == AppConstants.typeCustom) ...{
+              'isCustomHours': isCustomHours,
+              if (currentType == AppConstants.typeCustom || (currentType == AppConstants.typeBusinessTrip && isCustomHours)) ...{
                 'customCheckIn': _parseTimeInput(_checkInController.text),
                 'customCheckOut': _parseTimeInput(_checkOutController.text),
               },
