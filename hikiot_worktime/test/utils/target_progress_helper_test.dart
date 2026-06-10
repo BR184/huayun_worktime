@@ -45,5 +45,44 @@ void main() {
       expect(result.highestAchievedTarget, 110);
       expect(result.nextToAchieveTarget, 120);
     });
+
+    test(
+      'monthly progress keeps smart ordering and folded completed targets',
+      () {
+        final result = TargetProgressHelper.buildMonthlyProgress(
+          adjustedTotalHours: 80,
+          baseHours: 80,
+          avgHoursPerDay: 9,
+          remainingWorkDays: 5,
+          baseTarget: 120,
+          smartSort: true,
+          pinnedTarget: null,
+        );
+
+        expect(result.highestAchievedTarget, 110);
+        expect(result.nextToAchieveTarget, 120);
+        expect(result.sortedTargetData.take(2).map((data) => data['target']), [
+          110,
+          120,
+        ]);
+        expect(result.sortedTargetData.last['target'], 100);
+      },
+    );
+
+    test('monthly progress moves pinned target to front after smart sort', () {
+      final result = TargetProgressHelper.buildMonthlyProgress(
+        adjustedTotalHours: 80,
+        baseHours: 80,
+        avgHoursPerDay: 9,
+        remainingWorkDays: 5,
+        baseTarget: 120,
+        smartSort: true,
+        pinnedTarget: 150,
+      );
+
+      expect(result.sortedTargetData.first['target'], 150);
+      expect(result.highestAchievedTarget, 110);
+      expect(result.nextToAchieveTarget, 120);
+    });
   });
 }

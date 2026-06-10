@@ -11,9 +11,11 @@ import '../services/token_expired_service.dart';
 import '../utils/work_time_calculator.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
+import '../utils/target_progress_helper.dart';
 
 import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
+import '../widgets/team_selection_dialog.dart';
 
 /// 月度统计页面 - 日历视图
 class MonthlyCalendarScreen extends StatefulWidget {
@@ -111,11 +113,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }
   }
 
-  /// 生成目标列表，确保包含基础目标
-  List<int> _generateTargetList(int baseTarget) {
-    return WorkTimeCalculator.generateTargetList(baseTarget);
-  }
-
   /// 切换置顶目标
   Future<void> _togglePinnedTarget(int target) async {
     final newTarget = WorkTimeCalculator.calculateNewPinnedTarget(
@@ -172,46 +169,12 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     List<Map<String, dynamic>> teams,
   ) async {
     if (_isShowingTeamDialog) return null;
-    return _showTeamSelectionDialog(teams);
-  }
-
-  /// 显示团队选择对话框
-  Future<Map<String, dynamic>?> _showTeamSelectionDialog(
-    List<dynamic> teams,
-  ) async {
-    // 防止重复显示
-    if (_isShowingTeamDialog) {
-      return null;
-    }
     _isShowingTeamDialog = true;
-
     try {
-      return await showDialog<Map<String, dynamic>>(
-        context: context,
+      return await TeamSelectionDialog.show(
+        context,
         barrierDismissible: false,
-        builder: (context) {
-          return AlertDialog(
-            title: const Text('选择团队'),
-            content: SizedBox(
-              width: double.maxFinite,
-              child: ListView.builder(
-                shrinkWrap: true,
-                itemCount: teams.length,
-                itemBuilder: (context, index) {
-                  final team = teams[index] as Map<String, dynamic>;
-                  final teamName = team['teamName'] as String? ?? '未知团队';
-                  return ListTile(
-                    title: Text(teamName),
-                    onTap: () {
-                      HapticUtils.selectionClick(); // 选择团队震动
-                      Navigator.of(context).pop(team);
-                    },
-                  );
-                },
-              ),
-            ),
-          );
-        },
+        teams: teams,
       );
     } finally {
       _isShowingTeamDialog = false;
@@ -2056,146 +2019,18 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     final avgHoursPerDay = adjustedTotalWorkDays > 0
         ? adjustedTotalHours / adjustedTotalWorkDays
         : 0.0;
-    final currentPercentage = (adjustedTotalHours / baseHours) * 100;
-
-    // 动态目标列表:如果160%已完成,扩展到300%
-    List<int> targets = _generateTargetList(_baseTarget);
-    if (currentPercentage >= 160) {
-      targets.addAll([170, 180, 190, 200, 220, 240, 260, 280, 300]);
-    }
-
-    // 创建目标数据列表用于排序
-    List<Map<String, dynamic>> targetData = targets.map((target) {
-      final targetHours = (baseHours * target) / 100;
-      final isCompleted = currentPercentage >= target;
-      final gapHours = targetHours - adjustedTotalHours;
-      final dailyNeed = remainingWorkDays > 0
-          ? gapHours / remainingWorkDays
-          : 0.0;
-
-      final targetAvgHours = (8 * target) / 100;
-      final avgProgress = avgHoursPerDay / targetAvgHours;
-      final avgCompleted = avgProgress >= 1.0;
-
-      return {
-        'target': target,
-        'targetHours': targetHours,
-        'isCompleted': isCompleted,
-        'avgCompleted': avgCompleted,
-        'gapHours': gapHours,
-        'dailyNeed': dailyNeed,
-        'avgHoursPerDay': avgHoursPerDay,
-        'targetAvgHours': targetAvgHours,
-        'avgProgress': avgProgress,
-      };
-    }).toList();
-
-    // 排序逻辑
-    List<Map<String, dynamic>> sortedTargetData;
-    int? highestAchievedTarget; // 最高达成
-    int? nextToAchieveTarget; // 即将达成
-
-    if (_smartSort) {
-      // 智能排序逻辑:
-      // 1. 第一位：日均已完成的最高目标（只有1个，如110%）→ 最高达成
-      // 2. 第二位：日均未完成的第一个目标（只有1个，如120%）→ 即将达成
-      // 3. 剩余：其他所有目标按target升序
-      // 4. 最后：日均+总进度都完成的（折叠）
-
-      // 分组
-      List<Map<String, dynamic>> bothCompleted = []; // 日均+总进度都完成(折叠)
-      List<Map<String, dynamic>> highestAchieved = []; // 日均已完成的最高目标(只有1个)
-      List<Map<String, dynamic>> nextToAchieve = []; // 日均未完成的第一个(只有1个)
-      List<Map<String, dynamic>> others = []; // 其他所有目标
-
-      for (var data in targetData) {
-        final avgCompleted = data['avgCompleted'] as bool;
-        final isCompleted = data['isCompleted'] as bool;
-
-        if (avgCompleted && isCompleted) {
-          bothCompleted.add(data);
-        } else {
-          others.add(data);
-        }
-      }
-
-      // 对others按target排序
-      others.sort((a, b) => a['target'].compareTo(b['target']));
-
-      // 从others中找出最高达成和即将达成
-      Map<String, dynamic>? highestAchievedData;
-      Map<String, dynamic>? nextToAchieveData;
-
-      // 找出日均已完成的最高目标
-      for (int i = others.length - 1; i >= 0; i--) {
-        if (others[i]['avgCompleted'] as bool) {
-          highestAchievedData = others[i];
-          break;
-        }
-      }
-
-      // 找出日均未完成的第一个目标
-      for (var data in others) {
-        if (!(data['avgCompleted'] as bool)) {
-          nextToAchieveData = data;
-          break;
-        }
-      }
-
-      // 从others中移除这两个特殊目标
-      if (highestAchievedData != null) {
-        highestAchieved.add(highestAchievedData);
-        others.remove(highestAchievedData);
-        highestAchievedTarget = highestAchievedData['target'] as int;
-      }
-      if (nextToAchieveData != null) {
-        nextToAchieve.add(nextToAchieveData);
-        others.remove(nextToAchieveData);
-        nextToAchieveTarget = nextToAchieveData['target'] as int;
-      }
-
-      // bothCompleted排序
-      bothCompleted.sort((a, b) => a['target'].compareTo(b['target']));
-
-      // 合并结果: 最高达成(1个) + 即将达成(1个) + 其他(升序) + 都完成(折叠)
-      sortedTargetData = [
-        ...highestAchieved,
-        ...nextToAchieve,
-        ...others,
-        ...bothCompleted,
-      ];
-    } else {
-      // 普通排序: 全部按目标从低到高
-      sortedTargetData = List.from(targetData);
-      sortedTargetData.sort(
-        (a, b) => (a['target'] as int).compareTo(b['target'] as int),
-      );
-
-      // 仍然需要找出最高达成和即将达成用于特殊标记显示
-      for (int i = sortedTargetData.length - 1; i >= 0; i--) {
-        if (sortedTargetData[i]['avgCompleted'] as bool) {
-          highestAchievedTarget = sortedTargetData[i]['target'] as int;
-          break;
-        }
-      }
-      for (var data in sortedTargetData) {
-        if (!(data['avgCompleted'] as bool)) {
-          nextToAchieveTarget = data['target'] as int;
-          break;
-        }
-      }
-    }
-
-    // 如果有置顶目标，将其移到最前面
-    if (_pinnedTarget != null) {
-      final pinnedIndex = sortedTargetData.indexWhere(
-        (d) => d['target'] == _pinnedTarget,
-      );
-      if (pinnedIndex > 0) {
-        final pinnedData = sortedTargetData.removeAt(pinnedIndex);
-        sortedTargetData.insert(0, pinnedData);
-      }
-    }
+    final targetProgress = TargetProgressHelper.buildMonthlyProgress(
+      adjustedTotalHours: adjustedTotalHours,
+      baseHours: baseHours.toDouble(),
+      avgHoursPerDay: avgHoursPerDay,
+      remainingWorkDays: remainingWorkDays,
+      baseTarget: _baseTarget,
+      smartSort: _smartSort,
+      pinnedTarget: _pinnedTarget,
+    );
+    final sortedTargetData = targetProgress.sortedTargetData;
+    final highestAchievedTarget = targetProgress.highestAchievedTarget;
+    final nextToAchieveTarget = targetProgress.nextToAchieveTarget;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,

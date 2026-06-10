@@ -15,7 +15,7 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 当前验证基线：
 
 - `flutter analyze`：无问题。
-- `flutter test`：74/74 通过。
+- `flutter test`：78/78 通过。
 - `flutter build apk --debug`：已验证可构建。
 - Android `release` 不再默认使用 debug 签名；WebView 调试只在非 release 构建打开；明文流量已关闭。
 
@@ -77,7 +77,7 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 ### R4 三大页面仍然过大，重复逻辑仍需继续拆分
 
 严重程度：P2
-状态：首轮抽取已完成，后续持续优化
+状态：代码侧复审项已完成
 
 问题：
 
@@ -87,16 +87,25 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 
 目标：
 
-- 已新增 `TargetProgressHelper`，先把每日目标列表、智能排序、置顶移动等纯逻辑从页面层抽出。
-- UI 大拆分分批做，避免一次性改动导致页面行为回归。
-- 每次抽取都必须有测试或现有测试保护。
+- 已新增并扩展 `TargetProgressHelper`，把每日和月度目标列表、智能排序、置顶移动等纯逻辑从页面层抽出。
+- 已新增 `TeamSelectionDialog`，月度页和设置页不再各自维护团队选择弹窗。
+- 已用测试覆盖每日目标排序、月度目标排序、置顶目标、团队选择、当前团队标记和取消行为。
+- 三个页面仍然较大，但当前复审中明确指出的重复逻辑已经收口；后续新增功能继续优先放到 service/helper/widget 层。
 
 ## 本轮修复结果
 
 1. R1：补 `TeamContextService` 选择器取消/返回 null 测试，修复为必须明确选团队。
 2. R2：补月度静默刷新异常测试，新增安全刷新结果并在页面侧做上下文回写保护。
 3. R3：补自定义午休扣除测试，修复固定 60 分钟的问题。
-4. R4：新增 `TargetProgressHelper` 和测试，先抽取每日目标进度纯逻辑。
+4. R4：扩展 `TargetProgressHelper`，新增 `TeamSelectionDialog`，收口每日/月度目标排序与团队选择弹窗重复逻辑。
+
+## 当前剩余事项
+
+代码侧复审项已完成。
+
+外部事项：
+
+- 正式 release 仍需要 keystore、签名密码和签名配置注入方式。没有这些材料时，代码只能避免 debug 签名，不能生成可信正式签名。
 
 ## 验收标准
 

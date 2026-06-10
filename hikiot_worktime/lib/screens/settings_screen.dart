@@ -13,6 +13,7 @@ import '../services/team_context_service.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
 import '../widgets/haptic_refresh_indicator.dart';
+import '../widgets/team_selection_dialog.dart';
 import 'login_screen.dart';
 import 'main_screen.dart';
 import 'phone_permission_guide.dart';
@@ -1879,43 +1880,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<Map<String, dynamic>?> _showTeamSelectionDialog(
     List<dynamic> teams,
   ) async {
-    return showDialog<Map<String, dynamic>>(
-      context: context,
+    return TeamSelectionDialog.show(
+      context,
+      teams: teams.cast<Map<String, dynamic>>(),
+      currentTeamNo: _teamNo,
       barrierDismissible: true,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('选择团队'),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: ListView.builder(
-              shrinkWrap: true,
-              itemCount: teams.length,
-              itemBuilder: (context, index) {
-                final team = teams[index] as Map<String, dynamic>;
-                final teamName = team['teamName'] as String? ?? '未知团队';
-                final teamNo = team['teamNo'] as String?;
-                final isCurrentTeam = teamNo != null && teamNo == _teamNo;
-                return ListTile(
-                  title: Text(teamName),
-                  trailing: isCurrentTeam
-                      ? const Icon(Icons.check, color: Colors.green)
-                      : null,
-                  onTap: () {
-                    HapticUtils.selectionClick();
-                    Navigator.of(context).pop(team);
-                  },
-                );
-              },
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(null),
-              child: const Text('取消'),
-            ),
-          ],
-        );
-      },
+      showCancel: true,
     );
   }
 
@@ -2066,7 +2036,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-    /// 复制当前Token
+  /// 复制当前Token
   Future<void> _copyCurrentToken() async {
     HapticUtils.lightImpact();
     final token = await _settingsRepository.loadToken() ?? '';
