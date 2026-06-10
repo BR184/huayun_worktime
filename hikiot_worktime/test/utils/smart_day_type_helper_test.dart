@@ -29,7 +29,7 @@ void main() {
       expect(inferred, AppConstants.typeLeave);
     });
 
-    test('does not infer leave for the current cross-day work date', () {
+    test('does not infer leave for the current natural work date', () {
       final inferred = SmartDayTypeHelper.inferDayType(
         currentType: AppConstants.typeWorkday,
         hours: 0,

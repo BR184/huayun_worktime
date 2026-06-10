@@ -11,6 +11,7 @@
 - `account/detail` 可获取账号信息、在线团队和团队列表。
 - `team/change` 可切换团队上下文，并返回当前团队对应的 `teamNo/personNo`。
 - 每日考勤 V2 接口可直接按 token 查询当前团队上下文下的个人日考勤，不需要在 query 中传 `personNo`。
+- 每日考勤 V2 接口按 query 里的 `date=yyyy-MM-dd` 返回单个自然日 `dailyDetail`；2026-06-10 只读探测未发现跨日期归属、上一日打卡引用或跨天时间段字段，APP 不应自行猜测把凌晨打卡自动并入上一日。
 - 旧每日考勤接口仍可访问，但字段比 V2 少，尤其缺少照片信息，不应继续作为提醒服务的数据源。
 - 月度接口返回的是简表数组，不是当前代码里需要的完整每日工时明细。
 - token 无效时，至少 `account/detail` 和每日 V2 会返回 HTTP 401，而不一定返回业务 JSON `code = 999999`。
@@ -225,7 +226,8 @@ photo
 - 不能把“存在 `shiftDetails`”等同于“有打卡”。
 - 判断休息日可参考 `shiftId == -1` 或 `shiftName` 包含休息语义。
 - V2 已经通过 token 和团队上下文识别用户，`personNo` 不需要放在 query 里。
-- 当前 `AttendanceParser` 只从第一段班次读取数据，后续需要确认是否存在多班次/多段打卡场景。
+- 当前代码已改为读取全部 `shiftDetails`，并会在发现 00:00 至跨天提醒截止时间之间的打卡时透传 `hasCrossDayPunch/crossDayPunchTime`，用于提醒用户手动调整工时。
+- 因每日 V2 没有跨日期归属字段，APP 已关闭“跨天时间点前自动视为昨天”的逻辑；跨天场景只做提醒，不做自动日期归属。
 
 ### 旧每日考勤
 
@@ -419,7 +421,7 @@ class AttendanceDay {
 - `simpleStatus` 枚举含义。
 - `clockInStatusType` / `clockOffStatusType` 完整枚举。
 - 非空请假记录字段结构。
-- 多班次或跨天打卡时 `shiftDetails` 是否会有多项。
+- 真实跨天打卡样本中 `shiftDetails` 的排列方式、凌晨打卡会归入哪一个自然日。
 - `remoteClockInInfo.photo` 是否长期有效，以及是否需要鉴权下载。
 
 ## 本次未执行的操作

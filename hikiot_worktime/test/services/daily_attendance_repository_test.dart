@@ -120,38 +120,63 @@ void main() {
       },
     );
 
-    test('saves and restores a manual day mark through the repository', () async {
+    test(
+      'saves and restores a manual day mark through the repository',
+      () async {
+        final storage = StorageService();
+        await storage.saveTeamContext(teamNo: 'team-1', personNo: 'person-1');
+        final repository = DailyAttendanceRepository(storage: storage);
+
+        final saved = await repository.saveManualMark(
+          selectedDate: DateTime(2026, 6, 8),
+          markData: {
+            'type': AppConstants.typeCustom,
+            'isManual': true,
+            'customCheckIn': '10:00',
+            'customCheckOut': '19:30',
+          },
+        );
+
+        expect(saved?.teamNo, 'team-1');
+        expect(saved?.dayData['type'], AppConstants.typeCustom);
+        expect(saved?.dayData['hours'], 8.5);
+        var marks = await storage.loadCalendarMarks('team-1');
+        expect(marks['2026-06-08']?['type'], AppConstants.typeCustom);
+
+        final restored = await repository.restoreDefaultMark(
+          selectedDate: DateTime(2026, 6, 8),
+          currentData: saved!.dayData,
+          holidayPlan: {'2026-06-08': AppConstants.typeWorkday},
+          attendanceData: {'hours': 7.5},
+        );
+
+        expect(restored?.dayData['type'], AppConstants.typeWorkday);
+        expect(restored?.dayData['hours'], 7.5);
+        marks = await storage.loadCalendarMarks('team-1');
+        expect(marks.containsKey('2026-06-08'), isFalse);
+      },
+    );
+
+    test('returns cross-day reminder metadata with attendance data', () async {
       final storage = StorageService();
+      await storage.saveToken('token-1');
       await storage.saveTeamContext(teamNo: 'team-1', personNo: 'person-1');
-      final repository = DailyAttendanceRepository(storage: storage);
 
-      final saved = await repository.saveManualMark(
-        selectedDate: DateTime(2026, 6, 8),
-        markData: {
-          'type': AppConstants.typeCustom,
-          'isManual': true,
-          'customCheckIn': '10:00',
-          'customCheckOut': '19:30',
-        },
+      final repository = DailyAttendanceRepository(
+        storage: storage,
+        loadDailyAttendance: (_, _, _) async =>
+            _dailyResponse(checkIn: '09:00', checkOut: '00:30'),
       );
 
-      expect(saved?.teamNo, 'team-1');
-      expect(saved?.dayData['type'], AppConstants.typeCustom);
-      expect(saved?.dayData['hours'], 8.5);
-      var marks = await storage.loadCalendarMarks('team-1');
-      expect(marks['2026-06-08']?['type'], AppConstants.typeCustom);
-
-      final restored = await repository.restoreDefaultMark(
-        selectedDate: DateTime(2026, 6, 8),
-        currentData: saved!.dayData,
-        holidayPlan: {'2026-06-08': AppConstants.typeWorkday},
-        attendanceData: {'hours': 7.5},
+      final result = await repository.load(
+        DateTime(2026, 6, 8),
+        workDate: DateTime(2026, 6, 8),
       );
 
-      expect(restored?.dayData['type'], AppConstants.typeWorkday);
-      expect(restored?.dayData['hours'], 7.5);
-      marks = await storage.loadCalendarMarks('team-1');
-      expect(marks.containsKey('2026-06-08'), isFalse);
+      expect(result.attendanceData?['hasCrossDayPunch'], isTrue);
+      expect(result.attendanceData?['crossDayPunchTime'], '00:30');
+      expect(result.dayData['hasCrossDayPunch'], isTrue);
+      expect(result.dayData['crossDayPunchTime'], '00:30');
     });
   });
 }

@@ -15,7 +15,7 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 当前验证基线：
 
 - `flutter analyze`：无问题。
-- `flutter test`：87/87 通过。
+- `flutter test`：93/93 通过。
 - `flutter build apk --debug`：已验证可构建。
 - Android `release` 不再默认使用 debug 签名；WebView 调试只在非 release 构建打开；明文流量已关闭。
 
@@ -133,7 +133,7 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 - 浮点显示规则修正：`WorkTimeCalculator.formatHours()` 现在对整数保持紧凑显示，例如 `8 -> 8`；对浮点结果严格截断两位，例如 `8.0 -> 8.00`、`5.559 -> 5.55`。
 - 午休时间范围校验：设置页保存午休时间时会拒绝“结束时间早于或等于开始时间”；计算器也会把已有非法午休配置视为 0 分钟，避免把工时反向加长。
 - 跨天午休扣除：`09:00 -> 00:30` 这类上午上班、凌晨下班的长工时会正常扣午休；`21:00 -> 00:30` 夜班不扣午休。
-- 跨天工作日请假判断：自动请假推断改为默认使用 `DateHelper.getWorkDate()`，避免凌晨跨天时间点前把当前工作日误当成过去日期。
+- 跨天工作日请假判断：此前先将自动请假推断统一到 `DateHelper.getWorkDate()`；随后根据接口探测结论，已进一步关闭 APP 自动跨天归属，详见下一节。
 
 验证：
 
@@ -144,6 +144,24 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 外部事项：
 
 - 正式 release 仍需要 keystore、签名密码和签名配置注入方式。没有这些材料时，代码只能避免 debug 签名，不能生成可信正式签名。
+
+## 2026-06-10 追加修复：跨天打卡改为提醒
+
+结论：海康每日 V2 接口按 `date=yyyy-MM-dd` 返回单个自然日 `dailyDetail`。本次用既有 token 做只读探测，响应字段包含 `dailyDetail.date/shiftDetails`，未发现跨日期归属、上一日打卡引用或跨天时间段字段。APP 不应自行猜测把凌晨打卡自动并入上一日。
+
+修复内容：
+
+- `DateHelper.getWorkDate()` 改为始终返回自然日今天，关闭“跨天时间点前视为昨天”的 APP 级自动归属。
+- 保留跨天时间设置，但语义改为“跨天打卡提醒截止时间”，设置页文案同步更新。
+- `AttendanceParser` 新增 `hasCrossDayPunch/crossDayPunchTime`，检测 00:00 之后、提醒截止时间之前的打卡。
+- 每日仓储、月度聚合、月度合并、月度后台刷新都会透传跨天提醒字段。
+- 每日页和月度单日详情页在检测到凌晨窗口内打卡时提示用户手动设置工时。
+
+验证：
+
+- 相关测试均先红后绿，覆盖自然日判断、跨天窗口识别、解析器、每日仓储、月度聚合和月度合并。
+- `flutter analyze` 无问题。
+- `flutter test` 93/93 通过。
 
 ## 验收标准
 

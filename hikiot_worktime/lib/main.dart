@@ -24,7 +24,7 @@ Future<void> main() async {
   // 初始化工时计算器配置
   await WorkTimeCalculator.initialize();
 
-  // 初始化日期工具（跨天时间点）
+  // 初始化日期工具（跨天打卡提醒时间）
   await DateHelper.initialize();
 
   // 初始化震动设置

@@ -108,6 +108,8 @@ class MonthlyAttendanceAggregator {
       'isLate': attendance.isLate,
       'isEarlyLeave': attendance.isEarlyLeave,
       'isRestDay': attendance.isRestDay,
+      'hasCrossDayPunch': attendance.hasCrossDayPunch,
+      'crossDayPunchTime': attendance.crossDayPunchTime,
       'personName': dailyData['personName'] as String?,
       SmartDayTypeHelper.dataSourceStatusKey:
           SmartDayTypeHelper.dataSourceStatusApiConfirmed,

@@ -286,6 +286,9 @@ class DailyAttendanceRepository {
       );
     }
 
+    result['hasCrossDayPunch'] = attendance.hasCrossDayPunch;
+    result['crossDayPunchTime'] = attendance.crossDayPunchTime;
+
     if (result['isManual'] == true) {
       return result;
     }
@@ -345,6 +348,8 @@ class DailyAttendanceRepository {
       'hours': attendance.hours,
       'checkInPhotoUrl': attendance.checkInPhotoUrl,
       'checkOutPhotoUrl': attendance.checkOutPhotoUrl,
+      'hasCrossDayPunch': attendance.hasCrossDayPunch,
+      'crossDayPunchTime': attendance.crossDayPunchTime,
       SmartDayTypeHelper.dataSourceStatusKey:
           SmartDayTypeHelper.dataSourceStatusApiConfirmed,
     };

@@ -5,16 +5,16 @@ import '../core/constants/constants.dart';
 import '../services/storage_service.dart';
 
 /// 日期工具类
-/// 统一管理跨天时间点和日期格式化
+///
+/// 注意：跨天时间点只用于“跨天打卡提醒”，不再改变 APP 的当前工作日。
+/// 海康每日接口按自然日返回数据，APP 自动把凌晨打卡并入上一日会制造错误归属。
 class DateHelper {
-  // 跨天时间点（分钟，默认04:00 = 240分钟）
-  // 如果当前时间 < 跨天时间点，则认为还是"昨天"
-  static int crossDayMinutes = 4 * 60; // 默认04:00
+  // 跨天提醒截止时间（分钟，默认 04:00 = 240 分钟）
+  static int crossDayMinutes = 4 * 60;
 
-  // 是否已初始化
   static bool _initialized = false;
 
-  /// 初始化（从设置加载跨天时间）
+  /// 初始化提醒时间配置
   static Future<void> initialize() async {
     if (_initialized) return;
 
@@ -25,7 +25,7 @@ class DateHelper {
           AppConstants.defaultCrossDayMinutes;
       _initialized = true;
     } catch (e) {
-      // Initialization error
+      // 初始化失败时保留默认提醒时间
     }
   }
 
@@ -35,44 +35,69 @@ class DateHelper {
     await initialize();
   }
 
-  /// 保存跨天时间点
+  /// 保存跨天提醒截止时间
   static Future<void> saveCrossDayMinutes(int minutes) async {
     await StorageService().saveSettings({StorageKeys.crossDayMinutes: minutes});
     crossDayMinutes = minutes;
   }
 
-  /// 获取跨天时间的TimeOfDay表示
+  /// 获取跨天提醒时间的 TimeOfDay 表示
   static TimeOfDay getCrossDayTime() {
     return TimeOfDay(hour: crossDayMinutes ~/ 60, minute: crossDayMinutes % 60);
   }
 
-  /// 从TimeOfDay设置跨天时间
+  /// 从 TimeOfDay 设置跨天提醒时间
   static Future<void> setCrossDayTime(TimeOfDay time) async {
     await saveCrossDayMinutes(time.hour * 60 + time.minute);
   }
 
-  /// 获取当前工作日日期
-  /// 如果当前时间 < 跨天时间点，返回昨天日期
-  static DateTime getWorkDate() {
-    final now = DateTime.now();
-    final currentMinutes = now.hour * 60 + now.minute;
-    if (currentMinutes < crossDayMinutes) {
-      return DateTime(now.year, now.month, now.day - 1);
-    }
-    return DateTime(now.year, now.month, now.day);
+  /// 获取当前自然日。
+  ///
+  /// 以前这里会在跨天时间点前返回昨天；现在关闭自动跨天归属。
+  static DateTime getWorkDate({DateTime? now}) {
+    final effectiveNow = now ?? DateTime.now();
+    return DateTime(effectiveNow.year, effectiveNow.month, effectiveNow.day);
   }
 
-  /// 判断指定日期是否是当前工作日
-  static bool isWorkToday(DateTime date) {
-    final workDate = getWorkDate();
-    return date.year == workDate.year &&
-        date.month == workDate.month &&
-        date.day == workDate.day;
+  /// 判断指定日期是否是今天（自然日）
+  static bool isWorkToday(DateTime date, {DateTime? now}) {
+    final today = getWorkDate(now: now);
+    return date.year == today.year &&
+        date.month == today.month &&
+        date.day == today.day;
   }
 
   /// 判断两个日期是否是同一天
   static bool isSameDay(DateTime a, DateTime b) {
     return a.year == b.year && a.month == b.month && a.day == b.day;
+  }
+
+  /// 判断打卡时间是否落在跨天提醒窗口内。
+  ///
+  /// 窗口为 00:00 之后、跨天提醒截止时间之前；用于提醒用户手动调整工时。
+  static bool isCrossDayReminderPunchTime(String? timeStr) {
+    final minutes = _parseTimeToMinutes(timeStr);
+    return minutes != null && minutes > 0 && minutes < crossDayMinutes;
+  }
+
+  /// 从一组打卡时间中找出最早的跨天提醒时间
+  static String? firstCrossDayReminderPunchTime(Iterable<String?> times) {
+    String? result;
+    int? earliestMinutes;
+
+    for (final time in times) {
+      final minutes = _parseTimeToMinutes(time);
+      if (minutes == null || minutes <= 0 || minutes >= crossDayMinutes) {
+        continue;
+      }
+
+      if (earliestMinutes == null || minutes < earliestMinutes) {
+        earliestMinutes = minutes;
+        result = time;
+      }
+    }
+
+    return result;
   }
 
   /// 格式化日期为 yyyy-MM-dd
@@ -95,15 +120,29 @@ class DateHelper {
     return DateFormat('HH:mm').format(time);
   }
 
-  /// 获取跨天时间点的显示字符串
+  /// 获取跨天提醒时间点的显示字符串
   static String getCrossDayTimeString() {
     final hour = crossDayMinutes ~/ 60;
     final minute = crossDayMinutes % 60;
     return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
+
+  static int? _parseTimeToMinutes(String? timeStr) {
+    if (timeStr == null || timeStr.isEmpty || timeStr == '-') return null;
+
+    final parts = timeStr.split(':');
+    if (parts.length < 2) return null;
+
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return null;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return null;
+
+    return hour * 60 + minute;
+  }
 }
 
-/// TimeOfDay扩展
+/// TimeOfDay 扩展
 extension TimeOfDayExtension on TimeOfDay {
   /// 转换为分钟数
   int toMinutes() => hour * 60 + minute;

@@ -58,7 +58,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   // 调试工具开关
   bool _debugToolsEnabled = false;
 
-  // 跨天时间点
+  // 跨天打卡提醒截止时间
   TimeOfDay _crossDayTime = const TimeOfDay(hour: 4, minute: 0);
 
   // 用户信息
@@ -1414,7 +1414,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// 跨天时间点设置卡片
+  /// 跨天打卡提醒设置卡片
   Widget _buildCrossDaySettings() {
     return Card(
       elevation: 2,
@@ -1429,14 +1429,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Icon(Icons.nights_stay, size: 20, color: Colors.indigo[700]),
                 const SizedBox(width: 8),
                 const Text(
-                  '跨天时间点',
+                  '跨天打卡提醒',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
                 ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              '凌晨下班时，该时间前视为"昨天"的工作日',
+              '检测到 00:00 至该时间前的打卡时，仅提醒手动调整工时，不自动归入上一日',
               style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             ),
             const SizedBox(height: 16),
@@ -1490,7 +1490,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
-                      '例：凌晨0:10下班，未超04:00算作前一天',
+                      '例：凌晨0:10下班且提醒截止为04:00时，页面会提示你手动补充跨天工时',
                       style: TextStyle(fontSize: 12, color: Colors.amber[900]),
                     ),
                   ),
@@ -1503,7 +1503,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// 选择跨天时间点
+  /// 选择跨天打卡提醒截止时间
   Future<void> _selectCrossDayTime() async {
     await HapticUtils.selectionClick();
     if (!mounted) return;
@@ -1511,7 +1511,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final picked = await showTimePicker(
       context: context,
       initialTime: _crossDayTime,
-      helpText: '选择跨天时间点',
+      helpText: '选择跨天提醒截止时间',
       builder: (context, child) {
         return MediaQuery(
           data: MediaQuery.of(context).copyWith(alwaysUse24HourFormat: true),
@@ -1526,7 +1526,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (picked.hour > 6) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('跨天时间点只可设置在00:00-06:00之间'),
+          content: Text('跨天提醒截止时间只可设置在00:00-06:00之间'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -1542,7 +1542,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('跨天时间点已设置为 ${_formatTime(picked)}'),
+        content: Text('跨天提醒截止时间已设置为 ${_formatTime(picked)}'),
         backgroundColor: Colors.green,
       ),
     );

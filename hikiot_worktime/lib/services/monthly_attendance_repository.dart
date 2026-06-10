@@ -229,6 +229,8 @@ class MonthlyAttendanceRepository {
       localRow['checkOut'] = apiData.checkOut;
       localRow['isLate'] = apiData.isLate;
       localRow['isEarlyLeave'] = apiData.isEarlyLeave;
+      localRow['hasCrossDayPunch'] = apiData.hasCrossDayPunch;
+      localRow['crossDayPunchTime'] = apiData.crossDayPunchTime;
       localRow[SmartDayTypeHelper.dataSourceStatusKey] =
           SmartDayTypeHelper.dataSourceStatusApiConfirmed;
       if (needsTypeCorrection) {
@@ -304,6 +306,8 @@ class MonthlyAttendanceRepository {
     row['apiHours'] = attendance.hours;
     row['checkIn'] = attendance.checkIn;
     row['checkOut'] = attendance.checkOut;
+    row['hasCrossDayPunch'] = attendance.hasCrossDayPunch;
+    row['crossDayPunchTime'] = attendance.crossDayPunchTime;
     row[SmartDayTypeHelper.dataSourceStatusKey] =
         SmartDayTypeHelper.dataSourceStatusApiConfirmed;
 

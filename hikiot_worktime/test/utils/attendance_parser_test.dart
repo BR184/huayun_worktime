@@ -1,10 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:hikiot_worktime/utils/attendance_parser.dart';
+import 'package:hikiot_worktime/utils/date_helper.dart';
 import 'package:hikiot_worktime/utils/work_time_calculator.dart';
 
 void main() {
   group('AttendanceParser', () {
     setUp(() {
+      DateHelper.crossDayMinutes = 4 * 60;
       WorkTimeCalculator.lunchStartMinutes = 12 * 60;
       WorkTimeCalculator.lunchEndMinutes = 13 * 60;
     });
@@ -64,6 +66,19 @@ void main() {
       expect(attendance.hours, 3.5);
       expect(attendance.checkInPhotoUrl, 'night-in.jpg');
       expect(attendance.checkOutPhotoUrl, 'after-midnight.jpg');
+    });
+
+    test('marks after-midnight punches as cross-day reminder candidates', () {
+      final attendance = AttendanceParser.parse({
+        'shiftId': 1,
+        'shiftName': 'night shift',
+        'shiftDetails': [
+          {'clockInTime': '09:00', 'clockOffTime': '00:30'},
+        ],
+      });
+
+      expect(attendance.hasCrossDayPunch, isTrue);
+      expect(attendance.crossDayPunchTime, '00:30');
     });
   });
 }

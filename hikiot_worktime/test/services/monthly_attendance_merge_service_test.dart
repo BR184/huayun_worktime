@@ -85,5 +85,31 @@ void main() {
       expect(result.monthlyData['2026-06-03']?['hours'], 8.5);
       expect(result.monthlyData['2026-06-03']?['isManual'], isFalse);
     });
+
+    test('carries cross-day reminder metadata into month rows', () {
+      final result = MonthlyAttendanceMergeService().merge(
+        selectedMonth: DateTime(2026, 6),
+        holidayPlan: {'2026-06-03': AppConstants.typeWorkday},
+        monthlyStats: {
+          'dailyRecords': [
+            {
+              'date': '2026-06-03',
+              'hours': 8.0,
+              'checkIn': '09:00',
+              'checkOut': '00:30',
+              'hasCrossDayPunch': true,
+              'crossDayPunchTime': '00:30',
+              'isRestDay': false,
+              SmartDayTypeHelper.dataSourceStatusKey:
+                  SmartDayTypeHelper.dataSourceStatusApiConfirmed,
+            },
+          ],
+        },
+        savedMarks: const {},
+      );
+
+      expect(result.monthlyData['2026-06-03']?['hasCrossDayPunch'], isTrue);
+      expect(result.monthlyData['2026-06-03']?['crossDayPunchTime'], '00:30');
+    });
   });
 }

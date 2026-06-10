@@ -60,6 +60,8 @@ class MonthlyAttendanceMergeService {
         'checkOut': record['checkOut'],
         'isLate': record['isLate'] ?? false,
         'isEarlyLeave': record['isEarlyLeave'] ?? false,
+        'hasCrossDayPunch': record['hasCrossDayPunch'] == true,
+        'crossDayPunchTime': record['crossDayPunchTime'],
         SmartDayTypeHelper.dataSourceStatusKey:
             record[SmartDayTypeHelper.dataSourceStatusKey] ??
             SmartDayTypeHelper.dataSourceStatusApiConfirmed,
@@ -125,6 +127,8 @@ class MonthlyAttendanceMergeService {
         'checkOut': null,
         'isLate': false,
         'isEarlyLeave': false,
+        'hasCrossDayPunch': false,
+        'crossDayPunchTime': null,
         'type': defaultType,
         'isManual': false,
         SmartDayTypeHelper.dataSourceStatusKey:

@@ -82,10 +82,30 @@ void main() {
 
       expect(aggregator.aggregate(), throwsA(isA<TokenExpiredException>()));
     });
+
+    test('carries cross-day reminder metadata from daily records', () async {
+      final aggregator = MonthlyAttendanceAggregator(
+        month: '2026-02',
+        personNo: 'person-1',
+        loadDailyAttendance: (date, personNo) async {
+          return _dailyResponse(date, checkOut: '00:30');
+        },
+      );
+
+      final result = await aggregator.aggregate();
+      final records = result['dailyRecords'] as List<dynamic>;
+
+      expect(records.first['hasCrossDayPunch'], isTrue);
+      expect(records.first['crossDayPunchTime'], '00:30');
+    });
   });
 }
 
-Map<String, dynamic> _dailyResponse(String date, {bool late = false}) {
+Map<String, dynamic> _dailyResponse(
+  String date, {
+  bool late = false,
+  String checkOut = '18:00',
+}) {
   return {
     'personName': '测试用户',
     'dailyDetail': {
@@ -94,7 +114,7 @@ Map<String, dynamic> _dailyResponse(String date, {bool late = false}) {
       'shiftDetails': [
         {
           'clockInTime': '09:00',
-          'clockOffTime': '18:00',
+          'clockOffTime': checkOut,
           'clockInStatusType': late ? 1 : 0,
           'clockOffStatusType': 0,
         },

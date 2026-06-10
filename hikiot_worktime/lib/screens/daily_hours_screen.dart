@@ -479,6 +479,10 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         const SizedBox(height: 12),
                         _buildTypeWarning(type),
                         const SizedBox(height: 12),
+                        if (_hasCrossDayPunch) ...[
+                          _buildCrossDayPunchReminder(),
+                          const SizedBox(height: 12),
+                        ],
                         _buildActionButtons(),
                         const SizedBox(height: 12),
                         _buildHoursCard(hours, type),
@@ -494,6 +498,14 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       ],
     );
   }
+
+  bool get _hasCrossDayPunch =>
+      _attendanceData?['hasCrossDayPunch'] == true ||
+      _dayData?['hasCrossDayPunch'] == true;
+
+  String? get _crossDayPunchTime =>
+      _attendanceData?['crossDayPunchTime'] as String? ??
+      _dayData?['crossDayPunchTime'] as String?;
 
   Widget _buildDateSelector() {
     final isToday = _isToday();
@@ -697,6 +709,54 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  Widget _buildCrossDayPunchReminder() {
+    final punchTime = _crossDayPunchTime ?? '凌晨';
+    final cutoffTime = DateHelper.getCrossDayTimeString();
+
+    return Card(
+      elevation: 2,
+      color: Colors.amber[50],
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: Colors.amber[200]!),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(Icons.nights_stay, color: Colors.amber[800], size: 22),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '检测到跨天打卡',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.amber[900],
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    '检测到 $punchTime 的打卡记录，位于 00:00-$cutoffTime 提醒窗口内。海康接口按自然日返回，无法自动并入上一日工时，请手动设置对应日期工时。',
+                    style: TextStyle(
+                      fontSize: 12,
+                      height: 1.4,
+                      color: Colors.amber[900],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

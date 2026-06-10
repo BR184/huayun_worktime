@@ -1037,6 +1037,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             final checkIn = dayData['checkIn'] as String?;
             final checkOut = dayData['checkOut'] as String?;
             final hours = dayData['hours'] as double? ?? 0.0;
+            final hasCrossDayPunch = dayData['hasCrossDayPunch'] == true;
 
             return AlertDialog(
               title: Text('${dateStr.substring(5)} - $currentType'),
@@ -1149,6 +1150,11 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                           ],
                         ),
                       ),
+                      const SizedBox(height: 16),
+                    ],
+
+                    if (hasCrossDayPunch) ...[
+                      _buildCrossDayPunchDialogReminder(dayData),
                       const SizedBox(height: 16),
                     ],
 
@@ -1393,6 +1399,37 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           },
         );
       },
+    );
+  }
+
+  Widget _buildCrossDayPunchDialogReminder(Map<String, dynamic> dayData) {
+    final punchTime = dayData['crossDayPunchTime'] as String? ?? '凌晨';
+    final cutoffTime = DateHelper.getCrossDayTimeString();
+
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.amber[50],
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.amber[200]!),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.nights_stay, size: 18, color: Colors.amber[800]),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              '检测到 $punchTime 的打卡记录，位于 00:00-$cutoffTime 提醒窗口内。海康接口按自然日返回，请手动设置本日工时。',
+              style: TextStyle(
+                fontSize: 12,
+                height: 1.35,
+                color: Colors.amber[900],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 

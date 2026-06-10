@@ -1,3 +1,4 @@
+import 'date_helper.dart';
 import 'work_time_calculator.dart';
 
 /// 考勤数据解析结果
@@ -7,9 +8,11 @@ class AttendanceData {
   final double hours;
   final bool isLate;
   final bool isEarlyLeave;
-  final String? checkInPhotoUrl; // 上班打卡照片
-  final String? checkOutPhotoUrl; // 下班打卡照片
-  final bool isRestDay; // 是否为休息日/节假日 (海康原生识别)
+  final String? checkInPhotoUrl;
+  final String? checkOutPhotoUrl;
+  final bool isRestDay;
+  final bool hasCrossDayPunch;
+  final String? crossDayPunchTime;
 
   const AttendanceData({
     this.checkIn,
@@ -20,6 +23,8 @@ class AttendanceData {
     this.checkInPhotoUrl,
     this.checkOutPhotoUrl,
     this.isRestDay = false,
+    this.hasCrossDayPunch = false,
+    this.crossDayPunchTime,
   });
 
   /// 是否有有效的打卡数据（至少有上班打卡）
@@ -47,6 +52,8 @@ class AttendanceData {
       checkIn: data['checkIn'] as String?,
       checkOut: data['checkOut'] as String?,
       hours: (data['hours'] as num?)?.toDouble() ?? 0.0,
+      hasCrossDayPunch: data['hasCrossDayPunch'] == true,
+      crossDayPunchTime: data['crossDayPunchTime'] as String?,
     );
   }
 
@@ -55,11 +62,12 @@ class AttendanceData {
       'AttendanceData(checkIn: $checkIn, checkOut: $checkOut, hours: $hours)';
 }
 
-/// 考勤数据解析工具 (支持V2 API)
+/// 考勤数据解析工具（支持 V2 API）
 class AttendanceParser {
   /// 从 API 返回的 dailyDetail 解析考勤数据
   ///
-  /// V2 API 返回 shiftDetails，包含 remoteClockInInfo.photo / remoteClockOffInfo.photo
+  /// V2 API 返回 shiftDetails，包含 remoteClockInInfo.photo /
+  /// remoteClockOffInfo.photo。凌晨打卡只标记为提醒，不自动归并到上一日。
   static AttendanceData parse(Map<String, dynamic>? dailyDetail) {
     if (dailyDetail == null) return const AttendanceData();
 
@@ -72,20 +80,23 @@ class AttendanceParser {
     String? clockOutPhoto;
     bool isLate = false;
     bool isEarlyLeave = false;
+    final punchTimes = <String?>[];
 
-    // 海康原生休息日/节假日识别：
-    // shiftId == -1 且 shiftName 包含 "休息"
+    // 海康原生休息日/节假日识别
     final shiftId = dailyDetail['shiftId'] as int? ?? 0;
     final shiftName = dailyDetail['shiftName'] as String? ?? '';
     final isRestDay = shiftId == -1 || shiftName.contains('休息');
 
-    // 优先从 shiftDetails 取（V2 API 总是返回 shiftDetails）
+    // 优先从 shiftDetails 取（V2 API 正常返回 shiftDetails）
     if (shiftDetails != null && shiftDetails.isNotEmpty) {
       final shifts = shiftDetails.whereType<Map<String, dynamic>>().toList();
       int? earliestClockInMinutes;
 
       for (final shift in shifts) {
         final shiftClockIn = shift['clockInTime'] as String?;
+        final shiftClockOff = shift['clockOffTime'] as String?;
+        punchTimes.addAll([shiftClockIn, shiftClockOff]);
+
         final shiftClockInMinutes = WorkTimeCalculator.parseTimeToMinutes(
           shiftClockIn,
         );
@@ -131,19 +142,21 @@ class AttendanceParser {
           clockOutPhoto = remoteClockOffInfo?['photo'] as String?;
         }
       }
-    }
-    // 回退：从 restClockTime 取（旧API兼容）
-    else if (restClockTime != null && restClockTime.isNotEmpty) {
-      final first = restClockTime.first as Map<String, dynamic>;
+    } else if (restClockTime != null && restClockTime.isNotEmpty) {
+      // 回退：从 restClockTime 取（旧 API 兼容）
+      final punches = restClockTime.whereType<Map<String, dynamic>>().toList();
+      for (final punch in punches) {
+        punchTimes.add(punch['clockTime'] as String?);
+      }
+
+      final first = punches.first;
       clockIn = first['clockTime'] as String?;
-      // 多次打卡时取最后一次作为下班
-      if (restClockTime.length >= 2) {
-        final last = restClockTime.last as Map<String, dynamic>;
+      if (punches.length >= 2) {
+        final last = punches.last;
         clockOut = last['clockTime'] as String?;
       }
     }
 
-    // 计算工时
     double hours = 0.0;
     if (clockIn != null &&
         clockOut != null &&
@@ -154,6 +167,10 @@ class AttendanceParser {
       hours = WorkTimeCalculator.calculateWorkHoursStr(clockIn, clockOut);
     }
 
+    final crossDayPunchTime = DateHelper.firstCrossDayReminderPunchTime(
+      punchTimes,
+    );
+
     return AttendanceData(
       checkIn: clockIn,
       checkOut: clockOut,
@@ -163,6 +180,8 @@ class AttendanceParser {
       checkInPhotoUrl: clockInPhoto,
       checkOutPhotoUrl: clockOutPhoto,
       isRestDay: isRestDay,
+      hasCrossDayPunch: crossDayPunchTime != null,
+      crossDayPunchTime: crossDayPunchTime,
     );
   }
 
