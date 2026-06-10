@@ -160,6 +160,57 @@ void main() {
     });
 
     test(
+      'smart update restores stale automatic leave cache when API has work hours',
+      () async {
+        final storage = StorageService();
+        final repository = MonthlyAttendanceRepository(
+          storage: storage,
+          loadMonthlyAttendance: (_, _) async => {},
+          loadDailyAttendance: (_, _) async => {
+            'dailyDetail': {
+              'shiftId': 1,
+              'shiftName': '工作日',
+              'shiftDetails': [
+                {
+                  'clockInTime': '09:00',
+                  'clockOffTime': '18:30',
+                  'clockInStatusType': 0,
+                  'clockOffStatusType': 0,
+                },
+              ],
+            },
+          },
+        );
+
+        final result = await repository.smartQuickUpdate(
+          teamNo: 'team-1',
+          personNo: 'person-1',
+          selectedMonth: DateTime(2026, 6),
+          currentData: {
+            '2026-06-10': {
+              'type': AppConstants.typeLeave,
+              'hours': 0.0,
+              'apiHours': 0.0,
+              'checkIn': null,
+              'checkOut': null,
+              'isManual': false,
+              SmartDayTypeHelper.dataSourceStatusKey:
+                  SmartDayTypeHelper.dataSourceStatusApiConfirmed,
+            },
+          },
+          now: DateTime(2026, 6, 10),
+        );
+
+        expect(
+          result.monthlyData['2026-06-10']?['type'],
+          AppConstants.typeWorkday,
+        );
+        expect(result.monthlyData['2026-06-10']?['hours'], 8.5);
+        expect(result.monthlyData['2026-06-10']?['isManual'], isFalse);
+      },
+    );
+
+    test(
       'safe smart update reports background errors without throwing',
       () async {
         final storage = StorageService();

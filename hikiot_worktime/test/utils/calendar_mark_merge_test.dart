@@ -4,7 +4,32 @@ import 'package:hikiot_worktime/utils/calendar_mark_merge.dart';
 
 void main() {
   group('CalendarMarkMerge', () {
-    test('keeps an automatic mark automatic when applying it to API data', () {
+    test(
+      'keeps an automatic leave mark when API still has no work evidence',
+      () {
+        final apiDay = <String, dynamic>{
+          'type': AppConstants.typeWorkday,
+          'hours': 0.0,
+          'apiHours': 0.0,
+          'checkIn': null,
+          'checkOut': null,
+          'isManual': false,
+        };
+        final autoMark = <String, dynamic>{
+          'type': AppConstants.typeLeave,
+          'hours': 0.0,
+          'isManual': false,
+        };
+
+        final merged = CalendarMarkMerge.applyMark(apiDay, autoMark);
+
+        expect(merged['type'], AppConstants.typeLeave);
+        expect(merged['hours'], 0.0);
+        expect(merged['isManual'], isFalse);
+      },
+    );
+
+    test('ignores stale automatic leave mark when API has work hours', () {
       final apiDay = <String, dynamic>{
         'type': AppConstants.typeWorkday,
         'hours': 8.5,
@@ -13,17 +38,39 @@ void main() {
         'checkOut': '18:30',
         'isManual': false,
       };
-      final autoMark = <String, dynamic>{
+      final staleAutoLeaveMark = <String, dynamic>{
         'type': AppConstants.typeLeave,
         'hours': 0.0,
         'isManual': false,
       };
 
-      final merged = CalendarMarkMerge.applyMark(apiDay, autoMark);
+      final merged = CalendarMarkMerge.applyMark(apiDay, staleAutoLeaveMark);
+
+      expect(merged['type'], AppConstants.typeWorkday);
+      expect(merged['hours'], 8.5);
+      expect(merged['isManual'], isFalse);
+    });
+
+    test('keeps manual leave mark even when API has work hours', () {
+      final apiDay = <String, dynamic>{
+        'type': AppConstants.typeWorkday,
+        'hours': 8.5,
+        'apiHours': 8.5,
+        'checkIn': '09:00',
+        'checkOut': '18:30',
+        'isManual': false,
+      };
+      final manualLeaveMark = <String, dynamic>{
+        'type': AppConstants.typeLeave,
+        'hours': 0.0,
+        'isManual': true,
+      };
+
+      final merged = CalendarMarkMerge.applyMark(apiDay, manualLeaveMark);
 
       expect(merged['type'], AppConstants.typeLeave);
       expect(merged['hours'], 0.0);
-      expect(merged['isManual'], isFalse);
+      expect(merged['isManual'], isTrue);
     });
 
     test('applies manual custom time and recalculates hours', () {

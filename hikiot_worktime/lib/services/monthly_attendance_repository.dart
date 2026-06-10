@@ -208,13 +208,11 @@ class MonthlyAttendanceRepository {
       final apiResponse = await _loadDailyAttendance(dateStr, personNo);
       final apiData = AttendanceParser.parseFromResponse(apiResponse);
       final currentType = localRow['type'] as String?;
-      final typeCorrection = SmartDayTypeHelper.inferDayType(
+      final typeCorrection = _resolveTypeAfterApi(
         currentType: currentType,
-        hours: apiData.hours,
+        attendance: apiData,
         dateStr: dateStr,
         isManual: false,
-        hasCheckIn: apiData.hasValidData,
-        dataSourceStatus: DayDataSourceStatus.apiConfirmed,
       );
       final needsTypeCorrection =
           typeCorrection != null && typeCorrection != currentType;
@@ -309,13 +307,11 @@ class MonthlyAttendanceRepository {
     row[SmartDayTypeHelper.dataSourceStatusKey] =
         SmartDayTypeHelper.dataSourceStatusApiConfirmed;
 
-    final newType = SmartDayTypeHelper.inferDayType(
+    final newType = _resolveTypeAfterApi(
       currentType: row['type'] as String?,
-      hours: attendance.hours,
+      attendance: attendance,
       dateStr: dateStr,
       isManual: false,
-      hasCheckIn: attendance.hasValidData,
-      dataSourceStatus: DayDataSourceStatus.apiConfirmed,
     );
     if (newType != null) {
       row['type'] = newType;
@@ -472,5 +468,36 @@ class MonthlyAttendanceRepository {
     return data.map(
       (date, row) => MapEntry(date, Map<String, dynamic>.from(row)),
     );
+  }
+
+  String? _resolveTypeAfterApi({
+    required String? currentType,
+    required AttendanceData attendance,
+    required String dateStr,
+    required bool isManual,
+  }) {
+    final inferred = SmartDayTypeHelper.inferDayType(
+      currentType: currentType,
+      hours: attendance.hours,
+      dateStr: dateStr,
+      isManual: isManual,
+      hasCheckIn: attendance.hasValidData,
+      dataSourceStatus: DayDataSourceStatus.apiConfirmed,
+    );
+    if (inferred != null && inferred != currentType) {
+      return inferred;
+    }
+
+    // 自动请假是基于“当时 API 确认无打卡”的临时结论。
+    // 后续 API 一旦确认有工时或打卡，就必须恢复到 API 事实对应的日期类型。
+    if (!isManual &&
+        currentType == AppConstants.typeLeave &&
+        (attendance.hours > 0 || attendance.hasValidData)) {
+      return attendance.isRestDay
+          ? AppConstants.typeOvertime
+          : AppConstants.typeWorkday;
+    }
+
+    return null;
   }
 }

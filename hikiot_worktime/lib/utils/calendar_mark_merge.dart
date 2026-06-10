@@ -10,11 +10,21 @@ class CalendarMarkMerge {
   ) {
     final result = Map<String, dynamic>.from(dayData);
     final type = markData['type'] as String? ?? result['type'] as String?;
-
-    result['type'] = type;
-    result['isManual'] = markData.containsKey('isManual')
+    final isManual = markData.containsKey('isManual')
         ? markData['isManual'] == true
         : true;
+
+    // 自动请假只是根据当时的空打卡事实推断出来的缓存结论。
+    // 后续 API 如果已经确认有工时或打卡，必须以最新 API 事实为准。
+    if (!isManual &&
+        type == AppConstants.typeLeave &&
+        _hasWorkEvidence(result)) {
+      result['isManual'] = false;
+      return result;
+    }
+
+    result['type'] = type;
+    result['isManual'] = isManual;
 
     if (markData.containsKey('isOvertime')) {
       result['isOvertime'] = markData['isOvertime'];
@@ -88,5 +98,18 @@ class CalendarMarkMerge {
     } else {
       result['hours'] = AppConstants.businessTripHours;
     }
+  }
+
+  static bool _hasWorkEvidence(Map<String, dynamic> dayData) {
+    final hours = (dayData['apiHours'] as num?) ?? (dayData['hours'] as num?);
+    if (hours != null && hours > 0) return true;
+
+    final checkIn = dayData['checkIn'] as String?;
+    final checkOut = dayData['checkOut'] as String?;
+    return _hasPunch(checkIn) || _hasPunch(checkOut);
+  }
+
+  static bool _hasPunch(String? value) {
+    return value != null && value.isNotEmpty && value != '-';
   }
 }

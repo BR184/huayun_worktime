@@ -15,7 +15,7 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 当前验证基线：
 
 - `flutter analyze`：无问题。
-- `flutter test`：78/78 通过。
+- `flutter test`：82/82 通过。
 - `flutter build apk --debug`：已验证可构建。
 - Android `release` 不再默认使用 debug 签名；WebView 调试只在非 release 构建打开；明文流量已关闭。
 
@@ -98,6 +98,27 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 2. R2：补月度静默刷新异常测试，新增安全刷新结果并在页面侧做上下文回写保护。
 3. R3：补自定义午休扣除测试，修复固定 60 分钟的问题。
 4. R4：扩展 `TargetProgressHelper`，新增 `TeamSelectionDialog`，收口每日/月度目标排序与团队选择弹窗重复逻辑。
+
+## 2026-06-10 追加缺陷验证：有工时日期被显示为请假
+
+结论：此前修复后，干净 API 全量加载路径已经不会把“有工时”的工作日直接判为请假；但仍存在两个旧状态残留路径，可能让月度统计页复现用户描述的问题。
+
+根因：
+
+- 旧的自动请假 mark（`isManual: false`、`type: 请假`、`hours: 0`）会在后续 API 已经确认同一天有工时后，仍通过 `CalendarMarkMerge.applyMark()` 覆盖 API 数据。
+- 本地月度缓存如果已经保存为“请假 + 0 工时”，后台 `smartQuickUpdate()` 刷到 API 工时后只更新 `hours/checkIn/checkOut`，不会纠正原来的 `type: 请假`。
+
+修复：
+
+- `CalendarMarkMerge` 现在会忽略与最新 API 工时/打卡事实冲突的旧自动请假 mark；手动请假仍保留用户选择。
+- `MonthlyAttendanceRepository` 在后台刷新和刷新今日时，统一使用 API 事实纠正旧自动请假：工作日恢复为 `工作日`，休息日有打卡恢复为 `加班日`。
+- 新增回归测试覆盖底层 mark 合并、月度合并服务和月度缓存后台刷新三条路径。
+
+验证：
+
+- 已先让新增仓储层测试红灯复现：期望 `工作日`，实际仍为 `请假`。
+- 修复后 `flutter analyze` 无问题。
+- 修复后 `flutter test` 82/82 通过。
 
 ## 当前剩余事项
 

@@ -51,5 +51,39 @@ void main() {
         expect(result.monthlyData, hasLength(30));
       },
     );
+
+    test('does not let stale automatic leave mark override API work hours', () {
+      final result = MonthlyAttendanceMergeService().merge(
+        selectedMonth: DateTime(2026, 6),
+        holidayPlan: {'2026-06-03': AppConstants.typeWorkday},
+        monthlyStats: {
+          'dailyRecords': [
+            {
+              'date': '2026-06-03',
+              'hours': 8.5,
+              'checkIn': '09:00',
+              'checkOut': '18:30',
+              'isRestDay': false,
+              SmartDayTypeHelper.dataSourceStatusKey:
+                  SmartDayTypeHelper.dataSourceStatusApiConfirmed,
+            },
+          ],
+        },
+        savedMarks: {
+          '2026-06-03': {
+            'type': AppConstants.typeLeave,
+            'hours': 0.0,
+            'isManual': false,
+          },
+        },
+      );
+
+      expect(
+        result.monthlyData['2026-06-03']?['type'],
+        AppConstants.typeWorkday,
+      );
+      expect(result.monthlyData['2026-06-03']?['hours'], 8.5);
+      expect(result.monthlyData['2026-06-03']?['isManual'], isFalse);
+    });
   });
 }
