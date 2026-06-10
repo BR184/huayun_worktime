@@ -1589,7 +1589,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   int _calculateLunchDuration() {
     final startMinutes = _lunchStartTime.hour * 60 + _lunchStartTime.minute;
     final endMinutes = _lunchEndTime.hour * 60 + _lunchEndTime.minute;
-    return endMinutes - startMinutes;
+    final duration = endMinutes - startMinutes;
+    return duration > 0 ? duration : 0;
   }
 
   /// 账号管理设置卡片

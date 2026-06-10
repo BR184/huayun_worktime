@@ -48,7 +48,10 @@ class WorkTimeCalculator {
   }
 
   /// 获取当前午休时长（分钟）
-  static int get lunchDurationMinutes => lunchEndMinutes - lunchStartMinutes;
+  static int get lunchDurationMinutes {
+    final duration = lunchEndMinutes - lunchStartMinutes;
+    return duration > 0 ? duration : 0;
+  }
 
   /// 判断是否应该扣除午休时间
   /// 规则：上班时间 < 午休开始 且 下班时间 > 午休结束 时才扣除
@@ -58,8 +61,13 @@ class WorkTimeCalculator {
   ///
   /// 返回：是否需要扣除午休
   static bool shouldDeductLunch(int checkInMinutes, int checkOutMinutes) {
+    if (lunchEndMinutes <= lunchStartMinutes) return false;
+    final comparableCheckOut = _comparableCheckOutMinutes(
+      checkInMinutes,
+      checkOutMinutes,
+    );
     return checkInMinutes < lunchStartMinutes &&
-        checkOutMinutes > lunchEndMinutes;
+        comparableCheckOut > lunchEndMinutes;
   }
 
   /// 判断是否应该扣除午休时间（字符串版本）
@@ -103,11 +111,16 @@ class WorkTimeCalculator {
     int checkOutMinutes, {
     bool? deductLunch,
   }) {
+    final comparableCheckOut = _comparableCheckOutMinutes(
+      checkInMinutes,
+      checkOutMinutes,
+    );
+
     // 处理下班时间在午休期间的情况：截断到12:00
     int effectiveCheckOut = checkOutMinutes;
     if (checkInMinutes < lunchStartMinutes &&
-        checkOutMinutes >= lunchStartMinutes &&
-        checkOutMinutes <= lunchEndMinutes) {
+        comparableCheckOut >= lunchStartMinutes &&
+        comparableCheckOut <= lunchEndMinutes) {
       effectiveCheckOut = lunchStartMinutes;
     }
 
@@ -115,7 +128,7 @@ class WorkTimeCalculator {
     int effectiveCheckIn = checkInMinutes;
     if (checkInMinutes >= lunchStartMinutes &&
         checkInMinutes <= lunchEndMinutes &&
-        checkOutMinutes > lunchEndMinutes) {
+        comparableCheckOut > lunchEndMinutes) {
       effectiveCheckIn = lunchEndMinutes;
     }
 
@@ -134,6 +147,16 @@ class WorkTimeCalculator {
     }
 
     return totalMinutes;
+  }
+
+  static int _comparableCheckOutMinutes(
+    int checkInMinutes,
+    int checkOutMinutes,
+  ) {
+    if (checkOutMinutes < checkInMinutes) {
+      return checkOutMinutes + 24 * 60;
+    }
+    return checkOutMinutes;
   }
 
   /// 计算工时（小时，保留2位小数）
@@ -216,16 +239,13 @@ class WorkTimeCalculator {
   ///
   /// 返回：格式化的字符串，如 "8.55" (直接截断2位，不四舍五入)
   static String formatHours(num hours) {
-    if (hours == 0) return '0';
-
-    // 严格按照数据类型：
-    // 如果是整数类型 (int)，直接显示
+    // 整数保持紧凑显示；浮点运算结果保留两位小数，直接截断不四舍五入。
+    // 例如: 8 -> 8
     if (hours is int) {
       return hours.toString();
     }
 
-    // 如果是浮点类型 (double)，保留两位小数截断
-    // 例如: 8.0 (double) -> 8.00
+    // 例如: 8.0 -> 8.00
     // 例如: 5.559 (double) -> 5.55
     final h = hours.toDouble();
     final truncated = (h * 100).truncateToDouble() / 100;

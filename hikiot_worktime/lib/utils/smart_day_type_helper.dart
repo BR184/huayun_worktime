@@ -1,5 +1,5 @@
-import 'package:intl/intl.dart';
 import '../core/constants/constants.dart';
+import 'date_helper.dart';
 
 enum DayDataSourceStatus { unknown, apiConfirmed }
 
@@ -57,11 +57,14 @@ class SmartDayTypeHelper {
     bool isManual = false,
     bool hasCheckIn = false,
     DayDataSourceStatus dataSourceStatus = DayDataSourceStatus.unknown,
+    DateTime? currentWorkDate,
   }) {
     // 手动标记不做修改
     if (isManual) return null;
 
-    final today = DateFormat('yyyy-MM-dd').format(DateTime.now());
+    final today = DateHelper.formatDate(
+      currentWorkDate ?? DateHelper.getWorkDate(),
+    );
 
     // 非工作日有工时 OR 有打卡记录 → 加班日
     // 即使只打了一次卡(工时为0),只要是休息日且去打卡了,也应视为加班

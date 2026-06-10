@@ -73,6 +73,7 @@ class SettingsRepository {
     required String start,
     required String end,
   }) async {
+    _validateLunchRange(start, end);
     final settings = await _storage.loadSettings();
     settings['lunchStartTime'] = start;
     settings['lunchEndTime'] = end;
@@ -84,8 +85,9 @@ class SettingsRepository {
     required bool extendedTargetRange,
     required int baseTarget,
   }) async {
-    final normalizedTarget =
-        !extendedTargetRange && baseTarget > 160 ? 160 : baseTarget;
+    final normalizedTarget = !extendedTargetRange && baseTarget > 160
+        ? 160
+        : baseTarget;
     await _storage.saveExtendedTargetRange(extendedTargetRange);
     await _storage.saveBaseTarget(normalizedTarget);
   }
@@ -136,5 +138,15 @@ class SettingsRepository {
       hour: hour,
       minute: minute,
     );
+  }
+
+  void _validateLunchRange(String start, String end) {
+    final startMinutes = WorkTimeCalculator.parseTimeToMinutes(start);
+    final endMinutes = WorkTimeCalculator.parseTimeToMinutes(end);
+    if (startMinutes == null ||
+        endMinutes == null ||
+        endMinutes <= startMinutes) {
+      throw ArgumentError('午休结束时间必须晚于开始时间');
+    }
   }
 }

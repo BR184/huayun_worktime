@@ -58,41 +58,56 @@ void main() {
       expect(settings['lunchEndTime'], '12:15');
     });
 
-    test('saves target settings and clamps base target when range is closed', () async {
-      final storage = StorageService();
-      final repository = SettingsRepository(storage: storage);
+    test('rejects invalid lunch time range', () async {
+      final repository = SettingsRepository();
 
-      await repository.saveTargetSettings(
-        extendedTargetRange: false,
-        baseTarget: 240,
+      expect(
+        repository.saveLunchTimes(start: '13:00', end: '12:00'),
+        throwsA(isA<ArgumentError>()),
       );
-
-      expect(await storage.loadExtendedTargetRange(), isFalse);
-      expect(await storage.loadBaseTarget(), 160);
     });
 
-    test('saves screen toggles and reminder time through the repository', () async {
-      final storage = StorageService();
-      final repository = SettingsRepository(storage: storage);
+    test(
+      'saves target settings and clamps base target when range is closed',
+      () async {
+        final storage = StorageService();
+        final repository = SettingsRepository(storage: storage);
 
-      await repository.saveSmartSort(false);
-      await repository.saveDebugToolsEnabled(true);
-      await repository.saveOnboardingCompleted(false);
-      await repository.saveReminderTime(
-        isMorning: true,
-        enabled: false,
-        hour: 9,
-        minute: 10,
-      );
+        await repository.saveTargetSettings(
+          extendedTargetRange: false,
+          baseTarget: 240,
+        );
 
-      final reminderSettings = await storage.loadReminderSettings();
-      expect(await storage.loadSmartSort(), isFalse);
-      expect(await storage.loadDebugToolsEnabled(), isTrue);
-      expect(await storage.loadOnboardingCompleted(), isFalse);
-      expect(reminderSettings.morningEnabled, isFalse);
-      expect(reminderSettings.morningHour, 9);
-      expect(reminderSettings.morningMinute, 10);
-    });
+        expect(await storage.loadExtendedTargetRange(), isFalse);
+        expect(await storage.loadBaseTarget(), 160);
+      },
+    );
+
+    test(
+      'saves screen toggles and reminder time through the repository',
+      () async {
+        final storage = StorageService();
+        final repository = SettingsRepository(storage: storage);
+
+        await repository.saveSmartSort(false);
+        await repository.saveDebugToolsEnabled(true);
+        await repository.saveOnboardingCompleted(false);
+        await repository.saveReminderTime(
+          isMorning: true,
+          enabled: false,
+          hour: 9,
+          minute: 10,
+        );
+
+        final reminderSettings = await storage.loadReminderSettings();
+        expect(await storage.loadSmartSort(), isFalse);
+        expect(await storage.loadDebugToolsEnabled(), isTrue);
+        expect(await storage.loadOnboardingCompleted(), isFalse);
+        expect(reminderSettings.morningEnabled, isFalse);
+        expect(reminderSettings.morningHour, 9);
+        expect(reminderSettings.morningMinute, 10);
+      },
+    );
 
     test('loads and saves token for settings-only debug actions', () async {
       final storage = StorageService();
