@@ -71,8 +71,6 @@ dependencies:
   # 权限管理
   permission_handler: ^12.0.1
 
-  # 设备信息
-  device_info_plus: ^12.3.0
   gal: ^2.3.2
   path_provider: ^2.1.5
 

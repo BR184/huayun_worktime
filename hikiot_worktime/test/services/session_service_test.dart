@@ -1,0 +1,77 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hikiot_worktime/services/session_service.dart';
+import 'package:hikiot_worktime/services/storage_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+void main() {
+  group('SessionService', () {
+    late StorageService storage;
+    late List<String> remoteLogoutTokens;
+    var clearWebSessionCount = 0;
+
+    setUp(() {
+      SharedPreferences.setMockInitialValues({});
+      storage = StorageService();
+      remoteLogoutTokens = <String>[];
+      clearWebSessionCount = 0;
+    });
+
+    SessionService createService({bool failRemoteLogout = false}) {
+      return SessionService(
+        storage: storage,
+        remoteLogout: (token) async {
+          remoteLogoutTokens.add(token);
+          if (failRemoteLogout) {
+            throw Exception('network down');
+          }
+        },
+        clearWebSession: () async {
+          clearWebSessionCount++;
+        },
+      );
+    }
+
+    test('logs out remotely, clears web session and local auth', () async {
+      await storage.saveToken('token-1');
+      await storage.saveUserName('张三');
+      final service = createService();
+
+      await service.logout();
+
+      expect(remoteLogoutTokens, ['token-1']);
+      expect(clearWebSessionCount, 1);
+      expect(await storage.loadToken(), isNull);
+      expect(await storage.loadUserName(), isNull);
+    });
+
+    test(
+      'still clears web session and local auth when remote logout fails',
+      () async {
+        await storage.saveToken('token-1');
+        final service = createService(failRemoteLogout: true);
+
+        await service.logout();
+
+        expect(remoteLogoutTokens, ['token-1']);
+        expect(clearWebSessionCount, 1);
+        expect(await storage.loadToken(), isNull);
+      },
+    );
+
+    test(
+      'does not call remote logout when token is missing or invalid debug token',
+      () async {
+        final service = createService();
+
+        await service.clearRemoteAndWebSession(null);
+        await service.clearRemoteAndWebSession('');
+        await service.clearRemoteAndWebSession(
+          'INVALID_TOKEN_FOR_DEBUG_TESTING_12345',
+        );
+
+        expect(remoteLogoutTokens, isEmpty);
+        expect(clearWebSessionCount, 3);
+      },
+    );
+  });
+}

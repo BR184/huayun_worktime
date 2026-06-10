@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../core/constants/constants.dart';
+import '../services/storage_service.dart';
 
 /// 日期工具类
 /// 统一管理跨天时间点和日期格式化
 class DateHelper {
-  static const String _crossDayKey = 'cross_day_minutes';
-
   // 跨天时间点（分钟，默认04:00 = 240分钟）
   // 如果当前时间 < 跨天时间点，则认为还是"昨天"
   static int crossDayMinutes = 4 * 60; // 默认04:00
@@ -19,8 +19,10 @@ class DateHelper {
     if (_initialized) return;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      crossDayMinutes = prefs.getInt(_crossDayKey) ?? (4 * 60);
+      final settings = await StorageService().loadSettings();
+      crossDayMinutes =
+          settings[StorageKeys.crossDayMinutes] as int? ??
+          AppConstants.defaultCrossDayMinutes;
       _initialized = true;
     } catch (e) {
       // Initialization error
@@ -35,8 +37,7 @@ class DateHelper {
 
   /// 保存跨天时间点
   static Future<void> saveCrossDayMinutes(int minutes) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_crossDayKey, minutes);
+    await StorageService().saveSettings({StorageKeys.crossDayMinutes: minutes});
     crossDayMinutes = minutes;
   }
 

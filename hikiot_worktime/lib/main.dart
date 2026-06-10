@@ -1,10 +1,11 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'screens/login_screen.dart';
 import 'screens/main_screen.dart';
 import 'screens/disclaimer_dialog.dart';
+import 'services/storage_service.dart';
 import 'utils/work_time_calculator.dart';
 import 'utils/date_helper.dart';
 import 'utils/haptic_utils.dart';
@@ -15,8 +16,8 @@ Future<void> main() async {
   // 确保Flutter绑定初始化
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 初始化WebView（Android特有）
-  if (Platform.isAndroid) {
+  // Android WebView 调试只在非 release 构建启用。
+  if (Platform.isAndroid && !kReleaseMode) {
     await InAppWebViewController.setWebContentsDebuggingEnabled(true);
   }
 
@@ -140,8 +141,7 @@ class _SplashScreenState extends State<SplashScreen>
       await Future.delayed(const Duration(seconds: 1));
     }
 
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    String? token = prefs.getString('hikiot_token');
+    final token = await StorageService().loadToken();
 
     // 根据Token判断跳转
     if (mounted) {

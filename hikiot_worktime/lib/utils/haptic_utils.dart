@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/storage_service.dart';
 
 /// 震动模式枚举
 enum HapticMode {
@@ -16,23 +17,20 @@ enum HapticMode {
 /// 震动反馈工具类
 class HapticUtils {
   static HapticMode _mode = HapticMode.advanced;
-  static const String _prefKey = 'haptic_mode';
 
   /// 获取当前震动模式
   static HapticMode get mode => _mode;
 
   /// 初始化震动设置（应用启动时调用）
   static Future<void> init() async {
-    final prefs = await SharedPreferences.getInstance();
-    final modeIndex = prefs.getInt(_prefKey) ?? 0;
+    final modeIndex = await StorageService().loadHapticModeIndex();
     _mode = HapticMode.values[modeIndex.clamp(0, HapticMode.values.length - 1)];
   }
 
   /// 设置震动模式
   static Future<void> setMode(HapticMode mode) async {
     _mode = mode;
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt(_prefKey, mode.index);
+    await StorageService().saveHapticModeIndex(mode.index);
   }
 
   /// 轻触反馈 - 用于普通按钮点击

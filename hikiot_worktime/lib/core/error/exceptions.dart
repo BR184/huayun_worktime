@@ -1,5 +1,5 @@
-/// 应用异常类定义
-/// 统一的异常类型，便于错误处理
+// 应用异常类定义
+// 统一的异常类型，便于错误处理
 
 /// 基础应用异常
 abstract class AppException implements Exception {
@@ -15,17 +15,16 @@ abstract class AppException implements Exception {
 
 /// Token过期异常
 class TokenExpiredException extends AppException {
-  const TokenExpiredException([String message = '登录状态已失效，请重新登录'])
-      : super(message, code: 'TOKEN_EXPIRED');
+  const TokenExpiredException([super.message = '登录状态已失效，请重新登录'])
+    : super(code: 'TOKEN_EXPIRED');
 }
 
 /// 网络异常
 class NetworkException extends AppException {
-  const NetworkException([String message = '网络连接失败，请检查网络设置'])
-      : super(message, code: 'NETWORK_ERROR');
+  const NetworkException([super.message = '网络连接失败，请检查网络设置'])
+    : super(code: 'NETWORK_ERROR');
 
-  factory NetworkException.timeout() =>
-      const NetworkException('请求超时，请稍后重试');
+  factory NetworkException.timeout() => const NetworkException('请求超时，请稍后重试');
 
   factory NetworkException.noConnection() =>
       const NetworkException('无网络连接，请检查网络设置');
@@ -77,8 +76,7 @@ class ApiException extends AppException {
 
 /// 数据解析异常
 class ParseException extends AppException {
-  const ParseException([String message = '数据解析失败'])
-      : super(message, code: 'PARSE_ERROR');
+  const ParseException([super.message = '数据解析失败']) : super(code: 'PARSE_ERROR');
 
   factory ParseException.fromError(dynamic error) =>
       ParseException('数据解析失败: $error');
@@ -86,8 +84,8 @@ class ParseException extends AppException {
 
 /// 存储异常
 class StorageException extends AppException {
-  const StorageException([String message = '本地存储操作失败'])
-      : super(message, code: 'STORAGE_ERROR');
+  const StorageException([super.message = '本地存储操作失败'])
+    : super(code: 'STORAGE_ERROR');
 
   factory StorageException.readFailed(String key) =>
       StorageException('读取数据失败: $key');

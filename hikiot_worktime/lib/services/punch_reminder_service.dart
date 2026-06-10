@@ -1,11 +1,8 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
-import '../core/constants/constants.dart';
 import 'notification_service.dart';
+import 'reminder_attendance_fetcher.dart';
 import '../utils/attendance_parser.dart';
+import '../utils/reminder_day_policy.dart';
 import '../utils/work_time_calculator.dart';
-import '../core/constants/storage_keys.dart';
 
 /// 打卡提醒检测服务
 class PunchReminderService {
@@ -123,14 +120,16 @@ class PunchReminderService {
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态',
-          body: '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时不足8H',
+          body:
+              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时不足8H',
         );
       } else {
         // 已打卡且工时充足
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态',
-          body: '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时',
+          body:
+              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时',
         );
       }
     } catch (e) {
@@ -258,13 +257,15 @@ class PunchReminderService {
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态 (3/3)',
-          body: '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时不足8H',
+          body:
+              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时不足8H',
         );
       } else {
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态 (3/3)',
-          body: '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时',
+          body:
+              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时',
         );
       }
     } catch (e) {
@@ -279,57 +280,8 @@ class PunchReminderService {
   /// 获取今日考勤数据（带Token状态）
   /// 返回 {'data': Map?, 'tokenExpired': bool}
   static Future<Map<String, dynamic>> _fetchTodayAttendanceWithStatus() async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('hikiot_token');
-      final personNo = prefs.getString('personNo');
-
-      if (token == null || personNo == null) {
-        return {'data': null, 'tokenExpired': token == null};
-      }
-
-      // 构建今日日期
-      final now = DateTime.now();
-      final date =
-          '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-      final url =
-          'https://api.hikiot.com/api-attendance/v1/statistics/individual/single/daily?date=$date&personNo=$personNo&ID=myStatic';
-
-      final response = await http
-          .get(
-            Uri.parse(url),
-            headers: {
-              'User-Agent':
-                  'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
-              'Accept': 'application/json, text/plain, */*',
-              'Authorization': 'Bearer $token',
-              'token': token,
-              'www_token': token,
-              'Origin': 'https://www.hikiot.com',
-              'Referer': 'https://www.hikiot.com/',
-              'authPerm': 'MYSTATISTICSFUN',
-              'deviceid': 'unHotjaMGfLZCj0N',
-              'devicename': 'Android 10',
-              'terminal': '2',
-              'STN-PhoneType': 'Android 10',
-            },
-          )
-          .timeout(const Duration(seconds: 10));
-
-      if (response.statusCode == 200) {
-        final data = json.decode(utf8.decode(response.bodyBytes));
-        if (data['code'] == 0) {
-          return {'data': data['data'], 'tokenExpired': false};
-        } else if (data['code'] == 999999) {
-          // Token失效
-          return {'data': null, 'tokenExpired': true};
-        }
-      }
-      return {'data': null, 'tokenExpired': false};
-    } catch (e) {
-      return {'data': null, 'tokenExpired': false};
-    }
+    final result = await ReminderAttendanceFetcher().fetchToday();
+    return {'data': result.data, 'tokenExpired': result.tokenExpired};
   }
 
   /// 获取上班打卡时间 - 使用 AttendanceParser 统一解析
@@ -338,7 +290,9 @@ class PunchReminderService {
     if (dailyDetail == null) return null;
 
     final parsed = AttendanceParser.parse(dailyDetail);
-    if (parsed.checkIn != null && parsed.checkIn!.isNotEmpty && parsed.checkIn != '-') {
+    if (parsed.checkIn != null &&
+        parsed.checkIn!.isNotEmpty &&
+        parsed.checkIn != '-') {
       return parsed.checkIn;
     }
     return null;
@@ -350,13 +304,13 @@ class PunchReminderService {
     if (dailyDetail == null) return null;
 
     final parsed = AttendanceParser.parse(dailyDetail);
-    if (parsed.checkOut != null && parsed.checkOut!.isNotEmpty && parsed.checkOut != '-') {
+    if (parsed.checkOut != null &&
+        parsed.checkOut!.isNotEmpty &&
+        parsed.checkOut != '-') {
       return parsed.checkOut;
     }
     return null;
   }
-
-
 
   /// 获取工时 - 使用 AttendanceParser 统一解析
   static double _getWorkHours(Map<String, dynamic> attendance) {
@@ -368,47 +322,9 @@ class PunchReminderService {
     return parsed.hours;
   }
 
-
-
   /// 检查是否为休息日（不需要提醒）
   /// 休息日包括：法定节假日、普通周末（非调休）
   static Future<bool> _isLegalHoliday() async {
-    final now = DateTime.now();
-    final dateStr =
-        '${now.year}-${now.month.toString().padLeft(2, '0')}-${now.day.toString().padLeft(2, '0')}';
-
-    // 检查是否在节假日计划中 (使用正确的存储键 'holiday_plan')
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final holidayPlanJson = prefs.getString(StorageKeys.holidayPlan);
-      if (holidayPlanJson != null) {
-        final allPlans = json.decode(holidayPlanJson) as Map<String, dynamic>;
-        final yearPlan = allPlans[now.year.toString()] as Map<String, dynamic>?;
-
-        if (yearPlan != null && yearPlan.containsKey(dateStr)) {
-          final dayType = yearPlan[dateStr] as String;
-          // 非工作日 = 不需要提醒
-          // 工作日（调休）= 需要提醒
-          if (dayType == AppConstants.typeRestDay) {
-            return true; // 休息日，不提醒
-          } else if (dayType == AppConstants.typeWorkday) {
-            return false; // 调休工作日，需要提醒
-          }
-        }
-      }
-    } catch (e) {
-      // 忽略解析错误
-      // Ignore parsing error
-    }
-
-    // 如果没有节假日数据，根据周末判断
-    final weekday = now.weekday; // 1=周一, 7=周日
-    if (weekday == 6 || weekday == 7) {
-      // 普通周末（没有调休标记），不需要提醒
-      return true;
-    }
-
-    // 工作日，需要提醒
-    return false;
+    return ReminderDayPolicy().shouldSkipWorkReminder(DateTime.now());
   }
 }

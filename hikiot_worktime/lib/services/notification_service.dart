@@ -3,9 +3,9 @@ import 'dart:ui';
 import 'dart:typed_data';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:android_alarm_manager_plus/android_alarm_manager_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'punch_reminder_service.dart';
+import 'storage_service.dart';
 
 /// 通知服务 - 管理本地通知和定时闹钟
 class NotificationService {
@@ -206,10 +206,11 @@ class NotificationService {
     );
 
     // 保存设置
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('morning_alarm_hour', hour);
-    await prefs.setInt('morning_alarm_minute', minute);
-    await prefs.setBool('morning_alarm_enabled', true);
+    await StorageService().saveMorningReminder(
+      enabled: true,
+      hour: hour,
+      minute: minute,
+    );
   }
 
   /// 设置下班提醒闹钟
@@ -234,10 +235,11 @@ class NotificationService {
     );
 
     // 保存设置
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setInt('evening_alarm_hour', hour);
-    await prefs.setInt('evening_alarm_minute', minute);
-    await prefs.setBool('evening_alarm_enabled', true);
+    await StorageService().saveEveningReminder(
+      enabled: true,
+      hour: hour,
+      minute: minute,
+    );
   }
 
   /// 取消闹钟
@@ -248,15 +250,23 @@ class NotificationService {
   /// 取消上班提醒
   Future<void> cancelMorningAlarm() async {
     await _cancelAlarm(morningAlarmId);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('morning_alarm_enabled', false);
+    final settings = await StorageService().loadReminderSettings();
+    await StorageService().saveMorningReminder(
+      enabled: false,
+      hour: settings.morningHour,
+      minute: settings.morningMinute,
+    );
   }
 
   /// 取消下班提醒
   Future<void> cancelEveningAlarm() async {
     await _cancelAlarm(eveningAlarmId);
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('evening_alarm_enabled', false);
+    final settings = await StorageService().loadReminderSettings();
+    await StorageService().saveEveningReminder(
+      enabled: false,
+      hour: settings.eveningHour,
+      minute: settings.eveningMinute,
+    );
   }
 
   /// 设置测试闹钟 (10秒后触发)
@@ -276,20 +286,16 @@ class NotificationService {
 
   /// 重新注册所有闹钟 (开机后调用)
   Future<void> rescheduleAllAlarms() async {
-    final prefs = await SharedPreferences.getInstance();
+    final settings = await StorageService().loadReminderSettings();
 
     // 上班提醒
-    if (prefs.getBool('morning_alarm_enabled') ?? false) {
-      final hour = prefs.getInt('morning_alarm_hour') ?? 8;
-      final minute = prefs.getInt('morning_alarm_minute') ?? 55;
-      await scheduleMorningAlarm(hour, minute);
+    if (settings.morningEnabled) {
+      await scheduleMorningAlarm(settings.morningHour, settings.morningMinute);
     }
 
     // 下班提醒
-    if (prefs.getBool('evening_alarm_enabled') ?? false) {
-      final hour = prefs.getInt('evening_alarm_hour') ?? 21;
-      final minute = prefs.getInt('evening_alarm_minute') ?? 0;
-      await scheduleEveningAlarm(hour, minute);
+    if (settings.eveningEnabled) {
+      await scheduleEveningAlarm(settings.eveningHour, settings.eveningMinute);
     }
   }
 }
@@ -303,10 +309,13 @@ Future<void> _morningAlarmCallback() async {
   await PunchReminderService.checkMorningPunch();
 
   // 重新注册明天的闹钟
-  final prefs = await SharedPreferences.getInstance();
-  final hour = prefs.getInt('morning_alarm_hour') ?? 8;
-  final minute = prefs.getInt('morning_alarm_minute') ?? 55;
-  await NotificationService().scheduleMorningAlarm(hour, minute);
+  final settings = await StorageService().loadReminderSettings();
+  if (settings.morningEnabled) {
+    await NotificationService().scheduleMorningAlarm(
+      settings.morningHour,
+      settings.morningMinute,
+    );
+  }
 }
 
 /// 下班闹钟回调 (必须是顶级函数)
@@ -317,10 +326,13 @@ Future<void> _eveningAlarmCallback() async {
   await PunchReminderService.checkEveningPunch();
 
   // 重新注册明天的闹钟
-  final prefs = await SharedPreferences.getInstance();
-  final hour = prefs.getInt('evening_alarm_hour') ?? 21;
-  final minute = prefs.getInt('evening_alarm_minute') ?? 0;
-  await NotificationService().scheduleEveningAlarm(hour, minute);
+  final settings = await StorageService().loadReminderSettings();
+  if (settings.eveningEnabled) {
+    await NotificationService().scheduleEveningAlarm(
+      settings.eveningHour,
+      settings.eveningMinute,
+    );
+  }
 }
 
 /// 测试闹钟回调 (必须是顶级函数)

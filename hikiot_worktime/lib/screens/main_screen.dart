@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import '../core/theme/theme.dart';
 import 'daily_hours_screen.dart';
 import 'monthly_calendar_screen.dart';
 import 'settings_screen.dart';
-import 'monthly_calendar_screen.dart';
-import 'settings_screen.dart';
+import '../utils/startup_refresh_coordinator.dart';
 import '../widgets/home_button.dart';
 
 /// 主框架页面 - 包含底部导航栏
@@ -21,7 +19,6 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
-
   final GlobalKey<MonthlyCalendarScreenState> _monthlyKey = GlobalKey();
   final GlobalKey<DailyHoursScreenState> _dailyKey = GlobalKey();
 
@@ -30,9 +27,23 @@ class _MainScreenState extends State<MainScreen> {
     super.initState();
     // 应用启动时自动刷新数据
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _dailyKey.currentState?.refreshData();
-      _monthlyKey.currentState?.smartUpdate();
+      _runStartupRefresh();
     });
+  }
+
+  Future<void> _runStartupRefresh() async {
+    await StartupRefreshCoordinator.run(
+      initializeSession: () async {
+        await _monthlyKey.currentState?.initializeUserContext();
+      },
+      refreshDaily: () async {
+        await _dailyKey.currentState?.refreshData();
+      },
+      refreshMonthly: () async {
+        await _monthlyKey.currentState?.smartUpdate();
+      },
+      isMounted: () => mounted,
+    );
   }
 
   void _onTabTap(int index) {
@@ -59,8 +70,12 @@ class _MainScreenState extends State<MainScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          DailyHoursScreen(key: _dailyKey),
-          MonthlyCalendarScreen(key: _monthlyKey, token: widget.token),
+          DailyHoursScreen(key: _dailyKey, autoLoad: false),
+          MonthlyCalendarScreen(
+            key: _monthlyKey,
+            token: widget.token,
+            autoInitialize: false,
+          ),
           const SettingsScreen(),
         ],
       ),

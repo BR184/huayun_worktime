@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../services/storage_service.dart';
 
 class DisclaimerDialog extends StatelessWidget {
   final VoidCallback onConfirmed;
@@ -9,8 +10,10 @@ class DisclaimerDialog extends StatelessWidget {
     BuildContext context,
     VoidCallback onConfirmed,
   ) async {
-    final prefs = await SharedPreferences.getInstance();
-    final shown = prefs.getBool('disclaimer_shown') ?? false;
+    final storage = StorageService();
+    final shown = await storage.loadDisclaimerAccepted();
+    if (!context.mounted) return;
+
     if (!shown) {
       await showDialog(
         context: context,
@@ -45,8 +48,9 @@ class DisclaimerDialog extends StatelessWidget {
       actions: [
         TextButton(
           onPressed: () async {
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('disclaimer_shown', true);
+            await StorageService().saveDisclaimerAccepted(true);
+            if (!context.mounted) return;
+
             Navigator.of(context).pop();
             onConfirmed();
           },

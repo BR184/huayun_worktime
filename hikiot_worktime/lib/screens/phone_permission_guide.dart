@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:device_info_plus/device_info_plus.dart';
 import 'package:permission_handler/permission_handler.dart';
-import 'dart:io' show Platform;
-import '../core/theme/theme.dart';
+import '../services/device_brand_service.dart';
 import '../utils/haptic_utils.dart';
 
 /// 手机品牌权限设置指南
@@ -24,19 +22,12 @@ class _PhonePermissionGuideState extends State<PhonePermissionGuide> {
   }
 
   Future<void> _detectBrand() async {
-    if (Platform.isAndroid) {
-      final deviceInfo = DeviceInfoPlugin();
-      final androidInfo = await deviceInfo.androidInfo;
-      setState(() {
-        _brand = androidInfo.brand.toLowerCase();
-        _isLoading = false;
-      });
-    } else {
-      setState(() {
-        _brand = 'other';
-        _isLoading = false;
-      });
-    }
+    final brand = await DeviceBrandService().loadBrand();
+    if (!mounted) return;
+    setState(() {
+      _brand = brand;
+      _isLoading = false;
+    });
   }
 
   @override

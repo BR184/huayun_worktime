@@ -6,8 +6,7 @@ import '../core/theme/theme.dart';
 class PullRefreshGuide extends StatefulWidget {
   final VoidCallback onCompleted;
 
-  const PullRefreshGuide({Key? key, required this.onCompleted})
-    : super(key: key);
+  const PullRefreshGuide({super.key, required this.onCompleted});
 
   @override
   State<PullRefreshGuide> createState() => _PullRefreshGuideState();
@@ -198,7 +197,10 @@ class _PullRefreshGuideState extends State<PullRefreshGuide>
                 const SizedBox(height: 4),
                 Text(
                   '向下拉动页面即可刷新数据',
-                  style: TextStyle(fontSize: AppDimens.fontMd, color: AppColors.textSecondary),
+                  style: TextStyle(
+                    fontSize: AppDimens.fontMd,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),

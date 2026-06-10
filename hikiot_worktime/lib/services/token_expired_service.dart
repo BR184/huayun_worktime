@@ -1,11 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:http/http.dart' as http;
 import '../core/constants/constants.dart';
 import '../core/error/exceptions.dart';
 import '../core/theme/theme.dart';
-import 'storage_service.dart';
+import 'session_service.dart';
 import '../screens/login_screen.dart';
 
 /// Token失效处理服务
@@ -37,7 +34,9 @@ class TokenExpiredService {
     if (response == null) return false; // null可能是网络错误，不一定是Token失效
 
     final code = response['code'];
-    return code == AppConstants.apiCodeTokenExpired || code == 401 || code == 403;
+    return code == AppConstants.apiCodeTokenExpired ||
+        code == 401 ||
+        code == 403;
   }
 
   /// 显示Token失效对话框并引导用户重新登录
@@ -63,48 +62,7 @@ class TokenExpiredService {
   /// 复用设置页面的退出登录逻辑
   static Future<void> performLogoutAndNavigate(BuildContext context) async {
     try {
-      // 获取 token 用于调用登出接口
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('hikiot_token');
-
-      // 调用官方登出 API（可能失败，但不影响后续流程）
-      if (token != null && token.isNotEmpty) {
-        try {
-          await http.post(
-            Uri.parse('https://api.hikiot.com/api-website/v1/logout'),
-            headers: {
-              'Accept': 'application/json, text/plain, */*',
-              'Authorization': 'Bearer $token',
-              'Authorization-other': 'Bearer $token',
-              'Origin': 'https://www.hikiot.com',
-              'Referer': 'https://www.hikiot.com/',
-              'STN-PhoneType': 'Android 10',
-              'User-Agent':
-                  'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
-              'deviceid': 'unHotjaMGfLZCj0N',
-              'devicename': 'Android 10',
-              'terminal': '2',
-            },
-          );
-        } catch (e) {
-          // Ignore logout API errors
-        }
-      }
-
-      // 清除 WebView cookies（关键！否则自动登录会生效）
-      final cookieManager = CookieManager.instance();
-      await cookieManager.deleteAllCookies();
-      try {
-        await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
-        await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
-        await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
-      } catch (e) {
-        // 忽略URL解析错误
-      }
-
-      // 使用 StorageService 清除认证信息 (保留用户设置)
-      final storage = StorageService();
-      await storage.clearAuthInfo();
+      await SessionService().logout();
 
       // 跳转到登录页（使用 forceLogout 确保 WebView 也清除 cookies）
       if (context.mounted) {
@@ -151,7 +109,11 @@ class _TokenExpiredDialog extends StatelessWidget {
               color: AppColors.warningLight,
               borderRadius: AppDimens.borderRadiusMd,
             ),
-            child: Icon(Icons.lock_clock, color: AppColors.warningDark, size: 28),
+            child: Icon(
+              Icons.lock_clock,
+              color: AppColors.warningDark,
+              size: 28,
+            ),
           ),
           const SizedBox(width: 12),
           const Expanded(

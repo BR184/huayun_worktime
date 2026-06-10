@@ -31,9 +31,9 @@ class _PhotoPreviewScreenState extends State<PhotoPreviewScreen> {
         final access = await Gal.requestAccess();
         if (!access) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('需要相册权限才能保存图片')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(const SnackBar(content: Text('需要相册权限才能保存图片')));
           }
           return;
         }
@@ -54,21 +54,20 @@ class _PhotoPreviewScreenState extends State<PhotoPreviewScreen> {
       await Gal.putImage(file.path);
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('已保存到相册')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('已保存到相册')));
       }
-      
+
       // 清理临时文件
       if (await file.exists()) {
         await file.delete();
       }
-
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存出错: $e')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('保存出错: $e')));
       }
     } finally {
       if (mounted) {
@@ -110,7 +109,7 @@ class _PhotoPreviewScreenState extends State<PhotoPreviewScreen> {
             child: Image.network(
               widget.photoUrl,
               fit: BoxFit.contain,
-              errorBuilder: (_, __, ___) => const Text(
+              errorBuilder: (_, _, _) => const Text(
                 '加载失败，无法查看大图',
                 style: TextStyle(color: Colors.white),
               ),

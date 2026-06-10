@@ -108,8 +108,9 @@ class _HomeButtonState extends State<HomeButton>
           decoration: BoxDecoration(
             color: _isPressed
                 ? (widget.pressedBackgroundColor ??
-                    (widget.backgroundColor ?? defaultBgColor)
-                        .withValues(alpha: 0.8))
+                      (widget.backgroundColor ?? defaultBgColor).withValues(
+                        alpha: 0.8,
+                      ))
                 : (widget.backgroundColor ?? defaultBgColor),
             borderRadius: widget.borderRadius ?? BorderRadius.circular(12),
             border: widget.isOutlined
@@ -118,9 +119,8 @@ class _HomeButtonState extends State<HomeButton>
                     width: 1.5,
                   )
                 : null,
-            boxShadow: widget.isOutlined ||
-                    _isPressed ||
-                    (widget.elevation == 0)
+            boxShadow:
+                widget.isOutlined || _isPressed || (widget.elevation == 0)
                 ? null
                 : [
                     BoxShadow(

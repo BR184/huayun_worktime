@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../core/theme/theme.dart';
+import '../services/session_service.dart';
+import '../services/storage_service.dart';
 import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -32,11 +33,7 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 
   Future<void> _clearCookiesFirst() async {
-    final cookieManager = CookieManager.instance();
-    await cookieManager.deleteAllCookies();
-    await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
-    await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
-    await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
+    await SessionService.clearHikiotCookies();
     if (mounted) {
       setState(() {
         _cookiesCleared = true;
@@ -161,16 +158,16 @@ class _LoginScreenState extends State<LoginScreen> {
                     meta.content = 'width=device-width, initial-scale=0.8, maximum-scale=5.0, user-scalable=yes';
                     document.getElementsByTagName('head')[0].appendChild(meta);
                   }
-                  
+
                   // 添加CSS修复样式，确保内容不超出屏幕
                   var style = document.createElement('style');
                   style.textContent = `
-                    * { 
-                      box-sizing: border-box !important; 
+                    * {
+                      box-sizing: border-box !important;
                     }
-                    html, body { 
-                      margin: 0 !important; 
-                      padding: 0 !important; 
+                    html, body {
+                      margin: 0 !important;
+                      padding: 0 !important;
                       overflow-x: hidden !important;
                       width: 100% !important;
                       max-width: 100vw !important;
@@ -178,14 +175,14 @@ class _LoginScreenState extends State<LoginScreen> {
                     body > * {
                       max-width: 100% !important;
                     }
-                    .container, [class*="container"] { 
+                    .container, [class*="container"] {
                       max-width: 100% !important;
                       padding-left: 10px !important;
                       padding-right: 10px !important;
                     }
                   `;
                   document.head.appendChild(style);
-                  
+
                   // 延迟100ms后重新调整
                   setTimeout(function() {
                     window.scrollTo(0, 0);
@@ -276,8 +273,7 @@ class _LoginScreenState extends State<LoginScreen> {
   Future<void> _saveTokenAndNavigate() async {
     if (extractedToken != null && mounted) {
       // 保存Token到本地
-      SharedPreferences prefs = await SharedPreferences.getInstance();
-      await prefs.setString('hikiot_token', extractedToken!);
+      await StorageService().saveToken(extractedToken!);
 
       // 显示成功提示
       if (mounted) {

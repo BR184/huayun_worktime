@@ -7,8 +7,11 @@ class FeatureGuidePage extends StatefulWidget {
   final bool showCloseButton;
   final VoidCallback? onClose;
 
-  const FeatureGuidePage({Key? key, this.showCloseButton = true, this.onClose})
-    : super(key: key);
+  const FeatureGuidePage({
+    super.key,
+    this.showCloseButton = true,
+    this.onClose,
+  });
 
   @override
   State<FeatureGuidePage> createState() => _FeatureGuidePageState();
@@ -306,7 +309,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
                 child: ListView.separated(
                   padding: EdgeInsets.zero,
                   itemCount: feature.points.length,
-                  separatorBuilder: (_, __) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => const SizedBox(height: 12),
                   itemBuilder: (context, index) {
                     return Row(
                       crossAxisAlignment: CrossAxisAlignment.start,

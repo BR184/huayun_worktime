@@ -7,14 +7,28 @@ import android.media.RingtoneManager
 import android.os.Build
 import android.os.Bundle
 import io.flutter.embedding.android.FlutterActivity
+import io.flutter.embedding.engine.FlutterEngine
+import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    
+    private val deviceInfoChannel = "com.hikiot.worktime/device_info"
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         createNotificationChannel()
     }
-    
+
+    override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
+        super.configureFlutterEngine(flutterEngine)
+        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, deviceInfoChannel)
+            .setMethodCallHandler { call, result ->
+                when (call.method) {
+                    "getBrand" -> result.success(Build.BRAND)
+                    else -> result.notImplemented()
+                }
+            }
+    }
+
     /**
      * 创建最高优先级通知渠道
      * 确保所有国产系统（小米、华为、OPPO、vivo等）默认开启所有通知功能

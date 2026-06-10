@@ -16,6 +16,9 @@ class StorageKeys {
   /// 团队编号
   static const String teamNo = 'teamNo';
 
+  /// 团队名称
+  static const String teamName = 'team_name';
+
   /// 选中的团队
   static const String selectedTeam = 'selected_team';
 
@@ -40,6 +43,12 @@ class StorageKeys {
 
   /// 智能排序开关
   static const String smartSort = 'smart_sort';
+
+  /// 扩展目标范围开关
+  static const String extendedTargetRange = 'extended_target_range';
+
+  /// 开发者工具开关
+  static const String debugToolsEnabled = 'debug_tools_enabled';
 
   // ============ 震动设置 ============
   /// 震动模式

@@ -1,5 +1,5 @@
-import 'package:shared_preferences/shared_preferences.dart';
-import 'dart:convert';
+import '../core/constants/constants.dart';
+import '../services/storage_service.dart';
 
 /// 工时计算工具类
 /// 统一管理午休扣除逻辑和工时计算
@@ -21,24 +21,18 @@ class WorkTimeCalculator {
     if (_initialized) return;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final settingsJson = prefs.getString('settings');
+      final settings = await StorageService().loadSettings();
+      final lunchStart = settings[StorageKeys.lunchStartTime] as String?;
+      final lunchEnd = settings[StorageKeys.lunchEndTime] as String?;
 
-      if (settingsJson != null) {
-        final settings = Map<String, dynamic>.from(jsonDecode(settingsJson));
+      if (lunchStart != null) {
+        final minutes = parseTimeToMinutes(lunchStart);
+        if (minutes != null) lunchStartMinutes = minutes;
+      }
 
-        final lunchStart = settings['lunchStartTime'] as String?;
-        final lunchEnd = settings['lunchEndTime'] as String?;
-
-        if (lunchStart != null) {
-          final minutes = parseTimeToMinutes(lunchStart);
-          if (minutes != null) lunchStartMinutes = minutes;
-        }
-
-        if (lunchEnd != null) {
-          final minutes = parseTimeToMinutes(lunchEnd);
-          if (minutes != null) lunchEndMinutes = minutes;
-        }
+      if (lunchEnd != null) {
+        final minutes = parseTimeToMinutes(lunchEnd);
+        if (minutes != null) lunchEndMinutes = minutes;
       }
 
       _initialized = true;
@@ -223,7 +217,7 @@ class WorkTimeCalculator {
   /// 返回：格式化的字符串，如 "8.55" (直接截断2位，不四舍五入)
   static String formatHours(num hours) {
     if (hours == 0) return '0';
-    
+
     // 严格按照数据类型：
     // 如果是整数类型 (int)，直接显示
     if (hours is int) {

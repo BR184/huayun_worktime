@@ -1,6 +1,4 @@
-import 'package:flutter/material.dart';
 import '../services/storage_service.dart';
-import '../core/theme/theme.dart';
 import '../core/constants/app_constants.dart';
 
 /// 节假日工具类
@@ -21,7 +19,9 @@ class HolidayUtils {
   }) {
     if (isManual) return null;
 
-    final nativeType = isRestDay ? AppConstants.typeRestDay : AppConstants.typeWorkday;
+    final nativeType = isRestDay
+        ? AppConstants.typeRestDay
+        : AppConstants.typeWorkday;
     if (currentType != nativeType) {
       return nativeType;
     }

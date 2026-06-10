@@ -1,15 +1,15 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_inappwebview/flutter_inappwebview.dart';
-import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:async';
-import '../core/theme/theme.dart';
+import '../services/session_service.dart';
 import '../services/storage_service.dart';
 import '../services/hikiot_api_client.dart';
 import '../services/notification_service.dart';
-import '../utils/work_time_calculator.dart';
+import '../services/reminder_coordinator.dart';
+import '../services/settings_repository.dart';
+import '../services/team_context_service.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
 import '../widgets/haptic_refresh_indicator.dart';
@@ -28,6 +28,9 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final StorageService _storage = StorageService();
+  final SessionService _sessionService = SessionService();
+  final ReminderCoordinator _reminderCoordinator = ReminderCoordinator();
+  late final SettingsRepository _settingsRepository;
   HikiotApiClient? _apiClient;
   bool _isLoading = true;
 
@@ -59,11 +62,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   // 用户信息
   String? _userName;
+  String? _teamNo;
   String? _teamName;
 
   @override
   void initState() {
     super.initState();
+    _settingsRepository = SettingsRepository(storage: _storage);
     _loadSettings();
   }
 
@@ -72,73 +77,39 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      final settings = await _storage.loadSettings();
+      final snapshot = await _settingsRepository.load();
 
-      // 午休时间
-      final lunchStart = settings['lunchStartTime'] as String?;
-      final lunchEnd = settings['lunchEndTime'] as String?;
+      _lunchStartTime = _parseTime(snapshot.lunchStartTime, _lunchStartTime);
+      _lunchEndTime = _parseTime(snapshot.lunchEndTime, _lunchEndTime);
+      _smartSort = snapshot.smartSort;
+      _baseTarget = snapshot.baseTarget;
+      _hapticMode =
+          HapticMode.values[snapshot.hapticModeIndex.clamp(
+            0,
+            HapticMode.values.length - 1,
+          )];
+      _crossDayTime = _timeFromMinutes(snapshot.crossDayMinutes);
 
-      if (lunchStart != null) {
-        final parts = lunchStart.split(':');
-        if (parts.length == 2) {
-          _lunchStartTime = TimeOfDay(
-            hour: int.parse(parts[0]),
-            minute: int.parse(parts[1]),
-          );
-        }
-      }
-
-      if (lunchEnd != null) {
-        final parts = lunchEnd.split(':');
-        if (parts.length == 2) {
-          _lunchEndTime = TimeOfDay(
-            hour: int.parse(parts[0]),
-            minute: int.parse(parts[1]),
-          );
-        }
-      }
-
-      // 智能排序
-      _smartSort = await _storage.loadSmartSort();
-
-      // 基础目标
-      _baseTarget = await _storage.loadBaseTarget();
-
-      // 震动模式
-      _hapticMode = HapticUtils.mode;
-
-      // 跨天时间点
-      _crossDayTime = DateHelper.getCrossDayTime();
-
-      // 打卡提醒设置
-      final prefs = await SharedPreferences.getInstance();
-      _morningReminderEnabled = prefs.getBool('morning_alarm_enabled') ?? false;
-      _eveningReminderEnabled = prefs.getBool('evening_alarm_enabled') ?? false;
-      final morningHour = prefs.getInt('morning_alarm_hour') ?? 8;
-      final morningMinute = prefs.getInt('morning_alarm_minute') ?? 55;
-      final eveningHour = prefs.getInt('evening_alarm_hour') ?? 21;
-      final eveningMinute = prefs.getInt('evening_alarm_minute') ?? 0;
+      final reminderSettings = snapshot.reminderSettings;
+      _morningReminderEnabled = reminderSettings.morningEnabled;
+      _eveningReminderEnabled = reminderSettings.eveningEnabled;
       _morningReminderTime = TimeOfDay(
-        hour: morningHour,
-        minute: morningMinute,
+        hour: reminderSettings.morningHour,
+        minute: reminderSettings.morningMinute,
       );
       _eveningReminderTime = TimeOfDay(
-        hour: eveningHour,
-        minute: eveningMinute,
+        hour: reminderSettings.eveningHour,
+        minute: reminderSettings.eveningMinute,
       );
 
-      // 扩展目标范围开关
-      _extendedTargetRange = prefs.getBool('extended_target_range') ?? false;
+      _extendedTargetRange = snapshot.extendedTargetRange;
+      _debugToolsEnabled = snapshot.debugToolsEnabled;
+      _userName = snapshot.userName;
+      _teamNo = snapshot.teamNo;
+      _teamName = snapshot.teamName;
 
-      // 调试工具开关
-      _debugToolsEnabled = prefs.getBool('debug_tools_enabled') ?? false;
-
-      // 用户信息和API客户端
-      _userName = prefs.getString('current_user_name');
-      _teamName = prefs.getString('current_team_name');
-
-      // 初始化 API 客户端（注意：token 存储的键名是 hikiot_token）
-      final token = prefs.getString('hikiot_token');
+      // 初始化 API 客户端
+      final token = snapshot.token;
       if (token != null && token.isNotEmpty) {
         _apiClient = HikiotApiClient(token: token);
       }
@@ -154,15 +125,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 保存设置
   Future<void> _saveSettings() async {
     try {
-      final settings = await _storage.loadSettings();
-
-      settings['lunchStartTime'] = _formatTime(_lunchStartTime);
-      settings['lunchEndTime'] = _formatTime(_lunchEndTime);
-
-      await _storage.saveSettings(settings);
-
-      // 重新加载工时计算器配置
-      await WorkTimeCalculator.reload();
+      await _settingsRepository.saveLunchTimes(
+        start: _formatTime(_lunchStartTime),
+        end: _formatTime(_lunchEndTime),
+      );
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -181,6 +147,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 格式化时间
   String _formatTime(TimeOfDay time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+
+  TimeOfDay _parseTime(String value, TimeOfDay fallback) {
+    final parts = value.split(':');
+    if (parts.length != 2) return fallback;
+    final hour = int.tryParse(parts[0]);
+    final minute = int.tryParse(parts[1]);
+    if (hour == null || minute == null) return fallback;
+    if (hour < 0 || hour > 23 || minute < 0 || minute > 59) return fallback;
+    return TimeOfDay(hour: hour, minute: minute);
+  }
+
+  TimeOfDay _timeFromMinutes(int minutes) {
+    final normalized = minutes.clamp(0, 23 * 60 + 59);
+    return TimeOfDay(hour: normalized ~/ 60, minute: normalized % 60);
   }
 
   /// 选择时间
@@ -254,10 +235,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 12),
                   _buildHelpSettings(),
                   const SizedBox(height: 24),
-                  _buildDebugToolsHeader(),
-                  if (_debugToolsEnabled) ...[
-                    const SizedBox(height: 12),
-                    _buildDeveloperSettings(),
+                  if (!kReleaseMode) ...[
+                    _buildDebugToolsHeader(),
+                    if (_debugToolsEnabled) ...[
+                      const SizedBox(height: 12),
+                      _buildDeveloperSettings(),
+                    ],
                   ],
                   const SizedBox(height: 24),
                 ],
@@ -496,7 +479,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!_extendedTargetRange && _baseTarget > 160) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         setState(() => _baseTarget = 160);
-        _storage.saveBaseTarget(160);
+        _settingsRepository.saveTargetSettings(
+          extendedTargetRange: false,
+          baseTarget: 160,
+        );
       });
     }
 
@@ -553,12 +539,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   value: _extendedTargetRange,
                   onChanged: (value) async {
                     await HapticUtils.selectionClick();
-                    setState(() => _extendedTargetRange = value);
-                    // 持久化保存
-                    final prefs = await SharedPreferences.getInstance();
-                    await prefs.setBool('extended_target_range', value);
+                    setState(() {
+                      _extendedTargetRange = value;
+                      if (!value && _baseTarget > 160) {
+                        _baseTarget = 160;
+                      }
+                    });
+                    await _settingsRepository.saveTargetSettings(
+                      extendedTargetRange: value,
+                      baseTarget: _baseTarget,
+                    );
                   },
-                  activeColor: Colors.blue[700],
+                  activeThumbColor: Colors.blue[700],
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ],
@@ -587,7 +579,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   setState(() => _baseTarget = value.round());
                 },
                 onChangeEnd: (value) async {
-                  await _storage.saveBaseTarget(value.round());
+                  await _settingsRepository.saveBaseTarget(value.round());
                 },
               ),
             ),
@@ -671,7 +663,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Switch(
                   value: _morningReminderEnabled,
                   onChanged: (value) => _toggleMorningReminder(value),
-                  activeColor: Colors.orange[700],
+                  activeThumbColor: Colors.orange[700],
                 ),
               ],
             ),
@@ -726,7 +718,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Switch(
                   value: _eveningReminderEnabled,
                   onChanged: (value) => _toggleEveningReminder(value),
-                  activeColor: Colors.indigo[700],
+                  activeThumbColor: Colors.indigo[700],
                 ),
               ],
             ),
@@ -828,83 +820,138 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _toggleMorningReminder(bool enabled) async {
     HapticUtils.selectionClick();
 
-    if (enabled) {
-      // 开启时先请求权限
-      final notificationService = NotificationService();
-      await notificationService.initialize();
+    final result = await _reminderCoordinator.setMorningReminder(
+      enabled: enabled,
+      hour: _morningReminderTime.hour,
+      minute: _morningReminderTime.minute,
+    );
 
-      final hasPermission = await notificationService
-          .requestNotificationPermission();
-      if (!hasPermission) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('需要通知权限才能提醒'),
-              backgroundColor: Colors.red,
-            ),
-          );
-        }
-        return;
-      }
-
-      await notificationService.requestExactAlarmPermission();
-
-      // 设置闹钟
-      await notificationService.scheduleMorningAlarm(
-        _morningReminderTime.hour,
-        _morningReminderTime.minute,
-      );
-
-      // 首次开启显示权限指南提示
-      if (mounted) {
-        _showFirstTimeGuideDialog();
-      }
-    } else {
-      final notificationService = NotificationService();
-      await notificationService.cancelMorningAlarm();
-    }
-
-    setState(() => _morningReminderEnabled = enabled);
+    await _applyReminderToggleResult(
+      result,
+      isMorning: true,
+      requestedEnabled: enabled,
+      showGuideOnEnabled: true,
+    );
   }
 
   /// 切换下班提醒
   Future<void> _toggleEveningReminder(bool enabled) async {
     HapticUtils.selectionClick();
 
-    if (enabled) {
-      final notificationService = NotificationService();
-      await notificationService.initialize();
+    final result = await _reminderCoordinator.setEveningReminder(
+      enabled: enabled,
+      hour: _eveningReminderTime.hour,
+      minute: _eveningReminderTime.minute,
+    );
 
-      final hasPermission = await notificationService
-          .requestNotificationPermission();
-      if (!hasPermission) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('需要通知权限才能提醒'),
-              backgroundColor: Colors.red,
-            ),
+    await _applyReminderToggleResult(
+      result,
+      isMorning: false,
+      requestedEnabled: enabled,
+      showGuideOnEnabled: true,
+    );
+  }
+
+  Future<void> _rescheduleReminderAfterTimeChange({
+    required bool isMorning,
+    required TimeOfDay time,
+  }) async {
+    final result = isMorning
+        ? await _reminderCoordinator.setMorningReminder(
+            enabled: true,
+            hour: time.hour,
+            minute: time.minute,
+          )
+        : await _reminderCoordinator.setEveningReminder(
+            enabled: true,
+            hour: time.hour,
+            minute: time.minute,
           );
+
+    await _applyReminderToggleResult(
+      result,
+      isMorning: isMorning,
+      requestedEnabled: true,
+      showGuideOnEnabled: false,
+    );
+  }
+
+  Future<void> _applyReminderToggleResult(
+    ReminderToggleResult result, {
+    required bool isMorning,
+    required bool requestedEnabled,
+    required bool showGuideOnEnabled,
+  }) async {
+    if (!mounted) return;
+
+    switch (result) {
+      case ReminderToggleResult.enabled:
+        setState(() {
+          if (isMorning) {
+            _morningReminderEnabled = true;
+          } else {
+            _eveningReminderEnabled = true;
+          }
+        });
+        if (requestedEnabled && showGuideOnEnabled) {
+          _showFirstTimeGuideDialog();
         }
         return;
-      }
+      case ReminderToggleResult.disabled:
+        setState(() {
+          if (isMorning) {
+            _morningReminderEnabled = false;
+          } else {
+            _eveningReminderEnabled = false;
+          }
+        });
+        return;
+      case ReminderToggleResult.notificationPermissionDenied:
+        await _disableReminderAfterPermissionDenied(isMorning);
+        if (!mounted) return;
+        _showReminderPermissionSnackBar('需要通知权限才能提醒');
+        return;
+      case ReminderToggleResult.exactAlarmPermissionDenied:
+        await _disableReminderAfterPermissionDenied(isMorning);
+        if (!mounted) return;
+        _showReminderPermissionSnackBar('需要允许精确闹钟权限才能准时提醒');
+        return;
+    }
+  }
 
-      await notificationService.requestExactAlarmPermission();
-
-      await notificationService.scheduleEveningAlarm(
-        _eveningReminderTime.hour,
-        _eveningReminderTime.minute,
+  Future<void> _disableReminderAfterPermissionDenied(bool isMorning) async {
+    if (isMorning) {
+      await _settingsRepository.saveReminderTime(
+        isMorning: true,
+        enabled: false,
+        hour: _morningReminderTime.hour,
+        minute: _morningReminderTime.minute,
       );
-
-      if (mounted) {
-        _showFirstTimeGuideDialog();
-      }
     } else {
-      final notificationService = NotificationService();
-      await notificationService.cancelEveningAlarm();
+      await _settingsRepository.saveReminderTime(
+        isMorning: false,
+        enabled: false,
+        hour: _eveningReminderTime.hour,
+        minute: _eveningReminderTime.minute,
+      );
     }
 
-    setState(() => _eveningReminderEnabled = enabled);
+    if (!mounted) return;
+    setState(() {
+      if (isMorning) {
+        _morningReminderEnabled = false;
+      } else {
+        _eveningReminderEnabled = false;
+      }
+    });
+  }
+
+  void _showReminderPermissionSnackBar(String message) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
   }
 
   /// 选择提醒时间
@@ -922,26 +969,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
 
-    if (picked != null) {
+    if (picked != null && mounted) {
       HapticUtils.selectionClick();
-      final notificationService = NotificationService();
 
       if (isMorning) {
         setState(() => _morningReminderTime = picked);
         if (_morningReminderEnabled) {
-          await notificationService.scheduleMorningAlarm(
-            picked.hour,
-            picked.minute,
+          await _rescheduleReminderAfterTimeChange(
+            isMorning: true,
+            time: picked,
+          );
+        } else {
+          await _settingsRepository.saveReminderTime(
+            isMorning: true,
+            enabled: false,
+            hour: picked.hour,
+            minute: picked.minute,
           );
         }
       } else {
         setState(() => _eveningReminderTime = picked);
         if (_eveningReminderEnabled) {
-          await notificationService.scheduleEveningAlarm(
-            picked.hour,
-            picked.minute,
+          await _rescheduleReminderAfterTimeChange(
+            isMorning: false,
+            time: picked,
+          );
+        } else {
+          await _settingsRepository.saveReminderTime(
+            isMorning: false,
+            enabled: false,
+            hour: picked.hour,
+            minute: picked.minute,
           );
         }
+      }
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              '${isMorning ? '上班' : '下班'}提醒时间已设置为 ${_formatTime(picked)}',
+            ),
+            backgroundColor: Colors.green,
+          ),
+        );
       }
     }
   }
@@ -1081,9 +1152,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   onChanged: (value) async {
                     await HapticUtils.selectionClick();
                     setState(() => _smartSort = value);
-                    await _storage.saveSmartSort(value);
+                    await _settingsRepository.saveSmartSort(value);
                   },
-                  activeColor: Colors.purple[700],
+                  activeThumbColor: Colors.purple[700],
                 ),
               ],
             ),
@@ -1297,7 +1368,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     time: _lunchStartTime,
                     onTap: () async {
                       await HapticUtils.selectionClick();
-                      _selectTime(true);
+                      await _selectTime(true);
                     },
                   ),
                 ),
@@ -1310,7 +1381,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     time: _lunchEndTime,
                     onTap: () async {
                       await HapticUtils.selectionClick();
-                      _selectTime(false);
+                      await _selectTime(false);
                     },
                   ),
                 ),
@@ -1434,6 +1505,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   /// 选择跨天时间点
   Future<void> _selectCrossDayTime() async {
     await HapticUtils.selectionClick();
+    if (!mounted) return;
 
     final picked = await showTimePicker(
       context: context,
@@ -1447,33 +1519,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
 
-    if (picked != null && mounted) {
-      // 限制在 00:00 - 06:00 之间
-      if (picked.hour > 6) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('跨天时间点只可设置在00:00-06:00之间'),
-            backgroundColor: Colors.orange,
-          ),
-        );
-        return;
-      }
+    if (picked == null || !mounted) return;
 
-      setState(() {
-        _crossDayTime = picked;
-      });
-
-      await DateHelper.setCrossDayTime(picked);
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('跨天时间点已设置为 ${_formatTime(picked)}'),
-            backgroundColor: Colors.green,
-          ),
-        );
-      }
+    // 限制在 00:00 - 06:00 之间
+    if (picked.hour > 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('跨天时间点只可设置在00:00-06:00之间'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
     }
+
+    setState(() {
+      _crossDayTime = picked;
+    });
+
+    await DateHelper.setCrossDayTime(picked);
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('跨天时间点已设置为 ${_formatTime(picked)}'),
+        backgroundColor: Colors.green,
+      ),
+    );
   }
 
   /// 时间选择器
@@ -1727,8 +1798,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Future<void> _restartOnboarding() async {
     HapticUtils.lightImpact();
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_completed', false);
+    await _settingsRepository.saveOnboardingCompleted(false);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1753,16 +1823,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
 
     try {
-      // 获取账户信息（包含所有团队列表）
-      final accountDetail = await _apiClient!.getAccountDetail();
-      if (accountDetail == null) {
-        throw Exception('无法获取账户信息，请检查网络或重新登录');
-      }
-
-      final teamInfoList = accountDetail['teamInfoList'] as List<dynamic>?;
-      if (teamInfoList == null || teamInfoList.isEmpty) {
-        throw Exception('该账号没有关联任何团队');
-      }
+      final teamContextService = TeamContextService(
+        storage: _storage,
+        loadAccountDetail: _apiClient!.getAccountDetail,
+        changeTeam: _apiClient!.changeTeam,
+      );
+      final teamInfoList = await teamContextService.loadTeams();
 
       // 显示团队选择对话框
       final selectedTeam = await _showTeamSelectionDialog(teamInfoList);
@@ -1771,17 +1837,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      final teamNo = selectedTeam['teamNo'] as String?;
-      if (teamNo == null) {
-        throw Exception('团队信息不完整');
-      }
-
-      // 获取当前团队
-      final prefs = await SharedPreferences.getInstance();
-      final currentTeamNo = prefs.getString('current_team_no');
-
-      // 如果选择的是当前团队，不需要切换
-      if (teamNo == currentTeamNo) {
+      final teamContext = await teamContextService.switchTo(selectedTeam);
+      if (!teamContext.teamChanged) {
         if (mounted) {
           ScaffoldMessenger.of(
             context,
@@ -1790,45 +1847,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
         return;
       }
 
-      // 切换团队激活Token
-      final teamChanged = await _apiClient!.changeTeam(teamNo);
-      if (!teamChanged) {
-        throw Exception('切换团队失败');
-      }
-
-      // 更新团队信息
-      final newTeamName = selectedTeam['teamName'] as String? ?? '未知团队';
-      final personNo = selectedTeam['personNo'] as String?;
-
-      await prefs.setString('current_team_no', teamNo);
-      await prefs.setString('current_team_name', newTeamName);
-      await prefs.setString('teamNo', teamNo);
-      if (personNo != null) {
-        await prefs.setString('personNo', personNo);
-      }
-
-      // 保存选择的团队到storage
-      await _storage.saveSelectedTeam(teamNo);
-
       // 更新本地状态
       setState(() {
-        _teamName = newTeamName;
+        _teamNo = teamContext.teamNo;
+        _teamName = teamContext.teamName;
       });
 
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('已切换到: $newTeamName')));
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('已切换到: ${teamContext.teamName}')));
 
-        // 获取当前token（注意键名是 hikiot_token）
-        final token = prefs.getString('hikiot_token') ?? '';
+      final token = await _settingsRepository.loadToken() ?? '';
+      if (!mounted) return;
 
-        // 返回主页并刷新数据（直接到MainScreen，不经过LoginScreen）
-        Navigator.of(context).pushAndRemoveUntil(
-          MaterialPageRoute(builder: (_) => MainScreen(token: token)),
-          (route) => false,
-        );
-      }
+      // 返回主页并刷新数据（直接到MainScreen，不经过LoginScreen）
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (_) => MainScreen(token: token)),
+        (route) => false,
+      );
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -1857,7 +1894,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 final team = teams[index] as Map<String, dynamic>;
                 final teamName = team['teamName'] as String? ?? '未知团队';
                 final teamNo = team['teamNo'] as String?;
-                final isCurrentTeam = teamNo == _teamName; // 简单标记
+                final isCurrentTeam = teamNo != null && teamNo == _teamNo;
                 return ListTile(
                   title: Text(teamName),
                   trailing: isCurrentTeam
@@ -1908,45 +1945,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirmed != true) return;
 
-    // 获取 token 用于调用登出接口
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('hikiot_token');
-
-    // 调用官方登出 API
-    if (token != null && token.isNotEmpty) {
-      try {
-        await http.post(
-          Uri.parse('https://api.hikiot.com/api-website/v1/logout'),
-          headers: {
-            'Accept': 'application/json, text/plain, */*',
-            'Authorization': 'Bearer $token',
-            'Authorization-other': 'Bearer $token',
-            'Origin': 'https://www.hikiot.com',
-            'Referer': 'https://www.hikiot.com/',
-            'STN-PhoneType': 'Android 10',
-            'User-Agent':
-                'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
-            'deviceid': 'unHotjaMGfLZCj0N',
-            'devicename': 'Android 10',
-            'terminal': '2',
-          },
-        );
-      } catch (e) {
-        // 登出 API 调用失败，忽略
-      }
-    }
-
-    // 清除 WebView cookies（关键！否则自动登录会生效）
-    final cookieManager = CookieManager.instance();
-    // 删除所有 cookies
-    await cookieManager.deleteAllCookies();
-    // 针对海康域名专门删除
-    await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
-    await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
-    await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
-
-    // 使用 StorageService 清除认证信息 (保留用户设置)
-    await _storage.clearAuthInfo();
+    await _sessionService.logout();
 
     if (mounted) {
       // 跳转到登录页（使用 forceLogout 确保 WebView 也清除 cookies）
@@ -1978,11 +1977,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
           onChanged: (value) async {
             HapticUtils.lightImpact();
             setState(() => _debugToolsEnabled = value);
-            // 持久化保存
-            final prefs = await SharedPreferences.getInstance();
-            await prefs.setBool('debug_tools_enabled', value);
+            await _settingsRepository.saveDebugToolsEnabled(value);
           },
-          activeColor: Colors.red,
+          activeThumbColor: Colors.red,
         ),
       ],
     );
@@ -2069,11 +2066,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  /// 复制当前Token
+    /// 复制当前Token
   Future<void> _copyCurrentToken() async {
     HapticUtils.lightImpact();
-    final prefs = await SharedPreferences.getInstance();
-    final token = prefs.getString('hikiot_token') ?? '';
+    final token = await _settingsRepository.loadToken() ?? '';
 
     if (token.isEmpty) {
       if (mounted) {
@@ -2141,51 +2137,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (confirmed != true) return;
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-
       // 获取当前token
-      final currentToken = prefs.getString('hikiot_token') ?? '';
+      final currentToken = await _settingsRepository.loadToken() ?? '';
       final shortToken = currentToken.length > 20
           ? '${currentToken.substring(0, 20)}...'
           : currentToken;
 
-      // 【关键】先用有效Token调用logout API，清除海康服务端的登录状态
-      if (currentToken.isNotEmpty && !currentToken.startsWith('INVALID')) {
-        try {
-          await http.post(
-            Uri.parse('https://api.hikiot.com/api-website/v1/logout'),
-            headers: {
-              'Accept': 'application/json, text/plain, */*',
-              'Authorization': 'Bearer $currentToken',
-              'Authorization-other': 'Bearer $currentToken',
-              'Origin': 'https://www.hikiot.com',
-              'Referer': 'https://www.hikiot.com/',
-              'STN-PhoneType': 'Android 10',
-              'User-Agent':
-                  'Mozilla/5.0 (Linux; Android 10; K) AppleWebKit/537.36',
-              'deviceid': 'unHotjaMGfLZCj0N',
-              'devicename': 'Android 10',
-              'terminal': '2',
-            },
-          );
-        } catch (e) {
-          // logout API调用失败
-        }
-      }
-
-      // 清除 WebView cookies
-      final cookieManager = CookieManager.instance();
-      await cookieManager.deleteAllCookies();
-      await cookieManager.deleteCookies(url: WebUri('https://www.hikiot.com'));
-      await cookieManager.deleteCookies(url: WebUri('https://hikiot.com'));
-      await cookieManager.deleteCookies(url: WebUri('https://api.hikiot.com'));
-      // WebView cookies已清除
+      await _sessionService.clearRemoteAndWebSession(currentToken);
 
       // 生成无效token
       const invalidToken = 'INVALID_TOKEN_FOR_DEBUG_TESTING_12345';
 
       // 替换token
-      await prefs.setString('hikiot_token', invalidToken);
+      await _settingsRepository.saveTokenForDebug(invalidToken);
 
       if (mounted) {
         // 显示成功提示

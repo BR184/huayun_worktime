@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../core/constants/constants.dart';
 import '../core/theme/theme.dart';
 import '../services/hikiot_api_client.dart';
+import '../services/monthly_attendance_repository.dart';
 import '../services/storage_service.dart';
+import '../services/team_context_service.dart';
 import '../services/token_expired_service.dart';
 import '../utils/work_time_calculator.dart';
-import '../utils/attendance_parser.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
-import '../utils/smart_day_type_helper.dart';
 
-import '../utils/holiday_utils.dart'; // [NEW] Import
 import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
 
 /// 月度统计页面 - 日历视图
 class MonthlyCalendarScreen extends StatefulWidget {
   final String token;
+  final bool autoInitialize;
 
-  const MonthlyCalendarScreen({super.key, required this.token});
+  const MonthlyCalendarScreen({
+    super.key,
+    required this.token,
+    this.autoInitialize = true,
+  });
 
   @override
   MonthlyCalendarScreenState createState() => MonthlyCalendarScreenState();
@@ -30,6 +33,8 @@ class MonthlyCalendarScreen extends StatefulWidget {
 class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   final HikiotApiClient _apiClient = HikiotApiClient();
   final StorageService _storage = StorageService();
+  late final TeamContextService _teamContextService;
+  late final MonthlyAttendanceRepository _monthlyRepository;
   bool _isLoading = true;
   String? _error;
 
@@ -51,12 +56,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   // 节假日计划
   Map<String, String> _holidayPlan = {};
 
-  // 已加载的月份缓存 (格式: "YYYY-MM" -> Map<String, Map<String, dynamic>>)
-  final Map<String, Map<String, Map<String, dynamic>>> _monthlyDataCache = {};
-
-  // 已锁定的日期(这些日期的工时不会再更新,除非强制)
-  final Set<String> _lockedDates = {};
-
   // 是否包含今日工时数据（适用于第二天上班只打了上班卡想看之前数据的情况）
   bool _includeTodayData = true;
 
@@ -73,10 +72,24 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   void initState() {
     super.initState();
     _apiClient.setToken(widget.token);
+    _teamContextService = TeamContextService(
+      storage: _storage,
+      loadAccountDetail: _apiClient.getAccountDetail,
+      changeTeam: _apiClient.changeTeam,
+    );
+    _monthlyRepository = MonthlyAttendanceRepository(
+      storage: _storage,
+      loadMonthlyAttendance: _apiClient.getMonthlyAttendance,
+      loadDailyAttendance: _apiClient.getDailyAttendance,
+    );
     _loadPinnedTarget();
     _loadSmartSort();
-    _initializeUser();
+    if (widget.autoInitialize) {
+      _initializeUser();
+    }
   }
+
+  Future<void> initializeUserContext() => _initializeUser();
 
   /// 加载置顶目标
   Future<void> _loadPinnedTarget() async {
@@ -123,115 +136,21 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     });
 
     try {
-      // 获取账户信息
-      final accountDetail = await _apiClient.getAccountDetail();
-      if (accountDetail == null) {
-        // Token失效，直接弹出对话框引导用户重新登录
-        if (mounted) {
-          setState(() {
-            _isLoading = false;
-          });
-          await TokenExpiredService.handleTokenExpired(context);
-          return;
-        }
-        throw Exception('无法获取账户信息');
-      }
-
-      final teamInfoList = accountDetail['teamInfoList'] as List<dynamic>?;
-      if (teamInfoList == null || teamInfoList.isEmpty) {
-        throw Exception('该账号没有关联任何团队');
-      }
-
-      // 检查是否有多个团队，需要用户选择
-      Map<String, dynamic> selectedTeam;
-      bool isTeamChanged = false; // 标记是否切换了团队
-
-      if (teamInfoList.length > 1) {
-        // 先尝试从本地加载上次选择的团队
-        final savedTeamNo = await _storage.loadSelectedTeam();
-
-        if (savedTeamNo != null) {
-          // 在团队列表中查找保存的团队
-          final savedTeam = teamInfoList.firstWhere(
-            (team) => team['teamNo'] == savedTeamNo,
-            orElse: () => null,
-          );
-
-          if (savedTeam != null) {
-            // 找到保存的团队,直接使用
-            selectedTeam = savedTeam as Map<String, dynamic>;
-          } else {
-            // 保存的团队不在列表中,显示选择对话框
-            if (_isShowingTeamDialog) {
-              // 已有对话框在显示，使用默认团队
-              selectedTeam = teamInfoList[0] as Map<String, dynamic>;
-            } else {
-              selectedTeam =
-                  await _showTeamSelectionDialog(teamInfoList) ??
-                  teamInfoList[0] as Map<String, dynamic>;
-            }
-            isTeamChanged = true;
-          }
-        } else {
-          // 没有保存记录,显示团队选择对话框
-          if (_isShowingTeamDialog) {
-            // 已有对话框在显示，使用默认团队
-            selectedTeam = teamInfoList[0] as Map<String, dynamic>;
-          } else {
-            selectedTeam =
-                await _showTeamSelectionDialog(teamInfoList) ??
-                teamInfoList[0] as Map<String, dynamic>;
-          }
-          isTeamChanged = true;
-        }
-      } else {
-        selectedTeam = teamInfoList[0] as Map<String, dynamic>;
-        // 检查是否与上次相同
-        final savedTeamNo = await _storage.loadSelectedTeam();
-        isTeamChanged = savedTeamNo != selectedTeam['teamNo'];
-      }
-
-      final teamNo = selectedTeam['teamNo'] as String?;
-      if (teamNo == null) {
-        throw Exception('团队信息不完整');
-      }
-
-      // 切换团队激活Token
-      final teamChanged = await _apiClient.changeTeam(teamNo);
-      if (!teamChanged) {
-        throw Exception('切换团队失败');
-      }
-
-      // 保存团队编号
-      _teamNo = teamNo;
-      _personNo = selectedTeam['personNo'] as String?;
-
-      // 保存teamNo和personNo到SharedPreferences供其他页面使用
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setString('teamNo', teamNo);
-      if (_personNo != null) {
-        await prefs.setString('personNo', _personNo!);
-      }
-
-      // 先从本地加载已保存的用户名
-      _userName = await _storage.loadUserName();
-      // 如果没有保存的，使用nickName
-      if (_userName == null || _userName!.isEmpty) {
-        _userName = accountDetail['nickName'] as String? ?? '未知用户';
-      }
-      _teamName = selectedTeam['teamName'] as String? ?? '未知团队';
-
-      _teamName = selectedTeam['teamName'] as String? ?? '未知团队';
+      final teamContext = await _teamContextService.initialize(
+        chooseTeam: _chooseInitialTeam,
+      );
+      _teamNo = teamContext.teamNo;
+      _personNo = teamContext.personNo;
+      _teamName = teamContext.teamName;
+      _userName =
+          teamContext.userName ?? await _storage.loadUserName() ?? '未知用户';
 
       if (_personNo == null) {
         throw Exception('未找到员工编号');
       }
 
-      // 保存选择的团队到本地
-      await _storage.saveSelectedTeam(teamNo);
-
       // 加载月度数据（只有切换团队时才强制刷新，否则用缓存秒开）
-      await _loadMonthlyData(forceRefresh: isTeamChanged);
+      await _loadMonthlyData(forceRefresh: teamContext.teamChanged);
     } catch (e) {
       // 检查是否是Token失效导致的错误
       if (mounted && TokenExpiredService.isTokenExpiredError(e)) {
@@ -247,6 +166,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         _isLoading = false;
       });
     }
+  }
+
+  Future<Map<String, dynamic>?> _chooseInitialTeam(
+    List<Map<String, dynamic>> teams,
+  ) async {
+    if (_isShowingTeamDialog) return null;
+    return _showTeamSelectionDialog(teams);
   }
 
   /// 显示团队选择对话框
@@ -299,59 +225,19 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
     if (_personNo == null || _teamNo == null) return;
 
-    final workDate = DateHelper.getWorkDate();
-    // 只在查看当前月份时刷新
-    if (_selectedMonth.year != workDate.year ||
-        _selectedMonth.month != workDate.month) {
-      return;
-    }
-
     try {
-      final todayStr = DateHelper.formatDate(workDate);
-      final data = await _apiClient.getDailyAttendance(todayStr, _personNo!);
+      final result = await _monthlyRepository.refreshToday(
+        teamNo: _teamNo!,
+        personNo: _personNo!,
+        selectedMonth: _selectedMonth,
+        currentData: _monthlyData,
+      );
 
-      if (data != null && mounted) {
-        // 使用统一的解析器
-        final attendance = AttendanceParser.parseFromResponse(data);
-
-        // 更新今日数据
-        if (_monthlyData.containsKey(todayStr)) {
-          final savedMarks = await _storage.loadCalendarMarks(_teamNo!);
-          final isManual = savedMarks[todayStr]?['isManual'] ?? false;
-
-          // 只有非手动标记的才更新工时
-          if (!isManual) {
-            setState(() {
-              _monthlyData[todayStr]!['hours'] = attendance.hours;
-              _monthlyData[todayStr]!['checkIn'] = attendance.checkIn;
-              _monthlyData[todayStr]!['checkOut'] = attendance.checkOut;
-
-              // 使用统一工具类处理智能类型
-              final newType = SmartDayTypeHelper.inferDayType(
-                currentType: _monthlyData[todayStr]!['type'],
-                hours: attendance.hours,
-                dateStr: todayStr,
-                isManual: false,
-                hasCheckIn: attendance.hasValidData,
-              );
-              if (newType != null) {
-                _monthlyData[todayStr]!['type'] = newType;
-              }
-            });
-
-            // 同步更新缓存
-            final monthKey =
-                '${_teamNo}_${DateHelper.formatMonth(_selectedMonth)}';
-            if (_monthlyDataCache.containsKey(monthKey)) {
-              _monthlyDataCache[monthKey]![todayStr]!['hours'] =
-                  attendance.hours;
-              _monthlyDataCache[monthKey]![todayStr]!['checkIn'] =
-                  attendance.checkIn;
-              _monthlyDataCache[monthKey]![todayStr]!['checkOut'] =
-                  attendance.checkOut;
-            }
-          }
-        }
+      if (mounted && result.updatedCount > 0) {
+        setState(() {
+          _monthlyData = result.monthlyData;
+          _holidayPlan = result.holidayPlan;
+        });
       }
     } catch (e) {
       // 刷新今日数据失败
@@ -368,79 +254,23 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     _pinnedTarget = await _storage.loadPinnedTarget();
     _baseTarget = await _storage.loadBaseTarget();
 
-    final monthKey =
-        '${_teamNo}_${DateFormat('yyyy-MM').format(_selectedMonth)}';
-
-    // 重新加载手动标记
-    final savedMarks = await _storage.loadCalendarMarks(_teamNo!);
-
-    // 如果当前月份有缓存数据,重新应用手动标记
-    if (_monthlyDataCache.containsKey(monthKey)) {
-      setState(() {
-        // 先从缓存恢复原始数据
-        _monthlyData = {};
-        _monthlyDataCache[monthKey]!.forEach((dateStr, data) {
-          _monthlyData[dateStr] = Map<String, dynamic>.from(data);
-        });
-
-        // 重新应用手动标记
-        savedMarks.forEach((dateStr, markData) {
-          if (_monthlyData.containsKey(dateStr)) {
-            final data = _monthlyData[dateStr]!;
-            data['type'] = markData['type'] ?? data['type'];
-            data['isManual'] = markData['isManual'] ?? false;
-            data['isOvertime'] = markData['isOvertime'] ?? false;
-
-            // 根据类型计算工时
-            if (markData['type'] == AppConstants.typeCustom) {
-              data['customCheckIn'] = markData['customCheckIn'] ?? '09:00';
-              data['customCheckOut'] = markData['customCheckOut'] ?? '18:00';
-              data['hours'] = _calculateCustomHours(
-                data['customCheckIn'] as String,
-                data['customCheckOut'] as String,
-              );
-            } else if (markData['type'] == AppConstants.typeBusinessTrip) {
-              if (markData['isCustomHours'] == true) {
-                 data['isCustomHours'] = true;
-                 data['customCheckIn'] = markData['customCheckIn'] ?? '09:00';
-                 data['customCheckOut'] = markData['customCheckOut'] ?? '18:00';
-                 data['hours'] = _calculateCustomHours(
-                   data['customCheckIn'] as String,
-                   data['customCheckOut'] as String,
-                 );
-              } else {
-                 data['hours'] = 8.0;
-                 data['isCustomHours'] = false;
-              }
-            } else if (markData['type'] == AppConstants.typeLeave) {
-              data['hours'] = 0.0;
-            }
-            // 其他类型保持 API 原始工时（已在上面恢复）
-          }
-        });
-
-        // 处理已被删除的手动标记（恢复默认）
-        _monthlyData.forEach((dateStr, data) {
-          if (data['isManual'] == true && !savedMarks.containsKey(dateStr)) {
-            // 手动标记已被删除，恢复为默认类型和API工时
-            // 从节假日计划获取默认类型
-            final date = DateTime.parse(dateStr);
-            final defaultType =
-                _holidayPlan[dateStr] ?? (date.weekday <= 5 ? AppConstants.typeWorkday : AppConstants.typeRestDay);
-
-            data['type'] = defaultType;
-            data['hours'] = data['apiHours'] ?? 0.0;
-            data['isManual'] = false;
-            data.remove('isOvertime');
-            data.remove('customCheckIn');
-            data.remove('customCheckOut');
-          }
-        });
-      });
-    } else {
-      // 没有缓存，重新加载
+    if (_monthlyData.isEmpty) {
       await _loadMonthlyData();
+      return;
     }
+
+    final result = await _monthlyRepository.refreshFromMarks(
+      teamNo: _teamNo!,
+      selectedMonth: _selectedMonth,
+      currentData: _monthlyData,
+      holidayPlan: _holidayPlan,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _monthlyData = result.monthlyData;
+      _holidayPlan = result.holidayPlan;
+    });
   }
 
   /// 加载月度数据 (forceRefresh=true时强制刷新)
@@ -448,36 +278,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     if (_personNo == null || _teamNo == null) return;
 
     final monthStr = DateFormat('yyyy-MM').format(_selectedMonth);
-    final monthKey = '${_teamNo}_$monthStr'; // 按团队和月份区分缓存
-
-    // 检查内存缓存
-    if (!forceRefresh && _monthlyDataCache.containsKey(monthKey)) {
-      setState(() {
-        _monthlyData = _monthlyDataCache[monthKey]!;
-        _isLoading = false;
-      });
-      return;
-    }
-
-    // 尝试从本地持久化缓存加载（秒开）
-    if (!forceRefresh) {
-      final cachedData = await _storage.loadMonthlyData(_teamNo!, monthStr);
-      if (cachedData != null) {
-        // 应用智能日期类型（修复缓存数据未应用智能逻辑的问题）
-        SmartDayTypeHelper.applyToMonthlyData(cachedData);
-        setState(() {
-          _monthlyData = cachedData;
-          _monthlyDataCache[monthKey] = cachedData;
-          _isLoading = false;
-        });
-        // 后台静默智能更新
-        _smartQuickUpdate().then((_) {
-          // 更新完保存到本地
-          _storage.saveMonthlyData(_teamNo!, monthStr, _monthlyData);
-        });
-        return;
-      }
-    }
 
     setState(() {
       _isLoading = true;
@@ -485,193 +285,41 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     });
 
     try {
-      // 1. 加载节假日计划 (仅从本地加载，由 API 刷新时自动同步)
-      var yearHolidayPlan = await _storage.getHolidayPlan(_selectedMonth.year);
-
-      if (yearHolidayPlan.isEmpty) {
-        // 本地没有任何年份数据时使用默认规则
-        yearHolidayPlan = _storage.generateDefaultPlan(
-          _selectedMonth.year,
-          _selectedMonth.month,
-        );
-      }
-
-      _holidayPlan = yearHolidayPlan;
-
-      // 2. 加载API数据
-      final monthStr = DateFormat('yyyy-MM').format(_selectedMonth);
-      final monthlyStats = await _apiClient.getMonthlyAttendance(
-        monthStr,
-        _personNo!,
+      final result = await _monthlyRepository.loadMonth(
+        teamNo: _teamNo!,
+        personNo: _personNo!,
+        selectedMonth: _selectedMonth,
+        forceRefresh: forceRefresh,
       );
 
-      if (monthlyStats == null) {
-        throw Exception('获取月度数据失败');
-      }
-
-      // 提取并保存用户姓名（如果有）
-      final personName = monthlyStats['personName'] as String?;
-      if (personName != null && personName.isNotEmpty) {
-        _userName = personName;
-        await _storage.saveUserName(personName);
-      }
-
-      // 3. 加载本地标记（按团队区分）
-      final savedMarks = await _storage.loadCalendarMarks(_teamNo!);
-
-      // 4. 转换数据格式并合并
-      final Map<String, Map<String, dynamic>> dataMap = {};
-      final dailyRecords = monthlyStats['dailyRecords'] as List<dynamic>? ?? [];
-
-      // 先填充整个月的默认数据
-      final daysInMonth = DateTime(
-        _selectedMonth.year,
-        _selectedMonth.month + 1,
-        0,
-      ).day;
-      for (int day = 1; day <= daysInMonth; day++) {
-        final dateStr = DateFormat(
-          'yyyy-MM-dd',
-        ).format(DateTime(_selectedMonth.year, _selectedMonth.month, day));
-
-        // 从节假日计划获取默认类型
-        final defaultType =
-            _holidayPlan[dateStr] ??
-            (DateTime(_selectedMonth.year, _selectedMonth.month, day).weekday <=
-                    5
-                ? AppConstants.typeWorkday
-                : AppConstants.typeRestDay);
-
-        dataMap[dateStr] = {
-          'hours': 0.0,
-          'checkIn': null,
-          'checkOut': null,
-          'isLate': false,
-          'isEarlyLeave': false,
-          'type': defaultType,
-          'isManual': false,
-        };
-      }
-
-      // 再填充API返回的打卡数据
-      bool holidayPlanChanged = false;
-      for (var record in dailyRecords) {
-        final date = record['date'] as String;
-        final hours = record['hours'] ?? 0.0;
-        final isRestDay = record['isRestDay'] ?? false;
-
-        // 1. 同步海康原生日历类型
-        if (dataMap.containsKey(date)) {
-          final newNativeType = HolidayUtils.determineNativeType(
-            isRestDay: isRestDay,
-            currentType: dataMap[date]!['type'],
-            isManual: dataMap[date]!['isManual'] == true,
-          );
-
-          if (newNativeType != null) {
-            dataMap[date]!['type'] = newNativeType;
-            _holidayPlan[date] = newNativeType;
-            holidayPlanChanged = true;
-          }
-        }
-
-        dataMap[date] = {
-          ...dataMap[date]!,
-          'hours': hours,
-          'apiHours': hours, // 保存API原始工时，用于取消修改时恢复
-          'checkIn': record['checkIn'],
-          'checkOut': record['checkOut'],
-          'isLate': record['isLate'] ?? false,
-          'isEarlyLeave': record['isEarlyLeave'] ?? false,
-        };
-
-        // 统一使用 SmartDayTypeHelper 进行智能类型推断
-        final checkInStr = record['checkIn'] as String?;
-        final hasCheckIn = checkInStr != null && checkInStr.isNotEmpty && checkInStr != '-';
-
-        final newType = SmartDayTypeHelper.inferDayType(
-          currentType: dataMap[date]!['type'],
-          hours: hours,
-          dateStr: date,
-          isManual: dataMap[date]!['isManual'] ?? false,
-          hasCheckIn: hasCheckIn,
-        );
-
-        if (newType != null) {
-          dataMap[date]!['type'] = newType;
-        }
-      }
-
-      // 异步保存更新后的节假日计划
-      if (holidayPlanChanged) {
-        _storage.saveHolidayPlan(_selectedMonth.year, _holidayPlan);
-      }
-
-      // 最后应用用户的手动标记（覆盖）
-      savedMarks.forEach((dateStr, mark) {
-        if (dataMap.containsKey(dateStr)) {
-          dataMap[dateStr]!['type'] = mark['type'] ?? dataMap[dateStr]!['type'];
-          dataMap[dateStr]!['isManual'] = true;
-
-          // 恢复isOvertime标记
-          if (mark['isOvertime'] != null) {
-            dataMap[dateStr]!['isOvertime'] = mark['isOvertime'];
-          }
-
-          // 如果是自定义类型，恢复自定义时间和工时
-          if (mark['type'] == AppConstants.typeCustom) {
-            if (mark['customCheckIn'] != null) {
-              dataMap[dateStr]!['customCheckIn'] = mark['customCheckIn'];
-            }
-            if (mark['customCheckOut'] != null) {
-              dataMap[dateStr]!['customCheckOut'] = mark['customCheckOut'];
-            }
-            // 重新计算自定义工时
-            if (mark['customCheckIn'] != null &&
-                mark['customCheckOut'] != null) {
-              dataMap[dateStr]!['hours'] = _calculateCustomHours(
-                mark['customCheckIn'] as String,
-                mark['customCheckOut'] as String,
-              );
-            }
-            } else if (mark['type'] == AppConstants.typeBusinessTrip) {
-              // 出差类型: 支持默认8小时或自定义
-              if (mark['isCustomHours'] == true) {
-                 dataMap[dateStr]!['isCustomHours'] = true;
-                 if (mark['customCheckIn'] != null) {
-                   dataMap[dateStr]!['customCheckIn'] = mark['customCheckIn'];
-                 }
-                 if (mark['customCheckOut'] != null) {
-                   dataMap[dateStr]!['customCheckOut'] = mark['customCheckOut'];
-                 }
-                 if (dataMap[dateStr]!['customCheckIn'] != null &&
-                     dataMap[dateStr]!['customCheckOut'] != null) {
-                   dataMap[dateStr]!['hours'] = _calculateCustomHours(
-                     dataMap[dateStr]!['customCheckIn'],
-                     dataMap[dateStr]!['customCheckOut'],
-                   );
-                 }
-              } else {
-                 dataMap[dateStr]!['hours'] = 8.0;
-                 dataMap[dateStr]!['isCustomHours'] = false;
-              }
-            }
-        }
-      });
-
       setState(() {
-        _monthlyData = dataMap;
-        // 保存到内存缓存
-        _monthlyDataCache[monthKey] = Map<String, Map<String, dynamic>>.from(
-          dataMap.map(
-            (key, value) => MapEntry(key, Map<String, dynamic>.from(value)),
-          ),
-        );
+        _monthlyData = result.monthlyData;
+        _holidayPlan = result.holidayPlan;
+        if (result.personName != null) {
+          _userName = result.personName;
+        }
         _isLoading = false;
       });
 
-      // 保存到本地持久化缓存
-      await _storage.saveMonthlyData(_teamNo!, monthStr, dataMap);
+      if (result.source == MonthlyAttendanceLoadSource.persistentCache) {
+        _monthlyRepository
+            .smartQuickUpdate(
+              teamNo: _teamNo!,
+              personNo: _personNo!,
+              selectedMonth: _selectedMonth,
+              currentData: result.monthlyData,
+            )
+            .then((updateResult) {
+              if (!mounted) return;
+              if (DateFormat('yyyy-MM').format(_selectedMonth) != monthStr) {
+                return;
+              }
+              setState(() {
+                _monthlyData = updateResult.monthlyData;
+                _holidayPlan = updateResult.holidayPlan;
+              });
+            });
+      }
     } catch (e) {
       setState(() {
         _error = '加载数据失败: $e';
@@ -679,8 +327,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       });
     }
   }
-
-
 
   /// 更新工时数据
   /// [forceAll] = true: 全量更新，调用月度API更新所有日期
@@ -690,69 +336,31 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
     try {
       final now = DateTime.now();
-      final today = DateFormat('yyyy-MM-dd').format(now);
-      final monthStr = DateFormat('yyyy-MM').format(_selectedMonth);
-      int updatedCount = 0;
+      final result = forceAll
+          ? await _monthlyRepository.forceRefreshMonth(
+              teamNo: _teamNo!,
+              personNo: _personNo!,
+              selectedMonth: _selectedMonth,
+            )
+          : await _monthlyRepository.smartQuickUpdate(
+              teamNo: _teamNo!,
+              personNo: _personNo!,
+              selectedMonth: _selectedMonth,
+              currentData: _monthlyData,
+              now: now,
+            );
 
-      if (forceAll) {
-        // 强制更新全部: 调用月度API,更新所有日期
-        final monthlyStats = await _apiClient.getMonthlyAttendance(
-          monthStr,
-          _personNo!,
-        );
-
-        if (monthlyStats == null) {
-          throw Exception('获取月度数据失败');
-        }
-
-        final dailyRecords =
-            monthlyStats['dailyRecords'] as List<dynamic>? ?? [];
-
-        for (var record in dailyRecords) {
-          final date = record['date'] as String;
-
-          if (_monthlyData.containsKey(date)) {
-            final hours = record['hours'] ?? 0.0;
-            _monthlyData[date]!['hours'] = hours;
-            _monthlyData[date]!['apiHours'] = hours;
-            _monthlyData[date]!['checkIn'] = record['checkIn'];
-            _monthlyData[date]!['checkOut'] = record['checkOut'];
-            _monthlyData[date]!['isLate'] = record['isLate'] ?? false;
-            _monthlyData[date]!['isEarlyLeave'] =
-                record['isEarlyLeave'] ?? false;
-
-            // 强制更新会重新锁定过去的日期
-            if (date != today) {
-              _lockedDates.add(date);
-            }
-
-            updatedCount++;
-          }
-        }
-      } else {
-        // 智能快速更新: 从今天往前查找，直到找到数据一致的日期
-        updatedCount = await _smartQuickUpdate();
-      }
-
-      // 更新内存缓存
-      final monthKey = '${_teamNo}_$monthStr';
-      _monthlyDataCache[monthKey] = Map<String, Map<String, dynamic>>.from(
-        _monthlyData.map(
-          (key, value) => MapEntry(key, Map<String, dynamic>.from(value)),
-        ),
-      );
-
-      // 保存到本地持久化缓存
-      await _storage.saveMonthlyData(_teamNo!, monthStr, _monthlyData);
+      _monthlyData = result.monthlyData;
+      _holidayPlan = result.holidayPlan;
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
               forceAll
-                  ? '全量更新完成，共更新 $updatedCount 天'
-                  : updatedCount > 0
-                  ? '智能更新完成，更新了 $updatedCount 天'
+                  ? '全量更新完成，共更新 ${result.updatedCount} 天'
+                  : result.updatedCount > 0
+                  ? '智能更新完成，更新了 ${result.updatedCount} 天'
                   : '数据已是最新，无需更新',
             ),
             backgroundColor: AppColors.success,
@@ -775,90 +383,18 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   /// 公开方法: 静默触发智能更新（用于应用启动时）
   Future<void> smartUpdate() async {
     if (_personNo == null || _teamNo == null) return;
-    await _smartQuickUpdate();
-  }
-
-  /// 智能快速更新
-  /// 从今天开始往前遍历当月日期:
-  /// - 无工时数据 → 更新这一天
-  /// - 有工时但不一致 → 更新这一天
-  /// - 有工时且一致 → 停止！信任该天及之前所有数据
-  Future<int> _smartQuickUpdate() async {
-    final now = DateTime.now();
-    int updatedCount = 0;
-
-    // 计算本月1号
-    final firstDayOfMonth = DateTime(
-      _selectedMonth.year,
-      _selectedMonth.month,
-      1,
+    final result = await _monthlyRepository.smartQuickUpdate(
+      teamNo: _teamNo!,
+      personNo: _personNo!,
+      selectedMonth: _selectedMonth,
+      currentData: _monthlyData,
     );
 
-    // 从今天往前遍历到本月1号
-    for (int i = 0; i <= now.difference(firstDayOfMonth).inDays; i++) {
-      final targetDate = now.subtract(Duration(days: i));
-
-      // 跳过不在当前选择月份的日期
-      if (targetDate.year != _selectedMonth.year ||
-          targetDate.month != _selectedMonth.month) {
-        continue;
-      }
-
-      final dateStr = DateFormat('yyyy-MM-dd').format(targetDate);
-
-      // 跳过手动标记的日期
-      if (_monthlyData[dateStr]?['isManual'] == true) {
-        continue;
-      }
-
-      // 获取本地数据
-      final localData = AttendanceData.fromLocal(_monthlyData[dateStr]);
-
-      // 调用单日API获取数据
-      final apiResponse = await _apiClient.getDailyAttendance(
-        dateStr,
-        _personNo!,
-      );
-      final apiData = AttendanceParser.parseFromResponse(apiResponse);
-
-      final currentType = _monthlyData[dateStr]!['type'];
-
-      // 检查是否需要类型修正 (使用统一工具类)
-      final typeCorrection = SmartDayTypeHelper.inferDayType(
-        currentType: currentType,
-        hours: apiData.hours,
-        dateStr: dateStr,
-        isManual: false,
-        hasCheckIn: apiData.hasValidData,
-      );
-      
-      final needsTypeCorrection = typeCorrection != null && typeCorrection != currentType;
-
-      // 比较是否一致 (只有当数据一致且不需要类型修正时，才停止更新)
-      if (localData.hasValidData && localData.isConsistentWith(apiData) && !needsTypeCorrection) {
-        // 一致！信任该天及之前的所有数据，停止更新
-        break;
-      } else {
-        // 不一致或需要修正，更新这一天
-        if (_monthlyData.containsKey(dateStr)) {
-          _monthlyData[dateStr]!['hours'] = apiData.hours;
-          _monthlyData[dateStr]!['apiHours'] = apiData.hours;
-          _monthlyData[dateStr]!['checkIn'] = apiData.checkIn;
-          _monthlyData[dateStr]!['checkOut'] = apiData.checkOut;
-          _monthlyData[dateStr]!['isLate'] = apiData.isLate;
-          _monthlyData[dateStr]!['isEarlyLeave'] = apiData.isEarlyLeave;
-
-          // 应用类型修正
-          if (needsTypeCorrection && typeCorrection != null) {
-             _monthlyData[dateStr]!['type'] = typeCorrection;
-          }
-
-          updatedCount++;
-        }
-      }
-    }
-
-    return updatedCount;
+    if (!mounted) return;
+    setState(() {
+      _monthlyData = result.monthlyData;
+      _holidayPlan = result.holidayPlan;
+    });
   }
 
   /// 选择月份
@@ -943,7 +479,9 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                 selectedYear = value;
                                 // 重新验证月份
                                 final newAvailableMonths = getAvailableMonths();
-                                if (!newAvailableMonths.contains(selectedMonth)) {
+                                if (!newAvailableMonths.contains(
+                                  selectedMonth,
+                                )) {
                                   selectedMonth = newAvailableMonths.last;
                                 }
                               });
@@ -1110,7 +648,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     await TokenExpiredService.performLogoutAndNavigate(context);
 
     // 清除本地缓存
-    _monthlyDataCache.clear();
+    _monthlyRepository.clearCache();
     _apiClient.setToken('');
   }
 
@@ -1173,7 +711,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   const SizedBox(height: 4),
                   Text(
                     _teamName ?? '未知',
-                    style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
+                    style: TextStyle(
+                      fontSize: 14,
+                      color: AppColors.textSecondary,
+                    ),
                   ),
                 ],
               ),
@@ -1219,7 +760,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   Widget _buildMonthSelector() {
     final monthStr = DateFormat('yyyy年MM月').format(_selectedMonth);
     final now = DateTime.now();
-    final isCurrentMonth = _selectedMonth.year == now.year && _selectedMonth.month == now.month;
+    final isCurrentMonth =
+        _selectedMonth.year == now.year && _selectedMonth.month == now.month;
 
     return Card(
       elevation: 2,
@@ -1360,16 +902,25 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               decoration: BoxDecoration(
                 color: AppColors.warningLight,
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: AppColors.warning.withValues(alpha: 0.5)),
+                border: Border.all(
+                  color: AppColors.warning.withValues(alpha: 0.5),
+                ),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: AppColors.warningDark),
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.warningDark,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '如某天类型/工时有误，点击该日可手动修改',
-                      style: TextStyle(fontSize: 12, color: AppColors.warningDark),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.warningDark,
+                      ),
                     ),
                   ),
                 ],
@@ -1635,14 +1186,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
-                      children: AppConstants.allWorkTypes.map((
-                        type,
-                      ) {
+                      children: AppConstants.allWorkTypes.map((type) {
                         final isSelected = currentType == type;
 
                         // 判断是否应该禁用此按钮
                         final isDisabled =
-                            (type == AppConstants.typeOvertime || type == AppConstants.typeLeave) &&
+                            (type == AppConstants.typeOvertime ||
+                                type == AppConstants.typeLeave) &&
                             dayData['type'] == AppConstants.typeRestDay &&
                             (dayData['hours'] == null ||
                                 dayData['hours'] == 0.0);
@@ -1694,9 +1244,15 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                       currentType = type;
 
                                       // 如果从非工作日切换到出差/自定义，默认为加班
-                                      if ((type == AppConstants.typeBusinessTrip || type == AppConstants.typeCustom) &&
-                                          (previousType == AppConstants.typeRestDay ||
-                                              dayData['type'] == AppConstants.typeRestDay)) {
+                                      if ((type ==
+                                                  AppConstants
+                                                      .typeBusinessTrip ||
+                                              type ==
+                                                  AppConstants.typeCustom) &&
+                                          (previousType ==
+                                                  AppConstants.typeRestDay ||
+                                              dayData['type'] ==
+                                                  AppConstants.typeRestDay)) {
                                         isOvertime = true;
                                       }
                                     });
@@ -1708,7 +1264,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     const SizedBox(height: 16),
 
                     // 出差/自定义的额外控件
-                    if (currentType == AppConstants.typeBusinessTrip || currentType == AppConstants.typeCustom) ...[
+                    if (currentType == AppConstants.typeBusinessTrip ||
+                        currentType == AppConstants.typeCustom) ...[
                       Row(
                         children: [
                           const Text(
@@ -1740,10 +1297,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         ],
                       ),
                       const SizedBox(height: 16),
-                      
+
                       // 出差类型的 工时模式选择 (默认8h / 自定义)
                       if (currentType == AppConstants.typeBusinessTrip) ...[
-                         Row(
+                        Row(
                           children: [
                             const Text(
                               '工时设置:',
@@ -1778,8 +1335,9 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     ],
 
                     // 自定义类型 或 (出差且开启自定义) 的时间输入
-                    if (currentType == AppConstants.typeCustom || 
-                       (currentType == AppConstants.typeBusinessTrip && isCustomHours)) ...[
+                    if (currentType == AppConstants.typeCustom ||
+                        (currentType == AppConstants.typeBusinessTrip &&
+                            isCustomHours)) ...[
                       const Text(
                         '自定义时间:',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -1829,6 +1387,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     onPressed: () async {
                       HapticUtils.mediumImpact(); // 恢复默认震动
                       await _restoreDefaultType(dateStr);
+                      if (!context.mounted) return;
                       Navigator.of(context).pop();
                     },
                   ),
@@ -1850,6 +1409,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       customCheckIn,
                       customCheckOut,
                     );
+                    if (!context.mounted) return;
                     Navigator.of(context).pop();
                   },
                   child: const Text('保存'),
@@ -1900,90 +1460,37 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     String customCheckIn,
     String customCheckOut,
   ) async {
-    final savedMarks = await _storage.loadCalendarMarks(_teamNo!);
-    savedMarks[dateStr] = {
-      'type': type,
-      'isManual': true,
-      'isOvertime': isOvertime,
-      'isCustomHours': isCustomHours,
-      if (type == AppConstants.typeCustom || (type == AppConstants.typeBusinessTrip && isCustomHours)) ...{
-        'customCheckIn': customCheckIn,
-        'customCheckOut': customCheckOut,
-      },
-    };
-    await _storage.saveCalendarMarks(_teamNo!, savedMarks);
-
-    // 只更新UI
+    final result = await _monthlyRepository.saveDaySettings(
+      teamNo: _teamNo!,
+      selectedMonth: _selectedMonth,
+      currentData: _monthlyData,
+      dateStr: dateStr,
+      type: type,
+      isOvertime: isOvertime,
+      isCustomHours: isCustomHours,
+      customCheckIn: customCheckIn,
+      customCheckOut: customCheckOut,
+    );
+    if (!mounted) return;
     setState(() {
-      if (_monthlyData.containsKey(dateStr)) {
-        _monthlyData[dateStr]!['type'] = type;
-        _monthlyData[dateStr]!['isManual'] = true;
-        _monthlyData[dateStr]!['isOvertime'] = isOvertime;
-        _monthlyData[dateStr]!['isCustomHours'] = isCustomHours;
-
-        if (type == AppConstants.typeCustom) {
-          _monthlyData[dateStr]!['customCheckIn'] = customCheckIn;
-          _monthlyData[dateStr]!['customCheckOut'] = customCheckOut;
-          // 计算自定义工时
-          _monthlyData[dateStr]!['hours'] = _calculateCustomHours(
-            customCheckIn,
-            customCheckOut,
-          );
-        } else if (type == AppConstants.typeBusinessTrip) {
-          if (isCustomHours) {
-            _monthlyData[dateStr]!['customCheckIn'] = customCheckIn;
-            _monthlyData[dateStr]!['customCheckOut'] = customCheckOut;
-            _monthlyData[dateStr]!['hours'] = _calculateCustomHours(
-              customCheckIn,
-              customCheckOut,
-            );
-          } else {
-            // 出差类型自动设定工时为8小时
-            _monthlyData[dateStr]!['hours'] = 8.0;
-          }
-        } else if (type == AppConstants.typeLeave) {
-          // 请假类型工时为0
-          _monthlyData[dateStr]!['hours'] = 0.0;
-        }
-      }
+      _monthlyData = result.monthlyData;
+      _holidayPlan = result.holidayPlan;
     });
-  }
-
-  /// 计算自定义工时
-  double _calculateCustomHours(String checkIn, String checkOut) {
-    // 使用统一的工时计算工具类
-    return WorkTimeCalculator.calculateWorkHoursStr(checkIn, checkOut);
   }
 
   /// 恢复默认类型（从节假日计划）
   Future<void> _restoreDefaultType(String dateStr) async {
-    // 从default_plan恢复默认类型
-    final defaultType =
-        _holidayPlan[dateStr] ??
-        (DateTime.parse(dateStr).weekday <= 5 ? AppConstants.typeWorkday : AppConstants.typeRestDay);
-
-    // 删除手动标记
-    final savedMarks = await _storage.loadCalendarMarks(_teamNo!);
-    savedMarks.remove(dateStr);
-    await _storage.saveCalendarMarks(_teamNo!, savedMarks);
-
-    // 更新UI - 恢复默认类型和API工时
+    final result = await _monthlyRepository.restoreDefaultType(
+      teamNo: _teamNo!,
+      selectedMonth: _selectedMonth,
+      currentData: _monthlyData,
+      holidayPlan: _holidayPlan,
+      dateStr: dateStr,
+    );
+    if (!mounted) return;
     setState(() {
-      if (_monthlyData.containsKey(dateStr)) {
-        final currentData = _monthlyData[dateStr]!;
-
-        // 恢复默认时，始终从 API 原始工时恢复（如果API没有数据，恢复为0）
-        // 这样无论之前是什么类型（自定义、出差、请假等），都能正确恢复
-        final apiHours = currentData['apiHours'] ?? 0.0;
-        currentData['hours'] = apiHours;
-
-        currentData['type'] = defaultType;
-        currentData['isManual'] = false;
-        currentData.remove('isOvertime');
-        currentData.remove('isCustomHours');
-        currentData.remove('customCheckIn');
-        currentData.remove('customCheckOut');
-      }
+      _monthlyData = result.monthlyData;
+      _holidayPlan = result.holidayPlan;
     });
   }
 
@@ -1998,8 +1505,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     double leaveDayHoursAll = 0.0, customDayHoursAll = 0.0;
 
     // 第一部分：6类统计(仅到今天)
-    int workDayCount = 0, overtimeDayCount = 0, tripDayCount = 0;
-    int leaveDayCount = 0, customDayCount = 0, restDayCount = 0;
+    int workDayCount = 0, overtimeDayCount = 0;
+    int leaveDayCount = 0, restDayCount = 0;
     double workDayHours = 0.0, overtimeDayHours = 0.0, tripDayHours = 0.0;
     double leaveDayHours = 0.0, customDayHours = 0.0;
 
@@ -2065,7 +1572,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           overtimeDayHours += hours;
           break;
         case '出差':
-          tripDayCount++;
           tripDayHours += hours;
           if (isOvertime) {
             tripOvertimeCount++;
@@ -2080,7 +1586,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           leaveDayHours += hours;
           break;
         case '自定义':
-          customDayCount++;
           customDayHours += hours;
           if (isOvertime) {
             customOvertimeCount++;
@@ -2157,7 +1662,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         final todayIsOvertime = (todayData['isOvertime'] ?? false) as bool;
 
         // 从总工时中减去今天的工时
-        if (todayType == AppConstants.typeWorkday || todayType == AppConstants.typeLeave) {
+        if (todayType == AppConstants.typeWorkday ||
+            todayType == AppConstants.typeLeave) {
           totalHoursExcludingToday -= todayHours;
           totalWorkDaysExcludingToday -= 1;
         } else if (todayType == AppConstants.typeOvertime) {
@@ -2167,10 +1673,12 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           totalWorkDaysExcludingToday -= 1;
         } else if (todayType == AppConstants.typeCustom && todayIsOvertime) {
           totalHoursExcludingToday -= todayHours;
-        } else if (todayType == AppConstants.typeBusinessTrip && !todayIsOvertime) {
+        } else if (todayType == AppConstants.typeBusinessTrip &&
+            !todayIsOvertime) {
           totalHoursExcludingToday -= todayHours;
           totalWorkDaysExcludingToday -= 1;
-        } else if (todayType == AppConstants.typeBusinessTrip && todayIsOvertime) {
+        } else if (todayType == AppConstants.typeBusinessTrip &&
+            todayIsOvertime) {
           totalHoursExcludingToday -= todayHours;
         }
       }
@@ -2471,8 +1979,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         todayIsWorkDay =
             type == AppConstants.typeWorkday ||
             type == AppConstants.typeLeave ||
-            (type == AppConstants.typeCustom && !(todayData['isOvertime'] ?? false)) ||
-            (type == AppConstants.typeBusinessTrip && !(todayData['isOvertime'] ?? false));
+            (type == AppConstants.typeCustom &&
+                !(todayData['isOvertime'] ?? false)) ||
+            (type == AppConstants.typeBusinessTrip &&
+                !(todayData['isOvertime'] ?? false));
 
         // 如果开关关闭，需要排除今日数据
         if (!_includeTodayData && todayIsWorkDay) {
@@ -2501,8 +2011,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           final isWorkDay =
               type == AppConstants.typeWorkday ||
               type == AppConstants.typeLeave ||
-              (type == AppConstants.typeCustom && !(dayData['isOvertime'] ?? false)) ||
-              (type == AppConstants.typeBusinessTrip && !(dayData['isOvertime'] ?? false));
+              (type == AppConstants.typeCustom &&
+                  !(dayData['isOvertime'] ?? false)) ||
+              (type == AppConstants.typeBusinessTrip &&
+                  !(dayData['isOvertime'] ?? false));
 
           if (isWorkDay) {
             totalWorkDaysInMonth++;
@@ -3094,12 +2606,12 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               const SizedBox(height: 8),
 
               // 提示信息
-                Text(
-                  remainingDays > 0
-                      ? '还需 ${WorkTimeCalculator.formatHours(gapHours)}h，每天需上 ${WorkTimeCalculator.formatHours(dailyNeed)}h'
-                      : '还需 ${WorkTimeCalculator.formatHours(gapHours)}h (本月已无工作日)',
-                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
-                ),
+              Text(
+                remainingDays > 0
+                    ? '还需 ${WorkTimeCalculator.formatHours(gapHours)}h，每天需上 ${WorkTimeCalculator.formatHours(dailyNeed)}h'
+                    : '还需 ${WorkTimeCalculator.formatHours(gapHours)}h (本月已无工作日)',
+                style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+              ),
             ],
           ),
         ),

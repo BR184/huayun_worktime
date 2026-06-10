@@ -7,9 +7,9 @@ class AttendanceData {
   final double hours;
   final bool isLate;
   final bool isEarlyLeave;
-  final String? checkInPhotoUrl;  // 上班打卡照片
+  final String? checkInPhotoUrl; // 上班打卡照片
   final String? checkOutPhotoUrl; // 下班打卡照片
-  final bool isRestDay;           // 是否为休息日/节假日 (海康原生识别)
+  final bool isRestDay; // 是否为休息日/节假日 (海康原生识别)
 
   const AttendanceData({
     this.checkIn,
@@ -81,19 +81,56 @@ class AttendanceParser {
 
     // 优先从 shiftDetails 取（V2 API 总是返回 shiftDetails）
     if (shiftDetails != null && shiftDetails.isNotEmpty) {
-      final firstShift = shiftDetails[0] as Map<String, dynamic>;
-      clockIn = firstShift['clockInTime'] as String?;
-      clockOut = firstShift['clockOffTime'] as String?;
-      isLate = (firstShift['clockInStatusType'] as int? ?? 0) == 1;
-      isEarlyLeave = (firstShift['clockOffStatusType'] as int? ?? 0) == 4;
+      final shifts = shiftDetails.whereType<Map<String, dynamic>>().toList();
+      int? earliestClockInMinutes;
 
-      // 提取照片URL (V2 API新增)
-      final remoteClockInInfo =
-          firstShift['remoteClockInInfo'] as Map<String, dynamic>?;
-      final remoteClockOffInfo =
-          firstShift['remoteClockOffInfo'] as Map<String, dynamic>?;
-      clockInPhoto = remoteClockInInfo?['photo'] as String?;
-      clockOutPhoto = remoteClockOffInfo?['photo'] as String?;
+      for (final shift in shifts) {
+        final shiftClockIn = shift['clockInTime'] as String?;
+        final shiftClockInMinutes = WorkTimeCalculator.parseTimeToMinutes(
+          shiftClockIn,
+        );
+
+        if (shiftClockInMinutes != null &&
+            (earliestClockInMinutes == null ||
+                shiftClockInMinutes < earliestClockInMinutes)) {
+          earliestClockInMinutes = shiftClockInMinutes;
+          clockIn = shiftClockIn;
+
+          final remoteClockInInfo =
+              shift['remoteClockInInfo'] as Map<String, dynamic>?;
+          clockInPhoto = remoteClockInInfo?['photo'] as String?;
+        }
+
+        isLate = isLate || (shift['clockInStatusType'] as int? ?? 0) == 1;
+        isEarlyLeave =
+            isEarlyLeave || (shift['clockOffStatusType'] as int? ?? 0) == 4;
+      }
+
+      int? latestClockOutComparableMinutes;
+
+      for (final shift in shifts) {
+        final shiftClockOut = shift['clockOffTime'] as String?;
+        final shiftClockOutMinutes = WorkTimeCalculator.parseTimeToMinutes(
+          shiftClockOut,
+        );
+        if (shiftClockOutMinutes == null) continue;
+
+        var comparableMinutes = shiftClockOutMinutes;
+        if (earliestClockInMinutes != null &&
+            comparableMinutes < earliestClockInMinutes) {
+          comparableMinutes += 24 * 60;
+        }
+
+        if (latestClockOutComparableMinutes == null ||
+            comparableMinutes > latestClockOutComparableMinutes) {
+          latestClockOutComparableMinutes = comparableMinutes;
+          clockOut = shiftClockOut;
+
+          final remoteClockOffInfo =
+              shift['remoteClockOffInfo'] as Map<String, dynamic>?;
+          clockOutPhoto = remoteClockOffInfo?['photo'] as String?;
+        }
+      }
     }
     // 回退：从 restClockTime 取（旧API兼容）
     else if (restClockTime != null && restClockTime.isNotEmpty) {
