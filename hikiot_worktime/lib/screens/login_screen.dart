@@ -17,10 +17,10 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   InAppWebViewController? webViewController;
-  String? extractedToken;
   double progress = 0;
   bool isLoading = true;
   bool _cookiesCleared = false;
+  bool _isSavingToken = false;
 
   @override
   void initState() {
@@ -255,25 +255,33 @@ class _LoginScreenState extends State<LoginScreen> {
         })();
       ''';
 
-      var result = await controller.evaluateJavascript(source: js);
+      final token = _normalizeExtractedToken(
+        await controller.evaluateJavascript(source: js),
+      );
 
-      if (result != null &&
-          result.toString().isNotEmpty &&
-          result.toString() != 'null') {
-        setState(() {
-          extractedToken = result.toString();
-        });
-        await _saveTokenAndNavigate();
+      if (token != null) {
+        await _saveTokenAndNavigate(token);
       }
     } catch (e) {
       // 提取Token失败
     }
   }
 
-  Future<void> _saveTokenAndNavigate() async {
-    if (extractedToken != null && mounted) {
+  String? _normalizeExtractedToken(Object? result) {
+    final token = result?.toString().trim();
+    if (token == null || token.isEmpty || token.toLowerCase() == 'null') {
+      return null;
+    }
+    return token;
+  }
+
+  Future<void> _saveTokenAndNavigate(String token) async {
+    if (_isSavingToken || !mounted) return;
+    _isSavingToken = true;
+
+    try {
       // 保存Token到本地
-      await StorageService().saveToken(extractedToken!);
+      await StorageService().saveToken(token);
 
       // 显示成功提示
       if (mounted) {
@@ -292,12 +300,12 @@ class _LoginScreenState extends State<LoginScreen> {
         if (mounted) {
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (context) => MainScreen(token: extractedToken!),
-            ),
+            MaterialPageRoute(builder: (context) => MainScreen(token: token)),
           );
         }
       }
+    } finally {
+      _isSavingToken = false;
     }
   }
 }

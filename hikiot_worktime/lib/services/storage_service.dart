@@ -120,12 +120,28 @@ class StorageService {
 
   Future<void> saveToken(String token) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(StorageKeys.token, token);
+    final normalizedToken = token.trim();
+    if (normalizedToken.isEmpty) {
+      await prefs.remove(StorageKeys.token);
+      return;
+    }
+    await prefs.setString(StorageKeys.token, normalizedToken);
   }
 
   Future<String?> loadToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString(StorageKeys.token);
+    final token = prefs.getString(StorageKeys.token);
+    final normalizedToken = token?.trim();
+    if (normalizedToken == null || normalizedToken.isEmpty) {
+      if (token != null) {
+        await prefs.remove(StorageKeys.token);
+      }
+      return null;
+    }
+    if (normalizedToken != token) {
+      await prefs.setString(StorageKeys.token, normalizedToken);
+    }
+    return normalizedToken;
   }
 
   Future<void> saveUserName(String userName) async {

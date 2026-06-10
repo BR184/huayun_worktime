@@ -16,27 +16,50 @@ class TokenExpiredService {
 
     // 优先检查是否为定义的异常类型
     if (error is TokenExpiredException) return true;
+    if (error is ApiException &&
+        (_isExpiredCode(error.statusCode) || _isExpiredCode(error.code))) {
+      return true;
+    }
 
     // 字符串匹配兼容
     final errorStr = error.toString();
-    if (errorStr.contains('TokenExpiredException')) return true;
+    final lower = errorStr.toLowerCase();
+    if (lower.contains('tokenexpiredexception')) return true;
 
     // 兼容旧的字符串判断，但收窄范围，避免网络错误误判
-    final lower = errorStr.toLowerCase();
-    return lower.contains('code: ${AppConstants.apiCodeTokenExpired}') ||
-        lower.contains('status code: 401') ||
-        lower.contains('status code: 403') ||
-        lower.contains('登录状态已失效');
+    return _containsExpiredStatus(lower) ||
+        _containsExpiredBusinessCode(lower) ||
+        errorStr.contains('登录状态已失效') ||
+        errorStr.contains('登录凭证已过期') ||
+        errorStr.contains('登录已过期') ||
+        errorStr.contains('未授权访问');
   }
 
   /// 检查API响应是否表示Token失效
   static bool isTokenExpiredResponse(Map<String, dynamic>? response) {
     if (response == null) return false; // null可能是网络错误，不一定是Token失效
 
-    final code = response['code'];
-    return code == AppConstants.apiCodeTokenExpired ||
-        code == 401 ||
-        code == 403;
+    return _isExpiredCode(response['code']) ||
+        _isExpiredCode(response['statusCode']) ||
+        _isExpiredCode(response['status']);
+  }
+
+  static bool _containsExpiredStatus(String lower) {
+    if (lower.contains('unauthorized') || lower.contains('forbidden')) {
+      return true;
+    }
+    return RegExp(r'(^|[^0-9])(401|403)([^0-9]|$)').hasMatch(lower);
+  }
+
+  static bool _containsExpiredBusinessCode(String lower) {
+    return RegExp(r'\b"?code"?\s*[:=]\s*"?999999"?').hasMatch(lower);
+  }
+
+  static bool _isExpiredCode(Object? code) {
+    final value = code is num ? code.toInt() : int.tryParse('$code'.trim());
+    return value == AppConstants.apiCodeTokenExpired ||
+        value == 401 ||
+        value == 403;
   }
 
   /// 显示Token失效对话框并引导用户重新登录

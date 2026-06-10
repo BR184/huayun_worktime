@@ -65,13 +65,26 @@ void main() {
 
         await service.clearRemoteAndWebSession(null);
         await service.clearRemoteAndWebSession('');
+        await service.clearRemoteAndWebSession('   ');
         await service.clearRemoteAndWebSession(
           'INVALID_TOKEN_FOR_DEBUG_TESTING_12345',
         );
+        await service.clearRemoteAndWebSession(
+          'invalid_token_for_debug_testing_12345',
+        );
 
         expect(remoteLogoutTokens, isEmpty);
-        expect(clearWebSessionCount, 3);
+        expect(clearWebSessionCount, 5);
       },
     );
+
+    test('trims token before calling remote logout', () async {
+      final service = createService();
+
+      await service.clearRemoteAndWebSession('  token-1  ');
+
+      expect(remoteLogoutTokens, ['token-1']);
+      expect(clearWebSessionCount, 1);
+    });
   });
 }

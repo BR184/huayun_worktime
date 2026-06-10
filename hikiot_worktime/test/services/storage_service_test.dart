@@ -175,6 +175,25 @@ void main() {
       SharedPreferences.setMockInitialValues({});
     });
 
+    test('normalizes token when saving and loading', () async {
+      final storage = StorageService();
+
+      await storage.saveToken('  token-1  ');
+
+      expect(await storage.loadToken(), 'token-1');
+
+      await storage.saveToken('   ');
+
+      expect(await storage.loadToken(), isNull);
+    });
+
+    test('migrates legacy blank token to logged-out state', () async {
+      SharedPreferences.setMockInitialValues({StorageKeys.token: '   '});
+      final storage = StorageService();
+
+      expect(await storage.loadToken(), isNull);
+    });
+
     test(
       'reads and writes onboarding completion through canonical key',
       () async {

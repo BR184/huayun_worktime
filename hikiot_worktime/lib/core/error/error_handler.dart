@@ -17,16 +17,12 @@ class ErrorHandler {
     String? fallbackMessage,
     VoidCallback? onRetry,
   }) {
-    if (error is TokenExpiredException) {
+    if (TokenExpiredService.isTokenExpiredError(error)) {
       unawaited(TokenExpiredService.handleTokenExpired(context));
     } else if (error is NetworkException) {
       _showErrorSnackBar(context, error.message, onRetry: onRetry);
     } else if (error is ApiException) {
-      if (error.statusCode == 401 || error.statusCode == 403) {
-        unawaited(TokenExpiredService.handleTokenExpired(context));
-      } else {
-        _showErrorSnackBar(context, error.message, onRetry: onRetry);
-      }
+      _showErrorSnackBar(context, error.message, onRetry: onRetry);
     } else if (error is ParseException) {
       _showErrorSnackBar(context, error.message);
     } else if (error is StorageException) {

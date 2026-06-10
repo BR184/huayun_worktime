@@ -31,9 +31,10 @@ class SessionService {
   ///
   /// 调试 token 替换场景会先让旧 token 失效，再写入无效 token。
   Future<void> clearRemoteAndWebSession(String? token) async {
-    if (_shouldCallRemoteLogout(token)) {
+    final normalizedToken = _normalizeToken(token);
+    if (_shouldCallRemoteLogout(normalizedToken)) {
       try {
-        await _remoteLogout(token!);
+        await _remoteLogout(normalizedToken!);
       } catch (e) {
         // 远程登出失败不阻断本地会话清理。
       }
@@ -59,6 +60,13 @@ class SessionService {
   }
 
   bool _shouldCallRemoteLogout(String? token) {
-    return token != null && token.isNotEmpty && !token.startsWith('INVALID');
+    return token != null &&
+        token.isNotEmpty &&
+        !token.toUpperCase().startsWith('INVALID');
+  }
+
+  String? _normalizeToken(String? token) {
+    final trimmed = token?.trim();
+    return trimmed == null || trimmed.isEmpty ? null : trimmed;
   }
 }
