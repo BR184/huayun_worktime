@@ -9,6 +9,7 @@ import '../services/token_expired_service.dart';
 import '../utils/work_time_calculator.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
+import '../utils/target_progress_helper.dart';
 import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
 import '../widgets/pull_refresh_guide.dart';
@@ -152,11 +153,6 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     setState(() {
       _pinnedTarget = newTarget;
     });
-  }
-
-  /// 生成目标列表，确保包含基础目标
-  List<int> _generateTargetList(int baseTarget) {
-    return WorkTimeCalculator.generateTargetList(baseTarget);
   }
 
   /// 公开方法:从其他页面切换回来时刷新数据
@@ -1238,88 +1234,15 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       }
     }
 
-    // 动态生成目标列表，确保包含基础目标
-    final baseTargets = _generateTargetList(_baseTarget);
-    final extendedTargets = [170, 180, 190, 200, 220, 240, 260, 280, 300];
-
-    final currentPercentage = (displayHours / 8 * 100);
-    final allTargets = currentPercentage >= 160
-        ? [...baseTargets, ...extendedTargets]
-        : baseTargets;
-
-    // 找出最高达成和即将达成的目标
-    int? highestAchievedTarget;
-    int? nextToAchieveTarget;
-
-    for (final target in allTargets) {
-      final targetHours = 8.0 * target / 100;
-      if (displayHours >= targetHours) {
-        highestAchievedTarget = target;
-      } else {
-        nextToAchieveTarget ??= target;
-      }
-    }
-
-    // 构建目标数据
-    final List<Map<String, dynamic>> targetData = [];
-    for (final target in allTargets) {
-      final targetHours = 8.0 * target / 100;
-      final isCompleted = displayHours >= targetHours;
-
-      targetData.add({
-        'target': target,
-        'targetHours': targetHours,
-        'isCompleted': isCompleted,
-      });
-    }
-
-    // 排序逻辑
-    List<Map<String, dynamic>> sortedTargetData;
-
-    if (_smartSort) {
-      // 智能排序: 最高达成 → 即将达成 → 其他(升序) → 全完成
-      final completed = targetData
-          .where((d) => d['isCompleted'] as bool)
-          .toList();
-      final incomplete = targetData
-          .where((d) => !(d['isCompleted'] as bool))
-          .toList();
-
-      final highestAchieved = completed.isNotEmpty
-          ? [completed.last]
-          : <Map<String, dynamic>>[];
-      final nextToAchieve = incomplete.isNotEmpty
-          ? [incomplete.first]
-          : <Map<String, dynamic>>[];
-      final others = incomplete.skip(1).toList();
-      final bothCompleted = completed.length > 1
-          ? completed.sublist(0, completed.length - 1)
-          : <Map<String, dynamic>>[];
-
-      sortedTargetData = [
-        ...highestAchieved,
-        ...nextToAchieve,
-        ...others,
-        ...bothCompleted,
-      ];
-    } else {
-      // 普通排序: 全部按目标从低到高
-      sortedTargetData = List.from(targetData);
-      sortedTargetData.sort(
-        (a, b) => (a['target'] as int).compareTo(b['target'] as int),
-      );
-    }
-
-    // 如果有置顶目标，将其移到最前面
-    if (_pinnedTarget != null) {
-      final pinnedIndex = sortedTargetData.indexWhere(
-        (d) => d['target'] == _pinnedTarget,
-      );
-      if (pinnedIndex > 0) {
-        final pinnedData = sortedTargetData.removeAt(pinnedIndex);
-        sortedTargetData.insert(0, pinnedData);
-      }
-    }
+    final targetProgress = TargetProgressHelper.buildDailyProgress(
+      displayHours: displayHours,
+      baseTarget: _baseTarget,
+      smartSort: _smartSort,
+      pinnedTarget: _pinnedTarget,
+    );
+    final sortedTargetData = targetProgress.sortedTargetData;
+    final highestAchievedTarget = targetProgress.highestAchievedTarget;
+    final nextToAchieveTarget = targetProgress.nextToAchieveTarget;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1741,12 +1664,13 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
       // 判断是否跨越午休时间,如果跨越需要加上午休时长
       final predictedEndMinutes = predictedEnd.hour * 60 + predictedEnd.minute;
-      if (WorkTimeCalculator.shouldDeductLunch(
+      final lunchDeductionMinutes = WorkTimeCalculator.getLunchDeductionMinutes(
         checkInMinutes,
         predictedEndMinutes,
-      )) {
+      );
+      if (lunchDeductionMinutes > 0) {
         predictedEnd = predictedEnd.add(
-          Duration(minutes: WorkTimeCalculator.defaultLunchDurationMinutes),
+          Duration(minutes: lunchDeductionMinutes),
         );
       }
 

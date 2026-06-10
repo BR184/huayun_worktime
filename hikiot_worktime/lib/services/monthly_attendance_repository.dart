@@ -41,6 +41,18 @@ class MonthlyAttendanceUpdateResult {
   final Map<String, String> holidayPlan;
 }
 
+class MonthlyAttendanceBackgroundUpdateResult {
+  const MonthlyAttendanceBackgroundUpdateResult({
+    this.updateResult,
+    this.error,
+    this.stackTrace,
+  });
+
+  final MonthlyAttendanceUpdateResult? updateResult;
+  final Object? error;
+  final StackTrace? stackTrace;
+}
+
 class MonthlyAttendanceRepository {
   MonthlyAttendanceRepository({
     StorageService? storage,
@@ -118,7 +130,10 @@ class MonthlyAttendanceRepository {
     );
 
     if (mergeResult.holidayPlanChanged) {
-      await _storage.saveHolidayPlan(selectedMonth.year, mergeResult.holidayPlan);
+      await _storage.saveHolidayPlan(
+        selectedMonth.year,
+        mergeResult.holidayPlan,
+      );
     }
     if (mergeResult.personName != null) {
       await _storage.saveUserName(mergeResult.personName!);
@@ -147,8 +162,11 @@ class MonthlyAttendanceRepository {
       selectedMonth: selectedMonth,
     );
     final updatedCount = result.monthlyData.values
-        .where((data) => data[SmartDayTypeHelper.dataSourceStatusKey] ==
-            SmartDayTypeHelper.dataSourceStatusApiConfirmed)
+        .where(
+          (data) =>
+              data[SmartDayTypeHelper.dataSourceStatusKey] ==
+              SmartDayTypeHelper.dataSourceStatusApiConfirmed,
+        )
         .length;
     return MonthlyAttendanceUpdateResult(
       monthlyData: result.monthlyData,
@@ -167,7 +185,11 @@ class MonthlyAttendanceRepository {
     final monthData = _copyMonth(currentData);
     final today = now ?? DateTime.now();
     var updatedCount = 0;
-    final firstDayOfMonth = DateTime(selectedMonth.year, selectedMonth.month, 1);
+    final firstDayOfMonth = DateTime(
+      selectedMonth.year,
+      selectedMonth.month,
+      1,
+    );
 
     for (var i = 0; i <= today.difference(firstDayOfMonth).inDays; i++) {
       final targetDate = today.subtract(Duration(days: i));
@@ -223,6 +245,31 @@ class MonthlyAttendanceRepository {
       updatedCount: updatedCount,
       holidayPlan: await _loadHolidayPlan(selectedMonth),
     );
+  }
+
+  Future<MonthlyAttendanceBackgroundUpdateResult> smartQuickUpdateSafely({
+    required String teamNo,
+    required String personNo,
+    required DateTime selectedMonth,
+    required Map<String, Map<String, dynamic>> currentData,
+    DateTime? now,
+  }) async {
+    try {
+      return MonthlyAttendanceBackgroundUpdateResult(
+        updateResult: await smartQuickUpdate(
+          teamNo: teamNo,
+          personNo: personNo,
+          selectedMonth: selectedMonth,
+          currentData: currentData,
+          now: now,
+        ),
+      );
+    } catch (error, stackTrace) {
+      return MonthlyAttendanceBackgroundUpdateResult(
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   Future<MonthlyAttendanceUpdateResult> refreshToday({
@@ -405,7 +452,10 @@ class MonthlyAttendanceRepository {
     if (yearPlan.isNotEmpty) {
       return Map<String, String>.from(yearPlan);
     }
-    return _storage.generateDefaultPlan(selectedMonth.year, selectedMonth.month);
+    return _storage.generateDefaultPlan(
+      selectedMonth.year,
+      selectedMonth.month,
+    );
   }
 
   String _monthStr(DateTime selectedMonth) {

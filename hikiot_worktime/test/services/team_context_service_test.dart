@@ -64,6 +64,56 @@ void main() {
     });
 
     test(
+      'does not silently choose first team when chooser returns null',
+      () async {
+        final storage = StorageService();
+        await storage.saveSelectedTeam('missing-team');
+        var changeCalls = 0;
+
+        final service = TeamContextService(
+          storage: storage,
+          loadAccountDetail: () async => _accountDetail(),
+          changeTeam: (_) async {
+            changeCalls++;
+            return true;
+          },
+        );
+
+        await expectLater(
+          () => service.initialize(chooseTeam: (_) async => null),
+          throwsA(
+            predicate<Object>((error) => error.toString().contains('必须选择团队')),
+          ),
+        );
+        expect(changeCalls, 0);
+        expect(await storage.loadSelectedTeam(), 'missing-team');
+      },
+    );
+
+    test(
+      'requires an explicit chooser when multiple teams have no saved team',
+      () async {
+        var changeCalls = 0;
+        final service = TeamContextService(
+          storage: StorageService(),
+          loadAccountDetail: () async => _accountDetail(),
+          changeTeam: (_) async {
+            changeCalls++;
+            return true;
+          },
+        );
+
+        await expectLater(
+          () => service.initialize(),
+          throwsA(
+            predicate<Object>((error) => error.toString().contains('必须选择团队')),
+          ),
+        );
+        expect(changeCalls, 0);
+      },
+    );
+
+    test(
       'does not call changeTeam again when switching to current team',
       () async {
         final storage = StorageService();

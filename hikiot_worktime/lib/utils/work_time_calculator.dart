@@ -86,7 +86,7 @@ class WorkTimeCalculator {
   /// 返回：需要扣除的分钟数
   static int getLunchDeductionMinutes(int checkInMinutes, int checkOutMinutes) {
     if (shouldDeductLunch(checkInMinutes, checkOutMinutes)) {
-      return defaultLunchDurationMinutes;
+      return lunchDurationMinutes;
     }
     return 0;
   }

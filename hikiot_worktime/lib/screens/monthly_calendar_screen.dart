@@ -302,15 +302,26 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       });
 
       if (result.source == MonthlyAttendanceLoadSource.persistentCache) {
+        final updateTeamNo = _teamNo!;
+        final updatePersonNo = _personNo!;
         _monthlyRepository
-            .smartQuickUpdate(
-              teamNo: _teamNo!,
-              personNo: _personNo!,
+            .smartQuickUpdateSafely(
+              teamNo: updateTeamNo,
+              personNo: updatePersonNo,
               selectedMonth: _selectedMonth,
               currentData: result.monthlyData,
             )
-            .then((updateResult) {
+            .then((backgroundResult) {
+              if (backgroundResult.error != null) {
+                debugPrint('月度后台刷新失败: ${backgroundResult.error}');
+                return;
+              }
+              final updateResult = backgroundResult.updateResult;
+              if (updateResult == null) return;
               if (!mounted) return;
+              if (_teamNo != updateTeamNo || _personNo != updatePersonNo) {
+                return;
+              }
               if (DateFormat('yyyy-MM').format(_selectedMonth) != monthStr) {
                 return;
               }

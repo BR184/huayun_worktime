@@ -21,6 +21,15 @@ class TeamContext {
   final bool teamChanged;
 }
 
+class TeamSelectionRequiredException implements Exception {
+  const TeamSelectionRequiredException([this.message = '必须选择团队']);
+
+  final String message;
+
+  @override
+  String toString() => message;
+}
+
 class TeamContextService {
   TeamContextService({
     required AccountDetailLoader loadAccountDetail,
@@ -68,11 +77,11 @@ class TeamContextService {
     } else if (savedTeamNo != null) {
       selectedTeam = _findTeam(teams, savedTeamNo);
       if (selectedTeam == null) {
-        selectedTeam = await chooseTeam?.call(teams) ?? teams.first;
+        selectedTeam = await _chooseRequiredTeam(teams, chooseTeam);
         teamChanged = true;
       }
     } else {
-      selectedTeam = await chooseTeam?.call(teams) ?? teams.first;
+      selectedTeam = await _chooseRequiredTeam(teams, chooseTeam);
       teamChanged = true;
     }
 
@@ -82,6 +91,22 @@ class TeamContextService {
       userName: _readUserName(accountDetail),
       skipIfCurrent: false,
     );
+  }
+
+  Future<Map<String, dynamic>> _chooseRequiredTeam(
+    List<Map<String, dynamic>> teams,
+    TeamChooser? chooseTeam,
+  ) async {
+    if (chooseTeam == null) {
+      throw const TeamSelectionRequiredException();
+    }
+
+    final selectedTeam = await chooseTeam(teams);
+    if (selectedTeam == null) {
+      throw const TeamSelectionRequiredException();
+    }
+
+    return selectedTeam;
   }
 
   Future<TeamContext> switchTo(Map<String, dynamic> selectedTeam) async {
