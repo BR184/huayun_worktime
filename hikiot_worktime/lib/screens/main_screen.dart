@@ -46,7 +46,7 @@ class _MainScreenState extends State<MainScreen> {
     );
   }
 
-  void _onTabTap(int index) {
+  Future<void> _onTabTap(int index) async {
     setState(() {
       _currentIndex = index;
     });
@@ -58,7 +58,11 @@ class _MainScreenState extends State<MainScreen> {
 
     // 切换到每月页面时,从存储刷新数据（包括从每日页面修改的手动标记）
     if (index == 1 && _monthlyKey.currentState != null) {
-      _monthlyKey.currentState!.refreshFromStorage();
+      final selectedDate = _dailyKey.currentState?.selectedDate;
+      await _monthlyKey.currentState!.refreshFromStorage();
+      if (selectedDate != null) {
+        await _monthlyKey.currentState!.refreshDateData(selectedDate);
+      }
     }
   }
 

@@ -211,6 +211,60 @@ void main() {
     );
 
     test(
+      'refreshes a selected day so monthly cache follows daily page updates',
+      () async {
+        final storage = StorageService();
+        final repository = MonthlyAttendanceRepository(
+          storage: storage,
+          loadMonthlyAttendance: (_, _) async => {},
+          loadDailyAttendance: (date, _) async {
+            expect(date, '2026-06-08');
+            return {
+              'dailyDetail': {
+                'shiftId': 1,
+                'shiftName': '工作日',
+                'shiftDetails': [
+                  {
+                    'clockInTime': '09:00',
+                    'clockOffTime': '18:30',
+                    'clockInStatusType': 0,
+                    'clockOffStatusType': 0,
+                  },
+                ],
+              },
+            };
+          },
+        );
+
+        final result = await repository.refreshDate(
+          teamNo: 'team-1',
+          personNo: 'person-1',
+          selectedMonth: DateTime(2026, 6),
+          targetDate: DateTime(2026, 6, 8),
+          currentData: {
+            '2026-06-08': {
+              'type': AppConstants.typeWorkday,
+              'hours': 0.0,
+              'apiHours': 0.0,
+              'checkIn': null,
+              'checkOut': null,
+              'isManual': false,
+            },
+          },
+        );
+
+        expect(result.updatedCount, 1);
+        expect(result.monthlyData['2026-06-08']?['hours'], 8.5);
+        expect(result.monthlyData['2026-06-08']?['apiHours'], 8.5);
+        expect(result.monthlyData['2026-06-08']?['checkIn'], '09:00');
+        expect(result.monthlyData['2026-06-08']?['checkOut'], '18:30');
+
+        final cached = await storage.loadMonthlyData('team-1', '2026-06');
+        expect(cached?['2026-06-08']?['hours'], 8.5);
+      },
+    );
+
+    test(
       'safe smart update reports background errors without throwing',
       () async {
         final storage = StorageService();

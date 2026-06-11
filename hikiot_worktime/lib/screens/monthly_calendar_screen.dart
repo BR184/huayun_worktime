@@ -207,6 +207,33 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     }
   }
 
+  /// 刷新指定日期数据（用于每日页切换到月度页时同步当前日期）
+  Future<void> refreshDateData(DateTime targetDate) async {
+    await _loadSmartSort();
+
+    if (_personNo == null || _teamNo == null) return;
+
+    try {
+      final result = await _monthlyRepository.refreshDate(
+        teamNo: _teamNo!,
+        personNo: _personNo!,
+        selectedMonth: _selectedMonth,
+        targetDate: targetDate,
+        currentData: _monthlyData,
+      );
+
+      if (mounted && result.updatedCount > 0) {
+        setState(() {
+          _monthlyData = result.monthlyData;
+          _holidayPlan = result.holidayPlan;
+        });
+      }
+    } catch (e) {
+      // 跨页同步失败不阻断页面切换，用户仍可在月度页手动刷新。
+      debugPrint('月度指定日期刷新失败: $e');
+    }
+  }
+
   /// 从存储刷新显示数据(不调用API,仅重新应用手动标记)
   /// 用于从其他页面返回时同步显示最新的手动修改
   Future<void> refreshFromStorage() async {

@@ -162,6 +162,8 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     await _loadDailyData();
   }
 
+  DateTime get selectedDate => _selectedDate;
+
   /// 加载每日数据
   Future<void> _loadDailyData() async {
     setState(() => _isLoading = true);

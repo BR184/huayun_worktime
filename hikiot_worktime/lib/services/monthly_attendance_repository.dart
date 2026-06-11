@@ -279,7 +279,22 @@ class MonthlyAttendanceRepository {
     required Map<String, Map<String, dynamic>> currentData,
     DateTime? workDate,
   }) async {
-    final targetDate = workDate ?? DateHelper.getWorkDate();
+    return refreshDate(
+      teamNo: teamNo,
+      personNo: personNo,
+      selectedMonth: selectedMonth,
+      targetDate: workDate ?? DateHelper.getWorkDate(),
+      currentData: currentData,
+    );
+  }
+
+  Future<MonthlyAttendanceUpdateResult> refreshDate({
+    required String teamNo,
+    required String personNo,
+    required DateTime selectedMonth,
+    required DateTime targetDate,
+    required Map<String, Map<String, dynamic>> currentData,
+  }) async {
     if (selectedMonth.year != targetDate.year ||
         selectedMonth.month != targetDate.month) {
       return MonthlyAttendanceUpdateResult(
