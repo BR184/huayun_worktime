@@ -71,6 +71,42 @@ void main() {
       expect(8.04 + 8.03, isNot(16.0));
     });
 
+    test('next whole tenth time snaps to the next 6-minute boundary', () {
+      // 8:00 打卡，14:00 下班 = 360 分钟 = 6.0h，已凑整
+      final checkIn = DateTime(2026, 8, 7, 8, 0);
+      expect(
+        WorkTimeCalculator.nextWholeTenthTime(
+          checkIn,
+          DateTime(2026, 8, 7, 14, 0),
+        ),
+        DateTime(2026, 8, 7, 14, 0),
+      );
+      // 13:55 = 355 分钟，355 % 6 = 1 → 等 5 分钟到 14:00
+      expect(
+        WorkTimeCalculator.nextWholeTenthTime(
+          checkIn,
+          DateTime(2026, 8, 7, 13, 55),
+        ),
+        DateTime(2026, 8, 7, 14, 0),
+      );
+      // 14:03 = 363 分钟，363 % 6 = 3 → 等 3 分钟到 14:06
+      expect(
+        WorkTimeCalculator.nextWholeTenthTime(
+          checkIn,
+          DateTime(2026, 8, 7, 14, 3),
+        ),
+        DateTime(2026, 8, 7, 14, 6),
+      );
+      // 13:01 = 301 分钟，301 % 6 = 1 → 等 5 分钟到 13:06（5.1h）
+      expect(
+        WorkTimeCalculator.nextWholeTenthTime(
+          checkIn,
+          DateTime(2026, 8, 7, 13, 1),
+        ),
+        DateTime(2026, 8, 7, 13, 6),
+      );
+    });
+
     test('wasted fraction is the truncated hundredths remainder', () {
       // 无效工时 = 显示两位值 - 计入一位值（与 formatHours 显示链一致，
       // 浮点下界下 8.04 显示为 8.03，残差 0.03）

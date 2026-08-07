@@ -11,9 +11,11 @@ import '../utils/work_time_calculator.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
 import '../utils/target_progress_helper.dart';
+import '../widgets/best_clock_out_entry.dart';
 import '../widgets/haptic_refresh_indicator.dart';
 import '../widgets/precision_text.dart';
 import '../widgets/pull_refresh_guide.dart';
+import 'best_clock_out_detail_screen.dart';
 import 'feature_guide_page.dart';
 import 'photo_preview_screen.dart';
 
@@ -1176,10 +1178,78 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 ),
               ],
             ),
+            // 最佳下班时间入口：颜色即状态（绿=现在最佳，琥珀=接近）
+            if (checkOut == null || checkOut.isEmpty) ...[
+              const SizedBox(height: 12),
+              _buildBestClockOutEntry(checkIn),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  /// 最佳下班时间入口。
+  ///
+  /// 过渡占位：按"工时凑整（十分位为 0）"推算建议下班时刻，
+  /// 颜色代表当前是否处于最佳窗口；后续由济南公交实时数据
+  /// （车来了协议）计算更精确的下班建议。详见 docs/操作记录.md。
+  Widget _buildBestClockOutEntry(String checkIn) {
+    final checkInMinutes = WorkTimeCalculator.parseTimeToMinutes(checkIn);
+    if (checkInMinutes == null) return const SizedBox.shrink();
+
+    final now = DateTime.now();
+    final checkInTime = DateTime(
+      now.year,
+      now.month,
+      now.day,
+      checkInMinutes ~/ 60,
+      checkInMinutes % 60,
+    );
+    final wholeTime = WorkTimeCalculator.nextWholeTenthTime(checkInTime, now);
+    final waitMinutes = wholeTime.difference(now).inMinutes;
+    final isOptimal = waitMinutes <= 5;
+    final wholeHours = WorkTimeCalculator.calculateWorkHours(
+      checkInMinutes,
+      wholeTime.hour * 60 + wholeTime.minute,
+    );
+    final title = isOptimal
+        ? '现在是最佳下班时间'
+        : '最佳下班 ${_formatClockTime(wholeTime)}';
+    final subtitle = waitMinutes <= 0
+        ? '现在下班，工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h'
+        : isOptimal
+        ? '约 $waitMinutes 分钟后工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h'
+        : '再等 $waitMinutes 分钟，工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h';
+
+    return BestClockOutEntry(
+      status: isOptimal
+          ? BestClockOutStatus.optimal
+          : BestClockOutStatus.approaching,
+      title: title,
+      subtitle: subtitle,
+      onTap: () {
+        HapticUtils.lightImpact();
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => BestClockOutDetailScreen(
+              status: isOptimal
+                  ? BestClockOutStatus.optimal
+                  : BestClockOutStatus.approaching,
+              title: title,
+              subtitle: subtitle,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  /// 格式化为 HH:mm
+  String _formatClockTime(DateTime time) {
+    return '${time.hour.toString().padLeft(2, '0')}:'
+        '${time.minute.toString().padLeft(2, '0')}';
   }
 
   /// 构建历史统计信息(用于过去的日期)

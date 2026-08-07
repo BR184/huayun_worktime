@@ -280,6 +280,17 @@ class WorkTimeCalculator {
     return (value * 100).truncateToDouble() / 100;
   }
 
+  /// 下一个工时"凑整"时刻（十分位为 0，即工时 X.X0h）。
+  ///
+  /// 工时精度截断到一位后，百分位会被浪费（如 11.19h 只计 11.1h）；
+  /// "最佳下班时间"功能据此推荐在工时刚好为整十分位的时刻下班。
+  /// 0.1h = 6 分钟，因此从当前时刻往后推到下一个 6 分钟倍数。
+  static DateTime nextWholeTenthTime(DateTime checkIn, DateTime now) {
+    final elapsedMinutes = now.difference(checkIn).inMinutes;
+    final waitMinutes = (6 - elapsedMinutes % 6) % 6;
+    return now.add(Duration(minutes: waitMinutes));
+  }
+
   /// 格式化两次打卡之间的原始时长，不扣除午休。
   static String formatPunchDuration(String? checkIn, String? checkOut) {
     final inMinutes = parseTimeToMinutes(checkIn);
