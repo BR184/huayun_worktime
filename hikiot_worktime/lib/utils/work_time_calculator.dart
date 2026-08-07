@@ -233,6 +233,51 @@ class WorkTimeCalculator {
     return '${hour.toString().padLeft(2, '0')}:${minute.toString().padLeft(2, '0')}';
   }
 
+  /// 获取实际计入统计的工时。
+  ///
+  /// 公司口径只统计到十分位，百分位及之后直接截断，不四舍五入。
+  static double billableHours(num hours) {
+    return (hours.toDouble() * 10).truncateToDouble() / 10;
+  }
+
+  /// 按统一口径计算工时百分比。
+  ///
+  /// 先截断参与统计的工时到一位小数，再计算并截断百分比到一位小数。
+  static double calculatePercentage({
+    required num hours,
+    required num baseHours,
+    double? min,
+    double? max,
+  }) {
+    final base = baseHours.toDouble();
+    if (base <= 0) return 0.0;
+
+    final percentage = billableHours(billableHours(hours) / base * 100);
+    if (min == null && max == null) return percentage;
+    return percentage.clamp(
+      min ?? double.negativeInfinity,
+      max ?? double.infinity,
+    );
+  }
+
+  /// 格式化两次打卡之间的原始时长，不扣除午休。
+  static String formatPunchDuration(String? checkIn, String? checkOut) {
+    final inMinutes = parseTimeToMinutes(checkIn);
+    final outMinutes = parseTimeToMinutes(checkOut);
+    if (inMinutes == null || outMinutes == null) return '--';
+
+    var durationMinutes = outMinutes - inMinutes;
+    if (durationMinutes < 0) {
+      durationMinutes += 24 * 60;
+    }
+    return '${formatHours(durationMinutes / 60.0)}小时';
+  }
+
+  /// 无法使用富文本的系统通知使用一位小数，避免百分位被误认为计入工时。
+  static String formatBillableHours(num hours) {
+    return billableHours(hours).toStringAsFixed(1);
+  }
+
   /// 格式化工时显示
   ///
   /// [hours] 工时小时数

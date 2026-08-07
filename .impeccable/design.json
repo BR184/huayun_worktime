@@ -1,0 +1,94 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-08-07T00:00:00+08:00",
+  "title": "Design System: 华云工时查询工具",
+  "extensions": {
+    "colorMeta": {
+      "primary": {
+        "role": "primary",
+        "displayName": "仪表玉绿",
+        "canonical": "#176B58",
+        "tonalRamp": ["#06251E", "#0F4F42", "#176B58", "#3B8A75", "#72AD9B", "#A7D0C3", "#D2E8E0", "#F0F8F5"]
+      },
+      "accent": {
+        "role": "secondary",
+        "displayName": "精密琥珀",
+        "canonical": "#C88718",
+        "tonalRamp": ["#342000", "#674300", "#96630C", "#C88718", "#DFA948", "#EDC77F", "#F7E2B7", "#FFF7E7"]
+      },
+      "canvas": {
+        "role": "neutral",
+        "displayName": "冷灰画布",
+        "canonical": "#F2F4F3",
+        "tonalRamp": ["#202422", "#3C423F", "#59615D", "#78817D", "#9AA39F", "#BBC3BF", "#DDE2DF", "#F2F4F3"]
+      }
+    },
+    "typographyMeta": {
+      "headline": {"displayName": "页面标题", "purpose": "页面名称和启动品牌名。"},
+      "body": {"displayName": "正文", "purpose": "高频操作说明和状态。"},
+      "label": {"displayName": "标签", "purpose": "统计名称和导航标签。"}
+    },
+    "shadows": [
+      {"name": "instrument-low", "value": "-1 -1 2 rgba(255,255,255,.85), 2 3 8 rgba(36,50,45,.11)", "purpose": "默认抬升表面。"},
+      {"name": "instrument-medium", "value": "-2 -2 3 rgba(255,255,255,.85), 3 5 14 rgba(36,50,45,.14)", "purpose": "启动标记和重要抬升表面。"}
+    ],
+    "motion": [
+      {"name": "state-standard", "value": "220ms cubic-bezier(.2, .8, .2, 1)", "purpose": "页面切换和状态反馈。"}
+    ],
+    "breakpoints": [
+      {"name": "compact", "value": "0-599dp"},
+      {"name": "expanded", "value": "600dp+"}
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "48dp 玉绿主要操作按钮。",
+      "html": "<button class=\"ds-btn-primary\">保存设置</button>",
+      "css": ".ds-btn-primary{height:48px;padding:0 20px;border:0;border-radius:8px;background:#176B58;color:#fff;font:600 14px Roboto,sans-serif;box-shadow:2px 3px 8px rgba(36,50,45,.11);transition:background .22s,transform .22s}.ds-btn-primary:hover{background:#0F4F42}.ds-btn-primary:focus-visible{outline:2px solid #C88718;outline-offset:2px}.ds-btn-primary:active{transform:translateY(1px)}"
+    },
+    {
+      "name": "Instrument Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "带细边和克制双影的数据承载表面。",
+      "html": "<section class=\"ds-card\"><strong>今日打卡工时</strong><p>8.5<span>9</span> 小时</p></section>",
+      "css": ".ds-card{padding:16px;border:1px solid #D7DEDA;border-radius:8px;background:#fff;color:#17201E;box-shadow:-1px -1px 2px rgba(255,255,255,.85),2px 3px 8px rgba(36,50,45,.11);font:400 14px Roboto,sans-serif}.ds-card p{margin:12px 0 0;font-size:36px;font-weight:700;font-variant-numeric:tabular-nums}.ds-card p span{color:#6F7975}"
+    },
+    {
+      "name": "Input Field",
+      "kind": "input",
+      "description": "浅色填充、明确焦点边的 Material 输入框。",
+      "html": "<input class=\"ds-input\" value=\"12:00\" aria-label=\"午休开始时间\">",
+      "css": ".ds-input{height:48px;padding:0 14px;border:1px solid #D7DEDA;border-radius:8px;background:#fff;color:#17201E;font:400 14px Roboto,sans-serif}.ds-input:focus{border:2px solid #176B58;outline:0}.ds-input:disabled{color:#A8B1AD;background:#E9EEEB}"
+    },
+    {
+      "name": "Navigation",
+      "kind": "nav",
+      "description": "三目的地 Android Material NavigationBar。",
+      "html": "<nav class=\"ds-nav\"><button class=\"active\">每日</button><button>月度</button><button>设置</button></nav>",
+      "css": ".ds-nav{display:flex;height:68px;border-top:1px solid #D7DEDA;background:#fff}.ds-nav button{flex:1;border:0;background:transparent;color:#59635F;font:500 11px Roboto,sans-serif}.ds-nav button.active{color:#0F4F42;font-weight:700;background:#D2E8E0}.ds-nav button:focus-visible{outline:2px solid #C88718;outline-offset:-2px}"
+    },
+    {
+      "name": "Status Chip",
+      "kind": "chip",
+      "description": "紧凑语义状态标签。",
+      "html": "<span class=\"ds-chip\">工作日</span>",
+      "css": ".ds-chip{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border:1px solid #D7DEDA;border-radius:6px;background:#F2F4F3;color:#59635F;font:500 12px Roboto,sans-serif}"
+    }
+  ],
+  "narrative": {
+    "northStar": "精密工时仪表",
+    "overview": "界面像一台放在明亮办公桌上的精密计时仪器：结构克制、刻度清楚、触点有真实反馈。轻拟物来自表面的内高光、细边和低幅双层阴影，而不是玻璃、渐变或夸张装饰。",
+    "keyCharacteristics": ["冷中性浅底与白色抬升表面", "石墨文字、玉绿主操作、琥珀提醒", "8dp 以内圆角和紧凑 4dp 网格", "数字使用等宽特性，百分位弱化"],
+    "rules": [
+      {"name": "Signal Rarity", "body": "强调色只用于当前选择、主要操作和语义状态，不作为背景装饰。", "section": "colors"},
+      {"name": "Counted Digit", "body": "两位小数的百分位统一弱化，且不参与工时和百分比计算。", "section": "typography"},
+      {"name": "Instrument Surface", "body": "一个数据分组只拥有一个承载表面，禁止卡片嵌套卡片。", "section": "elevation"}
+    ],
+    "dos": ["Do 让计入工时、目标进度和打卡状态在首屏可扫描。", "Do 使用统一计算器和精度文本组件表达公司口径。"],
+    "donts": ["Don't 使用玻璃拟态、背景渐变、装饰圆球或持续脉冲动画。", "Don't 在高频操作页面使用大面积空白、超大标题或卡片嵌套。"]
+  }
+}

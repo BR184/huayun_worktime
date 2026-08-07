@@ -46,6 +46,22 @@ void main() {
       expect(result.nextToAchieveTarget, 120);
     });
 
+    test('does not count the hundredths digit toward a daily target', () {
+      final result = TargetProgressHelper.buildDailyProgress(
+        displayHours: 9.599,
+        baseTarget: 120,
+        smartSort: false,
+        pinnedTarget: null,
+      );
+
+      final target = result.sortedTargetData.firstWhere(
+        (data) => data['target'] == 120,
+      );
+      expect(target['isCompleted'], isFalse);
+      expect(result.highestAchievedTarget, 110);
+      expect(result.nextToAchieveTarget, 120);
+    });
+
     test(
       'monthly progress keeps smart ordering and folded completed targets',
       () {
@@ -83,6 +99,24 @@ void main() {
       expect(result.sortedTargetData.first['target'], 150);
       expect(result.highestAchievedTarget, 110);
       expect(result.nextToAchieveTarget, 120);
+    });
+
+    test('does not count the hundredths digit toward a monthly target', () {
+      final result = TargetProgressHelper.buildMonthlyProgress(
+        adjustedTotalHours: 95.999,
+        baseHours: 80,
+        avgHoursPerDay: 9.599,
+        remainingWorkDays: 0,
+        baseTarget: 120,
+        smartSort: false,
+        pinnedTarget: null,
+      );
+
+      final target = result.sortedTargetData.firstWhere(
+        (data) => data['target'] == 120,
+      );
+      expect(target['isCompleted'], isFalse);
+      expect(target['avgCompleted'], isFalse);
     });
   });
 }

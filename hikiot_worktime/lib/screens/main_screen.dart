@@ -4,7 +4,6 @@ import 'daily_hours_screen.dart';
 import 'monthly_calendar_screen.dart';
 import 'settings_screen.dart';
 import '../utils/startup_refresh_coordinator.dart';
-import '../widgets/home_button.dart';
 
 /// 主框架页面 - 包含底部导航栏
 class MainScreen extends StatefulWidget {
@@ -68,8 +67,6 @@ class _MainScreenState extends State<MainScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
@@ -83,67 +80,28 @@ class _MainScreenState extends State<MainScreen> {
           const SettingsScreen(),
         ],
       ),
-      bottomNavigationBar: Container(
-        decoration: BoxDecoration(
-          color: theme.colorScheme.surface,
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.shadow,
-              blurRadius: 8,
-              offset: const Offset(0, -2),
-            ),
-          ],
+      bottomNavigationBar: DecoratedBox(
+        decoration: const BoxDecoration(
+          border: Border(top: BorderSide(color: AppColors.border)),
         ),
-        child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _buildNavItem(0, Icons.today, '每日工时'),
-                _buildNavItem(1, Icons.calendar_month, '月度统计'),
-                _buildNavItem(2, Icons.settings, '设置'),
-              ],
+        child: NavigationBar(
+          selectedIndex: _currentIndex,
+          onDestinationSelected: (index) => _onTabTap(index),
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.today_outlined),
+              selectedIcon: Icon(Icons.today_rounded),
+              label: '每日',
             ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  /// 构建单个导航项 - 支持 Home 键风格的按压反馈
-  Widget _buildNavItem(int index, IconData icon, String label) {
-    final theme = Theme.of(context);
-    final isSelected = _currentIndex == index;
-
-    final color = isSelected
-        ? theme.colorScheme.primary
-        : theme.colorScheme.onSurface.withValues(alpha: 0.6);
-    return Expanded(
-      child: HomeButton(
-        onPressed: () => _onTabTap(index),
-        backgroundColor: isSelected
-            ? theme.colorScheme.primary.withValues(alpha: 0.1)
-            : Colors.transparent,
-        pressedBackgroundColor: isSelected
-            ? theme.colorScheme.primary.withValues(alpha: 0.1)
-            : theme.colorScheme.primary.withValues(alpha: 0.05),
-        pressedScale: 0.92,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
-        borderRadius: BorderRadius.circular(12),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: isSelected ? 26 : 24),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-              ),
+            NavigationDestination(
+              icon: Icon(Icons.calendar_month_outlined),
+              selectedIcon: Icon(Icons.calendar_month_rounded),
+              label: '月度',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.tune_outlined),
+              selectedIcon: Icon(Icons.tune_rounded),
+              label: '设置',
             ),
           ],
         ),

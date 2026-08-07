@@ -10,19 +10,29 @@ class AppStyles {
   // ============ 阴影 ============
   /// 小阴影
   static List<BoxShadow> get shadowSm => [
+    const BoxShadow(
+      color: AppColors.highlight,
+      blurRadius: 2,
+      offset: Offset(-1, -1),
+    ),
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.05),
-      blurRadius: 4,
-      offset: const Offset(0, 2),
+      color: AppColors.shadow.withValues(alpha: 0.55),
+      blurRadius: 8,
+      offset: const Offset(2, 3),
     ),
   ];
 
   /// 中等阴影
   static List<BoxShadow> get shadowMd => [
+    const BoxShadow(
+      color: AppColors.highlight,
+      blurRadius: 3,
+      offset: Offset(-2, -2),
+    ),
     BoxShadow(
-      color: Colors.black.withValues(alpha: 0.08),
-      blurRadius: 8,
-      offset: const Offset(0, 4),
+      color: AppColors.shadow.withValues(alpha: 0.7),
+      blurRadius: 14,
+      offset: const Offset(3, 5),
     ),
   ];
 
@@ -38,8 +48,9 @@ class AppStyles {
   // ============ 卡片装饰 ============
   /// 标准卡片装饰
   static BoxDecoration get cardDecoration => BoxDecoration(
-    color: AppColors.surface,
+    color: AppColors.surfaceRaised,
     borderRadius: AppDimens.borderRadius,
+    border: Border.all(color: AppColors.border),
     boxShadow: shadowSm,
   );
 

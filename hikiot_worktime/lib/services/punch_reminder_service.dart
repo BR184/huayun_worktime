@@ -121,7 +121,7 @@ class PunchReminderService {
           id: 102,
           title: '下班打卡状态',
           body:
-              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时不足8H',
+              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatBillableHours(workHours)} 小时不足8H',
         );
       } else {
         // 已打卡且工时充足
@@ -129,7 +129,7 @@ class PunchReminderService {
           id: 102,
           title: '下班打卡状态',
           body:
-              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时',
+              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatBillableHours(workHours)} 小时',
         );
       }
     } catch (e) {
@@ -258,14 +258,14 @@ class PunchReminderService {
           id: 102,
           title: '下班打卡状态 (3/3)',
           body:
-              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时不足8H',
+              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatBillableHours(workHours)} 小时不足8H',
         );
       } else {
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态 (3/3)',
           body:
-              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatHours(workHours)} 小时',
+              '已打下班卡：$checkOutTime，工时 ${WorkTimeCalculator.formatBillableHours(workHours)} 小时',
         );
       }
     } catch (e) {

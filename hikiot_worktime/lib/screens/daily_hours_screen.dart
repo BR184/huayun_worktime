@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../core/constants/constants.dart';
+import '../core/theme/theme.dart';
 import '../services/daily_attendance_repository.dart';
 import '../services/storage_service.dart';
 import '../services/token_expired_service.dart';
@@ -10,8 +11,8 @@ import '../utils/work_time_calculator.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
 import '../utils/target_progress_helper.dart';
-import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
+import '../widgets/precision_text.dart';
 import '../widgets/pull_refresh_guide.dart';
 import 'feature_guide_page.dart';
 import 'photo_preview_screen.dart';
@@ -513,13 +514,14 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final isToday = _isToday();
 
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         child: Row(
           children: [
-            Icon(Icons.calendar_today, color: Colors.blue[700]),
+            const Icon(
+              Icons.calendar_today_outlined,
+              color: AppColors.primaryDark,
+            ),
             const SizedBox(width: 12),
             Expanded(
               child: GestureDetector(
@@ -555,7 +557,10 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 ),
               ),
             IconButton(
-              icon: Icon(Icons.arrow_drop_down, color: Colors.blue[700]),
+              icon: const Icon(
+                Icons.arrow_drop_down,
+                color: AppColors.primaryDark,
+              ),
               onPressed: () async {
                 await HapticUtils.selectionClick();
                 _selectDate();
@@ -572,39 +577,32 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final isManual = _dayData?['isManual'] ?? false;
 
     // 获取类型颜色
-    Color typeColor;
+    final typeColor = AppColors.getTypeColor(type);
     IconData typeIcon;
     String? warningText;
 
     switch (type) {
       case '工作日':
-        typeColor = Colors.green;
         typeIcon = Icons.work;
         break;
       case '加班日':
-        typeColor = Colors.purple;
         typeIcon = Icons.more_time;
         break;
       case '出差':
-        typeColor = Colors.amber;
         typeIcon = Icons.flight_takeoff;
         warningText = '出差固定计 8 小时工时';
         break;
       case '请假':
-        typeColor = Colors.red;
         typeIcon = Icons.event_busy;
         warningText = '请假统计工时为 0，如需统计请改为 工作日 或 自定义 类型';
         break;
       case '自定义':
-        typeColor = Colors.blue;
         typeIcon = Icons.tune;
         break;
       case '非工作日':
-        typeColor = Colors.grey;
         typeIcon = Icons.weekend;
         break;
       default:
-        typeColor = Colors.grey;
         typeIcon = Icons.help_outline;
     }
 
@@ -675,7 +673,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                       vertical: 4,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -684,14 +682,14 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         Icon(
                           Icons.photo_camera,
                           size: 14,
-                          color: Colors.blue[700],
+                          color: AppColors.primaryDark,
                         ),
                         const SizedBox(width: 4),
                         Text(
                           '查看打卡照片',
                           style: TextStyle(
                             fontSize: 11,
-                            color: Colors.blue[700],
+                            color: AppColors.primaryDark,
                           ),
                         ),
                       ],
@@ -720,12 +718,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final cutoffTime = DateHelper.getCrossDayTimeString();
 
     return Card(
-      elevation: 2,
       color: Colors.amber[50],
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(color: Colors.amber[200]!),
-      ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
@@ -764,65 +757,109 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
   }
 
   Widget _buildHoursCard(double hours, String type) {
+    final showsPercentage =
+        type != AppConstants.typeOvertime &&
+        type != AppConstants.typeRestDay &&
+        type != '休息';
+    final percentage = WorkTimeCalculator.calculatePercentage(
+      hours: hours,
+      baseHours: 8,
+    );
+
     return Column(
       children: [
         Card(
-          elevation: 3,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(24),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '今日打卡工时',
-                  style: TextStyle(
-                    fontSize: 14,
-                    color: Colors.grey[600],
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                const SizedBox(height: 16),
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.baseline,
-                  textBaseline: TextBaseline.alphabetic,
                   children: [
-                    Text(
-                      WorkTimeCalculator.formatHours(hours),
-                      style: TextStyle(
-                        fontSize: 56,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.blue[700],
-                        height: 1,
-                      ),
+                    const Icon(
+                      Icons.schedule_rounded,
+                      size: 18,
+                      color: AppColors.primaryDark,
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      '小时',
-                      style: TextStyle(
-                        fontSize: 20,
+                      '今日打卡工时',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                    const Spacer(),
+                    Text(
+                      type,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 12,
                         fontWeight: FontWeight.w500,
-                        color: Colors.blue[600],
                       ),
                     ),
                   ],
                 ),
-                // 只有非加班、非休息日才显示工时百分比
-                if (type != AppConstants.typeOvertime &&
-                    type != AppConstants.typeRestDay &&
-                    type != '休息') ...[
-                  const SizedBox(height: 8),
-                  Text(
-                    '已完成 ${WorkTimeCalculator.formatHours(hours / 8 * 100)}%',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Colors.grey[600],
-                      fontWeight: FontWeight.w500,
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          PrecisionText(
+                            WorkTimeCalculator.formatHours(hours),
+                            style: const TextStyle(
+                              fontSize: 44,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.primaryDark,
+                              height: 1,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                          const Padding(
+                            padding: EdgeInsets.only(left: 6, bottom: 3),
+                            child: Text(
+                              '小时',
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.textSecondary,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                ],
+                    if (showsPercentage) ...[
+                      Container(
+                        width: 1,
+                        height: 42,
+                        margin: const EdgeInsets.symmetric(horizontal: 16),
+                        color: AppColors.divider,
+                      ),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.end,
+                        children: [
+                          const Text(
+                            '完成率',
+                            style: TextStyle(
+                              color: AppColors.textSecondary,
+                              fontSize: 11,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          PrecisionText(
+                            '${WorkTimeCalculator.formatHours(percentage)}%',
+                            style: const TextStyle(
+                              color: AppColors.accent,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w700,
+                              fontFeatures: [FontFeature.tabularFigures()],
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
@@ -832,17 +869,21 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         // 自定义类型显示设置的时间
         if (type == AppConstants.typeCustom) ...[
           const SizedBox(height: 12),
-          Card(
-            elevation: 2,
-            color: Colors.blue[50],
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.primaryLight,
+              borderRadius: AppDimens.borderRadius,
+              border: Border.all(color: AppColors.border),
             ),
             child: Padding(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(12),
               child: Row(
                 children: [
-                  Icon(Icons.edit_calendar, color: Colors.blue[700], size: 24),
+                  const Icon(
+                    Icons.edit_calendar_outlined,
+                    color: AppColors.primaryDark,
+                    size: 20,
+                  ),
                   const SizedBox(width: 12),
                   Expanded(
                     child: Column(
@@ -850,18 +891,18 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                       children: [
                         Text(
                           '自定义工时时间',
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 12,
-                            color: Colors.blue[600],
+                            color: AppColors.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 4),
                         Text(
                           '${_dayData?['customCheckIn'] ?? '09:00'} - ${_dayData?['customCheckOut'] ?? '18:00'}',
-                          style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.blue[700],
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: AppColors.primaryDark,
                           ),
                         ),
                       ],
@@ -891,10 +932,6 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     return Column(
       children: [
         Card(
-          elevation: 2,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
-          ),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -986,25 +1023,27 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     // 截断到2位小数(不四舍五入)
     // 使用 formatHours 统一处理
 
-    final actualPercentageRaw = (actualHours / 8 * 100).toDouble().clamp(
-      0.0,
-      200.0,
+    final actualPercentageRaw = WorkTimeCalculator.calculatePercentage(
+      hours: actualHours,
+      baseHours: 8,
+      min: 0,
+      max: 200,
     );
 
-    final estimatedPercentageRaw = (estimatedHours / 8 * 100).toDouble().clamp(
-      0.0,
-      200.0,
+    final estimatedPercentageRaw = WorkTimeCalculator.calculatePercentage(
+      hours: estimatedHours,
+      baseHours: 8,
+      min: 0,
+      max: 200,
     );
 
     Color getPercentageColor(double percentage) {
       if (percentage >= _baseTarget) return Colors.green;
       if (percentage >= 100) return Colors.orange;
-      return Colors.blue;
+      return AppColors.primary;
     }
 
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -1012,14 +1051,18 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
             // 信息1: 实际打卡工时
             Row(
               children: [
-                Icon(Icons.fact_check, size: 20, color: Colors.blue[700]),
+                const Icon(
+                  Icons.fact_check_outlined,
+                  size: 20,
+                  color: AppColors.primaryDark,
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   '按照打卡时间',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(width: 12),
-                Text(
+                PrecisionText(
                   '工时: ${WorkTimeCalculator.formatHours(actualHours)}h',
                   style: TextStyle(
                     fontSize: 14,
@@ -1028,7 +1071,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
+                PrecisionText(
                   '${WorkTimeCalculator.formatHours(actualPercentageRaw)}%',
                   style: TextStyle(
                     fontSize: 14,
@@ -1042,14 +1085,18 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
             // 信息2: 现在下班的预估工时
             Row(
               children: [
-                Icon(Icons.trending_up, size: 20, color: Colors.purple[700]),
+                const Icon(
+                  Icons.trending_up,
+                  size: 20,
+                  color: AppColors.overtime,
+                ),
                 const SizedBox(width: 8),
                 const Text(
                   '如果现在下班',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
                 ),
                 const SizedBox(width: 12),
-                Text(
+                PrecisionText(
                   '工时: ${WorkTimeCalculator.formatHours(estimatedHours)}h',
                   style: TextStyle(
                     fontSize: 14,
@@ -1058,7 +1105,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   ),
                 ),
                 const SizedBox(width: 12),
-                Text(
+                PrecisionText(
                   '${WorkTimeCalculator.formatHours(estimatedPercentageRaw)}%',
                   style: TextStyle(
                     fontSize: 14,
@@ -1079,8 +1126,13 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final checkIn = _attendanceData?['checkInTime'] as String?;
     final checkOut = _attendanceData?['checkOutTime'] as String?;
 
-    // 计算工时完成率 - 截断到2位小数
-    final completionRaw = (hours / 8 * 100).clamp(0.0, 200.0);
+    // 计算工时完成率：计入工时与结果都截断到一位小数。
+    final completionRaw = WorkTimeCalculator.calculatePercentage(
+      hours: hours,
+      baseHours: 8,
+      min: 0,
+      max: 200,
+    );
 
     // 计算上班时长(如果有打卡记录)
     String workDuration = '--';
@@ -1110,7 +1162,11 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       children: [
         Row(
           children: [
-            Icon(Icons.assessment, color: Colors.blue[700], size: 20),
+            const Icon(
+              Icons.assessment_outlined,
+              color: AppColors.primaryDark,
+              size: 20,
+            ),
             const SizedBox(width: 8),
             const Text(
               '当日统计',
@@ -1120,7 +1176,6 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         ),
         const SizedBox(height: 12),
         Card(
-          elevation: 2,
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -1133,7 +1188,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                       '工时完成率',
                       style: TextStyle(fontSize: 13, color: Colors.grey),
                     ),
-                    Text(
+                    PrecisionText(
                       '${WorkTimeCalculator.formatHours(completionRaw)}%',
                       style: TextStyle(
                         fontSize: 20,
@@ -1164,7 +1219,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         '实际工时',
                         '${WorkTimeCalculator.formatHours(hours)}h',
                         Icons.access_time,
-                        Colors.blue,
+                        AppColors.primary,
                       ),
                     ),
                     Container(width: 1, height: 50, color: Colors.grey[300]),
@@ -1173,7 +1228,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         '上班时长',
                         workDuration,
                         Icons.timer,
-                        Colors.purple,
+                        AppColors.overtime,
                       ),
                     ),
                   ],
@@ -1210,19 +1265,23 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.blue[50],
+                      color: AppColors.primaryLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       children: [
-                        Icon(Icons.edit, size: 16, color: Colors.blue[700]),
+                        const Icon(
+                          Icons.edit_outlined,
+                          size: 16,
+                          color: AppColors.primaryDark,
+                        ),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             '自定义: ${_dayData?['customCheckIn'] ?? '09:00'} - ${_dayData?['customCheckOut'] ?? '18:00'}',
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.blue[700],
+                              color: AppColors.primaryDark,
                             ),
                           ),
                         ),
@@ -1251,7 +1310,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         const SizedBox(height: 8),
         Text(label, style: const TextStyle(fontSize: 11, color: Colors.grey)),
         const SizedBox(height: 4),
-        Text(
+        PrecisionText(
           value,
           style: TextStyle(
             fontSize: 16,
@@ -1311,7 +1370,11 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       children: [
         Row(
           children: [
-            Icon(Icons.flag, color: Colors.blue[700], size: 20),
+            const Icon(
+              Icons.flag_outlined,
+              color: AppColors.primaryDark,
+              size: 20,
+            ),
             const SizedBox(width: 8),
             const Text(
               '目标进度',
@@ -1332,7 +1395,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   style: TextStyle(
                     fontSize: 12,
                     color: _useCheckInTime
-                        ? Colors.blue[700]
+                        ? AppColors.primaryDark
                         : Colors.orange[700],
                     fontWeight: FontWeight.bold,
                   ),
@@ -1453,7 +1516,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 Icon(Icons.push_pin, size: 14, color: Colors.amber[700]),
               ],
               const Spacer(),
-              Text(
+              PrecisionText(
                 '${WorkTimeCalculator.formatHours(currentHours)}h / ${WorkTimeCalculator.formatHours(targetHours)}h',
                 style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
@@ -1474,19 +1537,24 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     bool isHighestAchieved = false,
     bool isNextToAchieve = false,
   }) {
-    final progress = currentHours / targetHours;
-    final progressPercentageRaw = (progress * 100).clamp(0.0, 100.0);
+    final progressPercentageRaw = WorkTimeCalculator.calculatePercentage(
+      hours: currentHours,
+      baseHours: targetHours,
+      min: 0,
+      max: 100,
+    );
+    final progress = progressPercentageRaw / 100;
 
     Color getProgressColor() {
       if (isCompleted) return Colors.green;
       if (isBaseTarget) return Colors.orange;
-      return Colors.blue;
+      return AppColors.primary;
     }
 
     // 特殊标记的边框颜色
     Color? getBorderColor() {
       if (isHighestAchieved) return Colors.green;
-      if (isNextToAchieve) return Colors.blue[700];
+      if (isNextToAchieve) return AppColors.primaryDark;
       return null;
     }
 
@@ -1513,7 +1581,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.blue[700],
+            color: AppColors.primaryDark,
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text(
@@ -1620,7 +1688,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                       ),
                     ),
                   const Spacer(),
-                  Text(
+                  PrecisionText(
                     '${WorkTimeCalculator.formatHours(currentHours)} / ${WorkTimeCalculator.formatHours(targetHours)}h',
                     style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
@@ -1642,7 +1710,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
+                      PrecisionText(
                         '${WorkTimeCalculator.formatHours(progressPercentageRaw)}%',
                         style: TextStyle(
                           fontSize: 11,
@@ -1770,11 +1838,13 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     return Row(
       children: [
         Expanded(
-          child: HomeButtonIcon(
-            onPressed: _showEditDialog,
-            icon: Icons.edit,
-            label: '修改类型',
-            backgroundColor: Theme.of(context).colorScheme.primary,
+          child: FilledButton.icon(
+            onPressed: () async {
+              await HapticUtils.lightImpact();
+              _showEditDialog();
+            },
+            icon: const Icon(Icons.edit_outlined),
+            label: const Text('修改类型'),
           ),
         ),
       ],
@@ -1941,7 +2011,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
                     typeColor = Colors.green;
                     break;
                   case '加班日':
-                    typeColor = Colors.purple;
+                    typeColor = AppColors.overtime;
                     break;
                   case '出差':
                     typeColor = Colors.amber;
@@ -1950,7 +2020,7 @@ class _EditDayDialogState extends State<_EditDayDialog> {
                     typeColor = Colors.red;
                     break;
                   case '自定义':
-                    typeColor = Colors.blue;
+                    typeColor = AppColors.custom;
                     break;
                   default:
                     typeColor = Colors.grey;
@@ -2296,7 +2366,7 @@ class _CongratulationsDialogState extends State<_CongratulationsDialog>
                       child: ElevatedButton(
                         onPressed: widget.onContinue,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.blue,
+                          backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
                           padding: const EdgeInsets.symmetric(vertical: 14),
                           shape: RoundedRectangleBorder(

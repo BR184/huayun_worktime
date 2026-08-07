@@ -13,8 +13,8 @@ import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
 import '../utils/target_progress_helper.dart';
 
-import '../widgets/home_button.dart';
 import '../widgets/haptic_refresh_indicator.dart';
+import '../widgets/precision_text.dart';
 import '../widgets/team_selection_dialog.dart';
 
 /// 月度统计页面 - 日历视图
@@ -656,10 +656,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('月度统计'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
+      appBar: AppBar(title: const Text('月度统计')),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
@@ -691,7 +688,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
   /// 用户信息卡片
   Widget _buildUserCard() {
     return Card(
-      elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -726,7 +722,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     );
   }
 
-  /// 操作按钮区域 - 使用 iPhone 8 Home 键风格的触感
+  /// 操作按钮区域 - 使用 Android Material 3 按钮并保留触觉反馈
   Widget _buildActionButtons() {
     return Column(
       children: [
@@ -734,21 +730,24 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         Row(
           children: [
             Expanded(
-              child: HomeButtonIcon(
-                onPressed: () => _updateAttendance(forceAll: true),
-                icon: Icons.update,
-                label: '全量更新工时',
-                isOutlined: true,
-                foregroundColor: AppColors.warningDark,
+              child: OutlinedButton.icon(
+                onPressed: () async {
+                  await HapticUtils.lightImpact();
+                  await _updateAttendance(forceAll: true);
+                },
+                icon: const Icon(Icons.sync_outlined),
+                label: const Text('全量更新'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: HomeButtonIcon(
-                onPressed: () => _updateAttendance(forceAll: false),
-                icon: Icons.refresh,
-                label: '快速更新工时',
-                backgroundColor: AppColors.success,
+              child: FilledButton.icon(
+                onPressed: () async {
+                  await HapticUtils.lightImpact();
+                  await _updateAttendance(forceAll: false);
+                },
+                icon: const Icon(Icons.refresh_rounded),
+                label: const Text('快速更新'),
               ),
             ),
           ],
@@ -765,7 +764,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         _selectedMonth.year == now.year && _selectedMonth.month == now.month;
 
     return Card(
-      elevation: 2,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         child: Row(
@@ -823,7 +821,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     final todayStr = DateHelper.formatDate(today);
 
     return Card(
-      elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
@@ -956,7 +953,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         bgColor = Colors.green;
         break;
       case '加班日':
-        bgColor = Colors.purple;
+        bgColor = AppColors.overtime;
         break;
       case '出差':
         bgColor = Colors.amber;
@@ -965,7 +962,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         bgColor = Colors.red;
         break;
       case '自定义':
-        bgColor = Colors.blue;
+        bgColor = AppColors.custom;
         break;
       case '非工作日':
       default:
@@ -1032,7 +1029,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ),
               const SizedBox(height: 2),
               if (hours > 0)
-                Text(
+                PrecisionText(
                   '${WorkTimeCalculator.formatHours(hours)}H',
                   style: TextStyle(fontSize: 10, color: textColor),
                   overflow: TextOverflow.visible,
@@ -1153,7 +1150,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                               children: [
                                 Icon(
                                   Icons.schedule,
-                                  color: Colors.blue[600],
+                                  color: AppColors.primary,
                                   size: 18,
                                 ),
                                 const SizedBox(height: 4),
@@ -1164,12 +1161,12 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                     color: Colors.grey,
                                   ),
                                 ),
-                                Text(
+                                PrecisionText(
                                   '${WorkTimeCalculator.formatHours(hours)}h',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
-                                    color: Colors.blue[700],
+                                    color: AppColors.primaryDark,
                                   ),
                                 ),
                               ],
@@ -1210,7 +1207,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                             typeColor = Colors.green;
                             break;
                           case '加班日':
-                            typeColor = Colors.purple;
+                            typeColor = AppColors.overtime;
                             break;
                           case '出差':
                             typeColor = Colors.amber;
@@ -1219,7 +1216,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                             typeColor = Colors.red;
                             break;
                           case '自定义':
-                            typeColor = Colors.blue;
+                            typeColor = AppColors.custom;
                             break;
                           default:
                             typeColor = Colors.grey;
@@ -1684,9 +1681,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
     // 计算包含今天的统计
     final totalHoursWithToday = totalWorkHours + totalOvertimeHours;
-    final percentageWithToday = totalWorkDays > 0
-        ? (totalHoursWithToday / (totalWorkDays * 8.0)) * 100
-        : 0.0;
+    final percentageWithToday = WorkTimeCalculator.calculatePercentage(
+      hours: totalHoursWithToday,
+      baseHours: totalWorkDays * 8.0,
+    );
 
     // 计算排除今天的统计（只在当前月份有效）
     double totalHoursExcludingToday = totalHoursWithToday;
@@ -1721,20 +1719,30 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         }
       }
     }
-    final percentageExcludingToday = totalWorkDaysExcludingToday > 0
-        ? (totalHoursExcludingToday / (totalWorkDaysExcludingToday * 8.0)) * 100
-        : 0.0;
+    final percentageExcludingToday = WorkTimeCalculator.calculatePercentage(
+      hours: totalHoursExcludingToday,
+      baseHours: totalWorkDaysExcludingToday * 8.0,
+    );
 
     return Card(
-      elevation: 4,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text(
-              '📊 月度统计',
-              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            const Row(
+              children: [
+                Icon(
+                  Icons.analytics_outlined,
+                  size: 20,
+                  color: AppColors.primaryDark,
+                ),
+                SizedBox(width: 8),
+                Text(
+                  '月度统计',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                ),
+              ],
             ),
             const Divider(height: 24),
 
@@ -1752,33 +1760,33 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   AppConstants.typeWorkday,
                   workDayCountAll,
                   workDayHoursAll,
-                  Colors.green,
+                  AppColors.workday,
                 ),
                 _buildTypeChip(
                   AppConstants.typeOvertime,
                   overtimeDayCountAll,
                   overtimeDayHoursAll,
-                  Colors.purple,
+                  AppColors.overtime,
                 ),
                 _buildTypeChip(
                   AppConstants.typeBusinessTrip,
                   tripDayCountAll,
                   tripDayHoursAll,
-                  Colors.amber,
+                  AppColors.businessTrip,
                 ),
                 _buildTypeChip(
                   AppConstants.typeLeave,
                   leaveDayCountAll,
                   leaveDayHoursAll,
-                  Colors.red,
+                  AppColors.leave,
                 ),
                 _buildTypeChip(
                   AppConstants.typeCustom,
                   customDayCountAll,
                   customDayHoursAll,
-                  Colors.blue,
+                  AppColors.custom,
                 ),
-                _buildTypeChip('休息', restDayCountAll, 0.0, Colors.grey),
+                _buildTypeChip('休息', restDayCountAll, 0.0, AppColors.restDay),
               ],
             ),
 
@@ -1838,17 +1846,17 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 _buildStatColumn(
                   '总工作日',
                   '$totalWorkDays天/$totalWorkDaysAll天\n${WorkTimeCalculator.formatHours(totalWorkHours)}h',
-                  Colors.green,
+                  AppColors.workday,
                 ),
                 _buildStatColumn(
                   '总加班日',
                   '$totalOvertimeDays天/$totalOvertimeDaysAll天\n${WorkTimeCalculator.formatHours(totalOvertimeHours)}h',
-                  Colors.purple,
+                  AppColors.overtime,
                 ),
                 _buildStatColumn(
                   '总休息日',
                   '$totalRestDays天/$totalRestDaysAll天',
-                  Colors.grey,
+                  AppColors.restDay,
                 ),
               ],
             ),
@@ -1863,13 +1871,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   '总工时',
                   WorkTimeCalculator.formatHours(totalHours),
                   '小时',
-                  Colors.blue,
+                  AppColors.primary,
                 ),
                 _buildStatItem(
                   '日均工时',
                   WorkTimeCalculator.formatHours(avgHours),
                   '小时/天',
-                  Colors.orange,
+                  AppColors.accent,
                 ),
               ],
             ),
@@ -1909,7 +1917,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
             if (isCurrentMonth && totalWorkDays > 0)
               Padding(
                 padding: const EdgeInsets.only(top: 8),
-                child: Text(
+                child: PrecisionText(
                   '达成$_baseTarget%目标，今日需 ${WorkTimeCalculator.formatHours(totalWorkDays * 8.0 * _baseTarget / 100)}h，截至昨日需 ${WorkTimeCalculator.formatHours(totalWorkDaysExcludingToday * 8.0 * _baseTarget / 100)}h',
                   style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   textAlign: TextAlign.center,
@@ -1940,10 +1948,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     double hours,
   ) {
     final targetHours = days * 8; // 100%目标工时
+    final isCompleted = percentage >= _baseTarget;
 
     return Expanded(
-      child: Card(
-        color: percentage >= _baseTarget ? Colors.green[50] : Colors.orange[50],
+      child: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 4),
+        decoration: BoxDecoration(
+          color: isCompleted ? AppColors.successLight : AppColors.warningLight,
+          borderRadius: AppDimens.borderRadius,
+          border: Border.all(color: AppColors.border),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -1956,14 +1970,14 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 ),
               ),
               const SizedBox(height: 8),
-              Text(
+              PrecisionText(
                 '${WorkTimeCalculator.formatHours(percentage)}%',
                 style: TextStyle(
                   fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: percentage >= _baseTarget
-                      ? Colors.green
-                      : Colors.orange,
+                  fontWeight: FontWeight.w700,
+                  color: isCompleted
+                      ? AppColors.successDark
+                      : AppColors.warningDark,
                 ),
               ),
               if (subtitle.isNotEmpty) ...[
@@ -1974,7 +1988,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 ),
               ],
               const SizedBox(height: 8),
-              Text(
+              PrecisionText(
                 '${WorkTimeCalculator.formatHours(hours)}h / ${WorkTimeCalculator.formatHours(targetHours)}h',
                 style: const TextStyle(fontSize: 11),
               ),
@@ -2248,7 +2262,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 Icon(Icons.push_pin, size: 14, color: Colors.amber[700]),
               ],
               const Spacer(),
-              Text(
+              PrecisionText(
                 '${WorkTimeCalculator.formatHours(currentHours)}h / ${WorkTimeCalculator.formatHours(targetHours)}h',
                 style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
@@ -2276,26 +2290,33 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     bool isHighestAchieved = false,
     bool isNextToAchieve = false,
   }) {
-    final progress = currentHours / targetHours;
-    final progressPercentage = (progress * 100).clamp(0.0, 100.0);
-    final avgProgressPercentage = (avgProgress * 100).clamp(0.0, 100.0);
+    final progressPercentage = WorkTimeCalculator.calculatePercentage(
+      hours: currentHours,
+      baseHours: targetHours,
+      min: 0,
+      max: 100,
+    );
+    final progress = progressPercentage / 100;
+    final avgProgressPercentage = WorkTimeCalculator.billableHours(
+      (avgProgress * 100).clamp(0.0, 100.0),
+    );
 
     Color getProgressColor() {
       if (isCompleted) return Colors.green;
       if (isBaseTarget) return Colors.orange;
-      return Colors.blue;
+      return AppColors.primary;
     }
 
     Color getAvgProgressColor() {
       if (avgProgress >= 1.0) return Colors.green;
       if (isBaseTarget) return Colors.orange;
-      return Colors.purple;
+      return AppColors.overtime;
     }
 
     // 特殊标记的边框颜色
     Color? getBorderColor() {
       if (isHighestAchieved) return Colors.green; // 绿色 - 最高达成
-      if (isNextToAchieve) return Colors.blue[700]; // 深蓝 - 即将达成
+      if (isNextToAchieve) return AppColors.primaryDark;
       return null;
     }
 
@@ -2322,7 +2343,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.blue[700],
+            color: AppColors.primaryDark,
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text(
@@ -2431,7 +2452,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       ),
                     ),
                   const Spacer(),
-                  Text(
+                  PrecisionText(
                     '${WorkTimeCalculator.formatHours(currentHours)} / ${WorkTimeCalculator.formatHours(targetHours)}h',
                     style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
@@ -2453,7 +2474,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
+                      PrecisionText(
                         '${WorkTimeCalculator.formatHours(progressPercentage)}%',
                         style: TextStyle(
                           fontSize: 11,
@@ -2491,7 +2512,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         ),
                       ),
                       const SizedBox(width: 8),
-                      Text(
+                      PrecisionText(
                         '${WorkTimeCalculator.formatHours(avgProgressPercentage)}% (${WorkTimeCalculator.formatHours(avgHoursPerDay)}h/天)',
                         style: TextStyle(
                           fontSize: 11,
@@ -2516,7 +2537,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               const SizedBox(height: 8),
 
               // 提示信息
-              Text(
+              PrecisionText(
                 remainingDays > 0
                     ? '还需 ${WorkTimeCalculator.formatHours(gapHours)}h，每天需上 ${WorkTimeCalculator.formatHours(dailyNeed)}h'
                     : '还需 ${WorkTimeCalculator.formatHours(gapHours)}h (本月已无工作日)',
@@ -2538,7 +2559,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
-      child: Text(
+      child: PrecisionText(
         '$label: $count天 ${hours > 0 ? "${WorkTimeCalculator.formatHours(hours)}h" : ""}',
         style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.9)),
       ),
@@ -2551,7 +2572,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       children: [
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
         const SizedBox(height: 4),
-        Text(
+        PrecisionText(
           value,
           style: TextStyle(
             fontSize: 16,
@@ -2574,7 +2595,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
           crossAxisAlignment: CrossAxisAlignment.end,
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text(
+            PrecisionText(
               value,
               style: TextStyle(
                 fontSize: 24,

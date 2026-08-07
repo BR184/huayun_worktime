@@ -42,5 +42,35 @@ void main() {
       expect(WorkTimeCalculator.formatHours(8.0), '8.00');
       expect(WorkTimeCalculator.formatHours(5.559), '5.55');
     });
+
+    test('truncates billable hours and percentages to one decimal', () {
+      expect(WorkTimeCalculator.billableHours(8.59), 8.5);
+      expect(
+        WorkTimeCalculator.calculatePercentage(hours: 8.59, baseHours: 8),
+        106.2,
+      );
+      expect(
+        WorkTimeCalculator.calculatePercentage(hours: 79.99, baseHours: 80),
+        99.8,
+      );
+      expect(
+        WorkTimeCalculator.calculatePercentage(hours: 8, baseHours: 0),
+        0.0,
+      );
+      expect(WorkTimeCalculator.formatBillableHours(8.59), '8.5');
+    });
+
+    test('formats raw punch duration including after-midnight checkout', () {
+      expect(
+        WorkTimeCalculator.formatPunchDuration('09:00', '18:30'),
+        '9.50小时',
+      );
+      expect(
+        WorkTimeCalculator.formatPunchDuration('09:00', '00:30'),
+        '15.50小时',
+      );
+      expect(WorkTimeCalculator.formatPunchDuration('09:00', null), '--');
+      expect(WorkTimeCalculator.formatPunchDuration('bad', '18:30'), '--');
+    });
   });
 }

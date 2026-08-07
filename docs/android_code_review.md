@@ -1,7 +1,7 @@
 # Android 代码全面审查与修复进度
 
 初始审查日期：2026-06-08
-最近更新日期：2026-06-10
+最近更新日期：2026-08-06
 审查口径：按 `AGENTS.md` 要求，以 BUG、正确性、性能、可维护性、测试缺口和工程元数据为主；安全项只保留会影响 Android 发布或运行的严重问题。
 审查范围：当前 Android-only 主工程，即 `hikiot_worktime/android` 与 `hikiot_worktime/lib`。
 API 参考：见 `docs/hikiot_api_reference.md`。
@@ -12,14 +12,29 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 
 已完成的旧问题压缩说明：此前 A1-A13 已修复首屏初始化竞态、`teamNo/personNo` 混用、自动标记被误升级、恢复默认工时空字段、后台提醒旧 API、月度串行聚合、API 吞错、设置/提醒 key 分裂、多班次解析、自动请假误判、页面层直接写存储、token 调试读写和工具链升级等问题。相关能力已收敛到 `StorageService`、`SessionService`、`DailyAttendanceRepository`、`MonthlyAttendanceRepository`、`SettingsRepository`、`TeamContextService`、`ReminderCoordinator` 等服务层。
 
-当前验证基线：
+历史验证基线（2026-06-10）：
 
 - `flutter analyze`：无问题。
 - `flutter test`：93/93 通过。
 - `flutter build apk --debug`：已验证可构建。
-- Android `release` 不再默认使用 debug 签名；WebView 调试只在非 release 构建打开；明文流量已关闭。
+
+当前工作区复核（2026-08-07）：
+
+- `WorkTimeCalculator.formatPunchDuration()` 已实现，原有测试阻塞解除。
+- `flutter analyze` 无问题，`flutter test` 106/106 通过。
+- `flutter build apk --debug` 构建成功，产物为 `build/app/outputs/flutter-apk/app-debug.apk`；APK 使用 Android Debug 证书。
+- 构建提示 `android_alarm_manager_plus` 仍应用 Kotlin Gradle Plugin，未来 Flutter 版本会要求该插件迁移到 Built-in Kotlin；当前不影响构建。
+- 当前 release 构建没有注入正式 keystore；现有 release APK 的证书 DN 也是 `Android Debug`，不能作为正式发布包。
+- WebView 调试只在非 release 构建打开；明文流量已关闭。
 
 仍不属于代码侧可凭空完成的事项：正式 release keystore 注入。该项需要用户提供 keystore 或 CI 注入方案。
+
+## 2026-08-06 当前 APP 现状核对
+
+- 当前有效交付范围是 `hikiot_worktime/` Flutter Android-only 子项目，`deprecated/` 不属于运行链。
+- 启动链为：初始化本地工时/日期/震动配置 -> 免责声明 -> 读取 token -> 登录页或主框架 -> 团队上下文 -> 每日刷新 -> 月度智能更新。
+- 登录仍是 Hikiot WebView 登录页读取 `www_token` Cookie；账号密码和手机号短信验证接口尚未在仓库中实现或得到正式契约。
+- 核心业务已集中到 `HikiotApiClient`、`TeamContextService`、`DailyAttendanceRepository`、`MonthlyAttendanceRepository`、`AttendanceParser` 和 `WorkTimeCalculator`。
 
 ## 2026-06-10 复审发现
 
@@ -169,3 +184,28 @@ API 参考：见 `docs/hikiot_api_reference.md`。
 - 每个修复批次至少跑对应定向测试。
 - 本轮收尾已跑 `flutter analyze`、`flutter test`。
 - 本文档与 `docs/操作记录.md` 已同步更新。
+
+## 2026-08-07 工时精度与默认 UI 重设计
+
+计算口径：
+
+- 新增 `WorkTimeCalculator.billableHours()` 和 `calculatePercentage()`；百分比统一先把参与统计的工时截断到一位小数，再计算并把百分比结果截断到一位小数，全程不四舍五入。
+- 每日完成率、实时/预计完成率、历史完成率、每日目标进度、月度含今日/截至昨日完成率和月度目标进度均复用统一入口。
+- 系统通知无法弱化单个字符，因此通知工时直接使用一位小数。
+
+显示与 UI：
+
+- 新增 `PrecisionText`，两位小数中的百分位统一使用淡色，语义标签仍保留完整数值。
+- 百分位弱化色调整为白底对比度约 4.50:1 的 `#6F7975`，辅助朗读会明确提示“小数点后第二位不计入工时”。
+- 新增统一 Material 3 主题，采用冷灰画布、石墨文字、玉绿主操作和琥珀状态；核心表面使用细边与克制双影形成轻拟物层级。
+- 启动页移除渐变、装饰圆形、循环脉冲和人工 1 秒延迟；Android 12 及以下启动背景统一，减少首帧闪白。
+- 主框架改用 Android `NavigationBar`；每日工时首卡改为工时与完成率并列的紧凑仪表布局；月度完成率移除嵌套卡片。
+- 每日/月度核心更新操作已移除模拟 iPhone Home 键的自定义组件，改用 48dp Material `FilledButton` / `OutlinedButton` 并保留触觉反馈；旧组件文件已删除。
+- 新增 `PRODUCT.md`、`DESIGN.md` 和 `.impeccable/` 设计基线，后续页面需延续同一视觉与精度口径。
+
+验证：
+
+- `flutter analyze` 无问题。
+- `flutter test` 106/106 通过。
+- `flutter build apk --debug` 成功。
+- `impeccable` 机械检测无告警；360x800 启动页 golden 无布局溢出。

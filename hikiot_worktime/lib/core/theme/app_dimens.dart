@@ -32,13 +32,13 @@ class AppDimens {
   static const double radiusMd = 8.0;
 
   /// 标准圆角
-  static const double radius = 12.0;
+  static const double radius = 8.0;
 
   /// 大圆角
-  static const double radiusLg = 16.0;
+  static const double radiusLg = 12.0;
 
   /// 超大圆角
-  static const double radiusXl = 24.0;
+  static const double radiusXl = 16.0;
 
   /// 圆形
   static const double radiusCircle = 999.0;
@@ -96,7 +96,7 @@ class AppDimens {
   static const double buttonHeightSm = 32.0;
 
   /// 标准按钮高度
-  static const double buttonHeight = 44.0;
+  static const double buttonHeight = 48.0;
 
   /// 大按钮高度
   static const double buttonHeightLg = 52.0;
@@ -106,7 +106,7 @@ class AppDimens {
   static const double cardElevation = 2.0;
 
   /// 卡片内边距
-  static const EdgeInsets cardPadding = EdgeInsets.all(spacing);
+  static const EdgeInsets cardPadding = EdgeInsets.all(spacingMd);
 
   /// 卡片外边距
   static const EdgeInsets cardMargin = EdgeInsets.symmetric(

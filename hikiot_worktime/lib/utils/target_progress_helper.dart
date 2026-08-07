@@ -33,14 +33,16 @@ class TargetProgressHelper {
     required bool smartSort,
     required int? pinnedTarget,
   }) {
-    final currentPercentage = displayHours / 8 * 100;
+    final currentPercentage = WorkTimeCalculator.calculatePercentage(
+      hours: displayHours,
+      baseHours: 8,
+    );
     final allTargets = _dailyTargets(baseTarget, currentPercentage);
 
     int? highestAchievedTarget;
     int? nextToAchieveTarget;
     for (final target in allTargets) {
-      final targetHours = 8.0 * target / 100;
-      if (displayHours >= targetHours) {
+      if (currentPercentage >= target) {
         highestAchievedTarget = target;
       } else {
         nextToAchieveTarget ??= target;
@@ -52,7 +54,7 @@ class TargetProgressHelper {
       return {
         'target': target,
         'targetHours': targetHours,
-        'isCompleted': displayHours >= targetHours,
+        'isCompleted': currentPercentage >= target,
       };
     }).toList();
 
@@ -77,9 +79,10 @@ class TargetProgressHelper {
     required bool smartSort,
     required int? pinnedTarget,
   }) {
-    final currentPercentage = baseHours > 0
-        ? adjustedTotalHours / baseHours * 100
-        : 0.0;
+    final currentPercentage = WorkTimeCalculator.calculatePercentage(
+      hours: adjustedTotalHours,
+      baseHours: baseHours,
+    );
     final targets = _targetsForPercentage(baseTarget, currentPercentage);
     final targetData = targets.map((target) {
       final targetHours = baseHours * target / 100;
@@ -89,9 +92,14 @@ class TargetProgressHelper {
           ? gapHours / remainingWorkDays
           : 0.0;
       final targetAvgHours = 8.0 * target / 100;
-      final avgProgress = targetAvgHours > 0
-          ? avgHoursPerDay / targetAvgHours
-          : 0.0;
+      final avgProgress =
+          WorkTimeCalculator.calculatePercentage(
+            hours: avgHoursPerDay,
+            baseHours: targetAvgHours,
+            min: 0,
+            max: 100,
+          ) /
+          100;
 
       return {
         'target': target,
