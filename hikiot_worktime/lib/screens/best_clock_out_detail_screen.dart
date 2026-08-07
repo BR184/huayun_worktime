@@ -196,15 +196,20 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
           if (checkIn != null) ...[
             Row(
               children: [
-                Text(
-                  _mode == CommuteMode.metro
-                      ? '下班档位时间轴 · '
-                            '${HanyuJinguMetro.lines[_direction].name}'
-                            '（末班 ${HanyuJinguMetro.lines[_direction].lastTime}）'
-                      : '下班档位时间轴',
-                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                // 标题过长时省略，避免与右侧切换按钮溢出
+                Expanded(
+                  child: Text(
+                    _mode == CommuteMode.metro
+                        ? '下班档位时间轴 · '
+                              '${HanyuJinguMetro.lines[_direction].name}'
+                              '（末班 ${HanyuJinguMetro.lines[_direction].lastTime}）'
+                        : '下班档位时间轴',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                  ),
                 ),
-                const Spacer(),
+                const SizedBox(width: 8),
                 SegmentedButton<int>(
                   segments: const [
                     ButtonSegment(value: 10, label: Text('10 分钟')),
@@ -489,14 +494,25 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   }
 
   Widget _buildNoRecommendation() {
+    // 未打卡 vs 已打卡但无可用班次，给出不同的准确原因
+    final String message;
+    if (widget.checkInMinutes == null) {
+      message = '打卡后这里会给出准确的建议下班时刻';
+    } else if (_mode == CommuteMode.metro) {
+      message =
+          '该方向末班 ${HanyuJinguMetro.lines[_direction].lastTime} 已过，'
+          '今日已无可用班次';
+    } else {
+      message = '当前没有可用的下班建议';
+    }
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: AppColors.surfaceSunken,
         borderRadius: BorderRadius.circular(10),
       ),
-      child: const Text(
-        '打卡后这里会给出准确的建议下班时刻',
+      child: Text(
+        message,
         style: TextStyle(fontSize: 14, color: AppColors.textSecondary),
       ),
     );

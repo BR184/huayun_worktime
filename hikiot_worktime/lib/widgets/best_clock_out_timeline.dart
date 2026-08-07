@@ -303,7 +303,7 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
       final detail = details[selected];
       wasteText = detail.hasTrain
           ? '下班浪费 ${detail.clockWaste} 分钟 · 地铁浪费 ${detail.waitMinutes} 分钟'
-          : '已无班次';
+          : '该方向已收班';
     } else {
       final checkIn = widget.checkInMinutes;
       if (checkIn != null) {
