@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
+import '../services/mock_time_service.dart';
 import '../utils/best_clockout_planner.dart';
 import '../utils/work_time_calculator.dart';
 
@@ -78,7 +79,8 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
         : null;
     final greenStarts = _greenStarts;
     final firstGreen = greenStarts.isEmpty ? null : greenStarts.first;
-    final now = DateTime.now();
+    // DEBUG 时间模拟器开启时使用模拟时钟
+    final now = MockTimeService.instance.now();
     final nowMinutes = now.hour * 60 + now.minute;
 
     return Column(

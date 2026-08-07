@@ -66,7 +66,7 @@ class MockPunchGenerator {
   /// 生成打卡序列：
   /// - 首次打卡 6:00~9:00 随机，且必早于模拟时间；
   /// - 中间 0~3 次随机进出（在首次与最后一次之间）；
-  /// - 最后一次晚于首次且不晚于 [mockNow]。
+  /// - 最后一次落在 [mockNow] 前 30 分钟内（模拟"刚打完卡"场景）。
   static List<String> randomPunches(DateTime mockNow) {
     final nowMinutes = mockNow.hour * 60 + mockNow.minute;
     // 首次打卡上限：08:59 与 模拟时间前 1 分钟 的较小值
@@ -74,8 +74,12 @@ class MockPunchGenerator {
     if (firstMax < 6 * 60) return []; // 模拟时间早于 6 点（本工具范围 8~23 不会触发）
     final firstMinute = 6 * 60 + _random.nextInt(firstMax - 6 * 60 + 1);
 
-    final span = max(1, nowMinutes - firstMinute);
-    final lastMinute = min(firstMinute + 1 + _random.nextInt(span), nowMinutes);
+    // 末次打卡：模拟时间前 30 分钟内，且晚于首次
+    final lastMin = max(firstMinute + 1, nowMinutes - 30);
+    final lastMax = nowMinutes;
+    final lastMinute = lastMin >= lastMax
+        ? lastMax
+        : lastMin + _random.nextInt(lastMax - lastMin + 1);
 
     final punches = <int>[firstMinute];
     final middleCount = _random.nextInt(4); // 0..3 次中间进出

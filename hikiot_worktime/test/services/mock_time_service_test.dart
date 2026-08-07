@@ -3,7 +3,7 @@ import 'package:hikiot_worktime/services/mock_time_service.dart';
 
 void main() {
   group('MockPunchGenerator', () {
-    test('随机打卡序列：首次 6~9 点、末次不晚于模拟时间、有序', () {
+    test('随机打卡序列：首次 6~9 点、末次在模拟时间前 30 分钟内、有序', () {
       final mockNow = DateTime(2026, 8, 8, 18, 30);
       for (var i = 0; i < 50; i++) {
         final punches = MockPunchGenerator.randomPunches(mockNow);
@@ -15,13 +15,28 @@ void main() {
         // 首次在 06:00~08:59
         expect(first.compareTo('06:00') >= 0, isTrue, reason: '首次 $first');
         expect(first.compareTo('09:00') < 0, isTrue, reason: '首次 $first');
-        // 末次不晚于模拟时间且晚于首次
+        // 末次落在模拟时间前 30 分钟内（18:00~18:30）且晚于首次
+        expect(last.compareTo('18:00') >= 0, isTrue, reason: '末次 $last');
         expect(last.compareTo('18:30') <= 0, isTrue, reason: '末次 $last');
         expect(last.compareTo(first) > 0, isTrue, reason: '首末 $first/$last');
 
         // 序列有序且不重复
         final sorted = [...punches]..sort();
         expect(punches, sorted);
+      }
+    });
+
+    test('模拟时间接近首次打卡时末次仍有效', () {
+      // 模拟时间 8:10：末次应在 [max(首次+1, 07:40), 08:10] 内
+      final mockNow = DateTime(2026, 8, 8, 8, 10);
+      for (var i = 0; i < 20; i++) {
+        final punches = MockPunchGenerator.randomPunches(mockNow);
+        expect(punches.length, greaterThanOrEqualTo(2));
+        final first = punches.first;
+        final last = punches.last;
+        expect(last.compareTo('07:40') >= 0, isTrue, reason: '末次 $last');
+        expect(last.compareTo('08:10') <= 0, isTrue, reason: '末次 $last');
+        expect(last.compareTo(first) > 0, isTrue, reason: '首末 $first/$last');
       }
     });
 
