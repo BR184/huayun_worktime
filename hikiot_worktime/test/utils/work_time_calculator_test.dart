@@ -60,6 +60,16 @@ void main() {
       expect(WorkTimeCalculator.formatBillableHours(8.59), '8.5');
     });
 
+    test('monthly accumulation must truncate per-day before summing', () {
+      // 月度累计口径：每天的工时先截断到一位小数再累加，
+      // 百分位（如两天的 .04+.03）不得进入累计值
+      final day1 = WorkTimeCalculator.billableHours(8.04);
+      final day2 = WorkTimeCalculator.billableHours(8.03);
+      expect(day1 + day2, 16.0);
+      // 直接累加原始值会把百分位计入（与公司口径矛盾）
+      expect(8.04 + 8.03, isNot(16.0));
+    });
+
     test('formats raw punch duration including after-midnight checkout', () {
       expect(
         WorkTimeCalculator.formatPunchDuration('09:00', '18:30'),

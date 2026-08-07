@@ -1559,7 +1559,11 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     _monthlyData.forEach((dateStr, data) {
       final date = DateTime.parse(dateStr);
       final type = data['type'] as String;
-      final hours = (data['hours'] ?? 0.0) as double;
+      // 公司口径百分位不计入：参与累计的每日工时先截断到一位小数，
+      // 保证累计值、百分比与日历格内显示口径一致
+      final hours = WorkTimeCalculator.billableHours(
+        (data['hours'] ?? 0.0) as double,
+      );
       final isOvertime = (data['isOvertime'] ?? false) as bool;
 
       final isFuture = isCurrentMonth && date.isAfter(today);
@@ -1694,7 +1698,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       final todayData = _monthlyData[todayStr];
       if (todayData != null) {
         final todayType = todayData['type'] as String;
-        final todayHours = (todayData['hours'] ?? 0.0) as double;
+        // 减除今日工时须与累计口径一致（百分位不计入）
+        final todayHours = WorkTimeCalculator.billableHours(
+          (todayData['hours'] ?? 0.0) as double,
+        );
         final todayIsOvertime = (todayData['isOvertime'] ?? false) as bool;
 
         // 从总工时中减去今天的工时
