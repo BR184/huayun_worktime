@@ -128,62 +128,57 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            return Column(
-              children: [
-                // 绿色标签独立行：每段连续绿色的起点标时间，
-                // 放在柱子区上方，不被高柱子遮挡
-                SizedBox(
-                  height: 16,
-                  width: width,
-                  child: Stack(
-                    children: [
-                      for (final start in greenStarts)
-                        Positioned(
-                          left: _labelLeft(start, bands.length, width),
-                          child: Text(
-                            _minutesToText(nowMinutes + start),
-                            style: const TextStyle(
-                              fontSize: 9,
-                              fontWeight: FontWeight.w700,
-                              color: AppColors.success,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTapDown: (details) {
-                    setState(
-                      () => _selected = _indexFromDx(
-                        details.localPosition.dx,
-                        width,
-                      ),
-                    );
-                  },
-                  onHorizontalDragStart: (details) {
-                    setState(
-                      () => _selected = _indexFromDx(
-                        details.localPosition.dx,
-                        width,
-                      ),
-                    );
-                  },
-                  onHorizontalDragUpdate: (details) {
-                    setState(
-                      () => _selected = _indexFromDx(
-                        details.localPosition.dx,
-                        width,
-                      ),
-                    );
-                  },
-                  child: SizedBox(
-                    height: 64,
+            return GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              // 柱子区、绿色标签行、底部时间条都可点击/左右滑动切换选中
+              onTapDown: (details) {
+                setState(
+                  () =>
+                      _selected = _indexFromDx(details.localPosition.dx, width),
+                );
+              },
+              onHorizontalDragStart: (details) {
+                setState(
+                  () =>
+                      _selected = _indexFromDx(details.localPosition.dx, width),
+                );
+              },
+              onHorizontalDragUpdate: (details) {
+                setState(
+                  () =>
+                      _selected = _indexFromDx(details.localPosition.dx, width),
+                );
+              },
+              child: Column(
+                children: [
+                  // 绿色标签独立行：每段连续绿色的起点标时间，
+                  // 放在柱子区上方，不被高柱子遮挡
+                  SizedBox(
+                    height: 16,
                     width: width,
                     child: Stack(
                       children: [
-                        // 柱子
+                        for (final start in greenStarts)
+                          Positioned(
+                            left: _labelLeft(start, bands.length, width),
+                            child: Text(
+                              _minutesToText(nowMinutes + start),
+                              style: const TextStyle(
+                                fontSize: 9,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.success,
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  // 柱子：统一高度，选中用白框高亮（不上下跳动）
+                  SizedBox(
+                    height: 48,
+                    width: width,
+                    child: Stack(
+                      children: [
                         Row(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
@@ -194,16 +189,17 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
                                     left: i == 0 ? 0 : 1,
                                     right: i == bands.length - 1 ? 0 : 1,
                                   ),
-                                  child: AnimatedContainer(
-                                    duration: const Duration(milliseconds: 80),
-                                    height: selected == i
-                                        ? 64
-                                        : i == 0
-                                        ? 56
-                                        : 46,
+                                  child: Container(
+                                    height: 48,
                                     decoration: BoxDecoration(
                                       color: _colorOf(bands[i]),
                                       borderRadius: BorderRadius.circular(2),
+                                      border: selected == i
+                                          ? Border.all(
+                                              color: Colors.white,
+                                              width: 2,
+                                            )
+                                          : null,
                                     ),
                                   ),
                                 ),
@@ -226,21 +222,16 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
                       ],
                     ),
                   ),
-                ),
-              ],
+                  // 底部时间标注（可随手势切换选中）
+                  if (widget.viewMinutes == 60)
+                    _buildHourLabels(nowMinutes)
+                  else
+                    _buildMinuteLabels(nowMinutes, bands.length, width),
+                ],
+              ),
             );
           },
         ),
-        const SizedBox(height: 6),
-        // 底部时间标注
-        if (widget.viewMinutes == 60)
-          _buildHourLabels(nowMinutes)
-        else
-          _buildMinuteLabels(
-            nowMinutes,
-            bands.length,
-            MediaQuery.of(context).size.width,
-          ),
       ],
     );
   }
@@ -312,8 +303,7 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
     if (details != null && selected < details.length) {
       final detail = details[selected];
       wasteText = detail.hasTrain
-          ? '下班浪费 ${detail.clockWaste} + 地铁浪费 ${detail.waitMinutes}'
-                ' = 总和 ${detail.totalWaste} 分钟'
+          ? '下班浪费 ${detail.clockWaste} 分钟 · 地铁浪费 ${detail.waitMinutes} 分钟'
           : '已无班次';
     } else {
       final checkIn = widget.checkInMinutes;
