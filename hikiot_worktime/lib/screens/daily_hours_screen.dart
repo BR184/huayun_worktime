@@ -1906,8 +1906,17 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     );
   }
 
-  /// 判断是否是今天（工作日）
+  /// 判断是否是今天（工作日）。
+  ///
+  /// DEBUG 时间模拟器开启且模拟日期有偏移时，按模拟日期判断"今日"，
+  /// 保证最佳下班入口在模拟日期下仍正常显示。
   bool _isToday() {
+    if (MockTimeService.instance.isMocked) {
+      final mock = MockTimeService.instance.now();
+      return _selectedDate.year == mock.year &&
+          _selectedDate.month == mock.month &&
+          _selectedDate.day == mock.day;
+    }
     return DateHelper.isWorkToday(_selectedDate);
   }
 

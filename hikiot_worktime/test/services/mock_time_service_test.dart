@@ -40,10 +40,17 @@ void main() {
       }
     });
 
-    test('随机时间落在 8~23 点', () {
+    test('随机时间落在 8~23 点且日期在 0~6 天内（星期随机）', () {
+      final today = DateTime.now();
       for (var i = 0; i < 30; i++) {
         final time = MockPunchGenerator.randomTime();
         expect(time.hour, inInclusiveRange(8, 23));
+        final dayDiff = DateTime(
+          time.year,
+          time.month,
+          time.day,
+        ).difference(DateTime(today.year, today.month, today.day)).inDays;
+        expect(dayDiff, inInclusiveRange(0, 6), reason: '日期偏移 $dayDiff');
       }
     });
 

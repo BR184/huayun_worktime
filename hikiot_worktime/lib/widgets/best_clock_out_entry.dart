@@ -253,6 +253,10 @@ class _BestClockOutBannerState extends State<BestClockOutBanner> {
         ? '总浪费 ${detail.totalWaste} 分钟'
               '（残差 ${detail.clockWaste} + 等车 ${detail.waitMinutes}）'
         : '已无班次';
+    // 无班次时不显示"总浪费 999+ 分钟"这类无意义数字
+    if (!detail.hasTrain) {
+      return (BestClockOutStatus.poor, '已无班次', '今日地铁已收班');
+    }
     return switch (detail.band) {
       WasteBand.best => (status, '现在下班正合适', '$trainText · $wasteText'),
       WasteBand.fair => (

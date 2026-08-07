@@ -55,12 +55,14 @@ class MockPunchGenerator {
 
   static final Random _random = Random();
 
-  /// 生成 8:00~23:00 之间的随机模拟时间（今天日期）。
+  /// 生成 8:00~23:00 之间的随机模拟时间，日期随机偏移 0~6 天
+  /// （使"模拟今天是周几"随机）。
   static DateTime randomTime() {
     final now = DateTime.now();
+    final base = now.add(Duration(days: _random.nextInt(7)));
     final hour = 8 + _random.nextInt(16); // 8..23
     final minute = _random.nextInt(60);
-    return DateTime(now.year, now.month, now.day, hour, minute);
+    return DateTime(base.year, base.month, base.day, hour, minute);
   }
 
   /// 生成打卡序列：

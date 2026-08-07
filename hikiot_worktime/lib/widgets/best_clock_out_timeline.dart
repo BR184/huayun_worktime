@@ -150,6 +150,8 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
                 );
               },
               child: Column(
+                // 子项横向拉伸到全宽，保证底部时间条整行可拖动
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   // 绿色标签独立行：每段连续绿色的起点标时间，
                   // 放在柱子区上方，不被高柱子遮挡
@@ -192,14 +194,11 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
                                   child: Container(
                                     height: 48,
                                     decoration: BoxDecoration(
-                                      color: _colorOf(bands[i]),
+                                      // 选中用同色深色填充（窄柱上白框会被盖满）
+                                      color: selected == i
+                                          ? _darkColorOf(bands[i])
+                                          : _colorOf(bands[i]),
                                       borderRadius: BorderRadius.circular(2),
-                                      border: selected == i
-                                          ? Border.all(
-                                              color: Colors.white,
-                                              width: 2,
-                                            )
-                                          : null,
                                     ),
                                   ),
                                 ),
@@ -353,6 +352,14 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
       WasteBand.best => AppColors.success,
       WasteBand.fair => AppColors.warning,
       WasteBand.poor => AppColors.error,
+    };
+  }
+
+  Color _darkColorOf(WasteBand band) {
+    return switch (band) {
+      WasteBand.best => AppColors.successDark,
+      WasteBand.fair => AppColors.warningDark,
+      WasteBand.poor => AppColors.errorDark,
     };
   }
 }
