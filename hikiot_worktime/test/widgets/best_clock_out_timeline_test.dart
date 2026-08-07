@@ -81,7 +81,7 @@ void main() {
     await tester.tapAt(Offset(rect.left + 10, rect.top + 80));
     await tester.pump();
 
-    expect(find.textContaining('下班：'), findsOneWidget);
+    expect(find.textContaining('下班'), findsOneWidget);
     expect(find.textContaining('别走'), findsOneWidget);
   });
 

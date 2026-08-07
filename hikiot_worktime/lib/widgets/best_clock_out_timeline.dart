@@ -59,21 +59,19 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
   }
 
   String _minutesToText(int minutes) {
-    return '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
-        '${(minutes % 60).toString().padLeft(2, '0')}';
-  }
-
-  String _reasonText(WasteBand band) {
-    return switch (band) {
-      WasteBand.best => '浪费 ≤1.2 分钟，适合下班',
-      WasteBand.fair => '浪费 1.8~3 分钟，一般',
-      WasteBand.poor => '浪费 3.6~5.4 分钟，别走',
-    };
+    // 取模支持跨天（如 23:35 + 60 分钟 → 00:35）
+    final normalized = ((minutes % 1440) + 1440) % 1440;
+    return '${(normalized ~/ 60).toString().padLeft(2, '0')}:'
+        '${(normalized % 60).toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     final bands = _effective;
+    // 视图切换后 _selected 可能残留旧范围的越界下标，渲染时安全收敛
+    final selected = (_selected != null && _selected! < bands.length)
+        ? _selected
+        : null;
     final firstGreen = _firstGreenIndex;
     final now = DateTime.now();
     final nowMinutes = now.hour * 60 + now.minute;
@@ -84,7 +82,7 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
         // 顶部提示框：选中柱子的时间与原因
         SizedBox(
           height: 44,
-          child: _selected == null
+          child: selected == null
               ? Row(
                   children: [
                     Text(
@@ -114,7 +112,7 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
                       ),
                   ],
                 )
-              : _buildSelectedTooltip(bands, nowMinutes),
+              : _buildSelectedTooltip(bands, nowMinutes, selected),
         ),
         const SizedBox(height: 6),
         LayoutBuilder(
@@ -158,7 +156,7 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
                               ),
                               child: AnimatedContainer(
                                 duration: const Duration(milliseconds: 80),
-                                height: _selected == i
+                                height: selected == i
                                     ? 64
                                     : i == 0
                                     ? 56
@@ -172,28 +170,13 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
                           ),
                       ],
                     ),
-                    // 连续绿色首柱标记（折线 + 时间）
+                    // 连续绿色首柱折线标记（时间标签 + 折线指引到柱子）
                     if (firstGreen != null)
-                      Positioned(
-                        left: (firstGreen + 0.5) / bands.length * width - 18,
-                        top: 0,
-                        child: Column(
-                          children: [
-                            Text(
-                              _minutesToText(nowMinutes + firstGreen),
-                              style: const TextStyle(
-                                fontSize: 9,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.success,
-                              ),
-                            ),
-                            Icon(
-                              Icons.arrow_drop_down,
-                              size: 14,
-                              color: AppColors.success,
-                            ),
-                          ],
-                        ),
+                      _buildGreenMarker(
+                        firstGreen,
+                        bands.length,
+                        width,
+                        nowMinutes,
                       ),
                   ],
                 ),
@@ -260,17 +243,26 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
     );
   }
 
-  Widget _buildSelectedTooltip(List<WasteBand> bands, int nowMinutes) {
-    final i = _selected!;
-    final band = bands[i];
+  /// 选中柱子的提示框：时间 + 具体浪费分钟 + 档位结论（不重复区间文案）
+  Widget _buildSelectedTooltip(
+    List<WasteBand> bands,
+    int nowMinutes,
+    int selected,
+  ) {
+    final band = bands[selected];
     final color = _colorOf(band);
-    final checkIn = widget.checkInMinutes;
+    final conclusion = switch (band) {
+      WasteBand.best => '适合下班',
+      WasteBand.fair => '一般',
+      WasteBand.poor => '别走',
+    };
     var wasteText = '';
+    final checkIn = widget.checkInMinutes;
     if (checkIn != null) {
       final fraction = WorkTimeCalculator.wastedFraction(
-        (nowMinutes + i - checkIn) / 60.0,
+        (nowMinutes + selected - checkIn) / 60.0,
       );
-      wasteText = ' · 浪费 ${BestClockOutPlanner.wasteMinutesOf(fraction)} 分钟';
+      wasteText = '浪费 ${BestClockOutPlanner.wasteMinutesOf(fraction)} 分钟';
     }
 
     return Container(
@@ -287,7 +279,7 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
           const SizedBox(width: 6),
           Flexible(
             child: Text(
-              '${_minutesToText(nowMinutes + i)} 下班：${_reasonText(band)}$wasteText',
+              '${_minutesToText(nowMinutes + selected)} 下班 · $wasteText · $conclusion',
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
@@ -301,11 +293,78 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
     );
   }
 
+  /// 连续绿色首柱的折线标记：时间标签 + 折线指引到柱子顶部。
+  ///
+  /// 标签位置按柱子中心对齐并夹在容器内，避免被裁切。
+  Widget _buildGreenMarker(
+    int firstGreen,
+    int bandCount,
+    double width,
+    int nowMinutes,
+  ) {
+    const labelWidth = 34.0;
+    final barCenter = (firstGreen + 0.5) / bandCount * width;
+    final left = (barCenter - labelWidth / 2).clamp(0.0, width - labelWidth);
+    final barCenterRel = (barCenter - left).clamp(0.0, labelWidth);
+
+    return Positioned(
+      left: left,
+      top: 0,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _minutesToText(nowMinutes + firstGreen),
+            style: const TextStyle(
+              fontSize: 9,
+              fontWeight: FontWeight.w700,
+              color: AppColors.success,
+            ),
+          ),
+          CustomPaint(
+            size: const Size(labelWidth, 10),
+            painter: _GreenGuidePainter(barCenterRel: barCenterRel),
+          ),
+        ],
+      ),
+    );
+  }
+
   Color _colorOf(WasteBand band) {
     return switch (band) {
       WasteBand.best => AppColors.success,
       WasteBand.fair => AppColors.warning,
       WasteBand.poor => AppColors.error,
     };
+  }
+}
+
+/// 绿色首柱折线指引画布：从标签中心垂直向下，再水平折向柱子中心，
+/// 最后垂直落到柱子顶部（L 形折线）。
+class _GreenGuidePainter extends CustomPainter {
+  const _GreenGuidePainter({required this.barCenterRel});
+
+  /// 柱子中心相对标签左侧的偏移（已夹在标签宽度内）
+  final double barCenterRel;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = AppColors.success
+      ..strokeWidth = 1.5
+      ..style = PaintingStyle.stroke;
+
+    final targetX = barCenterRel.clamp(0.0, size.width);
+    final path = Path()
+      ..moveTo(size.width / 2, 0)
+      ..lineTo(size.width / 2, size.height * 0.55)
+      ..lineTo(targetX, size.height * 0.55)
+      ..lineTo(targetX, size.height);
+    canvas.drawPath(path, paint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _GreenGuidePainter oldDelegate) {
+    return oldDelegate.barCenterRel != barCenterRel;
   }
 }

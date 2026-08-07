@@ -289,9 +289,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
             children: [
               Expanded(child: _clockItem('上班打卡', checkInText)),
               Container(width: 1, height: 28, color: AppColors.divider),
-              Expanded(
-                child: _clockItem('如果现在下班', nowHours ?? '--'),
-              ),
+              Expanded(child: _clockItem('如果现在下班', nowHours ?? '--')),
             ],
           ),
         ],
@@ -365,7 +363,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
     final second = seconds % 60;
 
     final modeText = switch (_mode) {
-      CommuteMode.free => '建议 $_minutesToText(recommended) 下班',
+      CommuteMode.free => '建议 ${_minutesToText(recommended)} 下班',
       CommuteMode.metro => _metroRecommendText(recommended),
       CommuteMode.bus => '公交模式即将上线',
     };
@@ -417,8 +415,8 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
       WasteBand.fair => '一般',
       WasteBand.poor => '较差',
     };
-    return '建议 $_minutesToText(plan.departTime) 下班'
-        '（赶上 $_minutesToText(plan.trainTime) 地铁 · $bandText）';
+    return '建议 ${_minutesToText(plan.departTime)} 下班'
+        '（赶上 ${_minutesToText(plan.trainTime)} 地铁 · $bandText）';
   }
 
   Widget _buildNoRecommendation() {
@@ -436,7 +434,9 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   }
 
   String _minutesToText(int minutes) {
-    return '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
-        '${(minutes % 60).toString().padLeft(2, '0')}';
+    // 取模支持跨天（如 23:35 + 60 分钟 → 00:35）
+    final normalized = ((minutes % 1440) + 1440) % 1440;
+    return '${(normalized ~/ 60).toString().padLeft(2, '0')}:'
+        '${(normalized % 60).toString().padLeft(2, '0')}';
   }
 }
