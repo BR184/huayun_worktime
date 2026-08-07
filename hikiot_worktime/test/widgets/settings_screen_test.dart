@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hikiot_worktime/core/constants/storage_keys.dart';
 import 'package:hikiot_worktime/core/error/exceptions.dart';
 import 'package:hikiot_worktime/core/theme/app_colors.dart';
+import 'package:hikiot_worktime/core/theme/app_theme.dart';
 import 'package:hikiot_worktime/screens/settings_screen.dart';
 import 'package:hikiot_worktime/services/hikiot_api_client.dart';
 import 'package:http/http.dart' as http;
@@ -28,7 +29,7 @@ void main() {
   }) async {
     useTallViewport(tester);
     await tester.pumpWidget(
-      MaterialApp(home: SettingsScreen(apiClient: apiClient)),
+      MaterialApp(theme: AppTheme.light, home: SettingsScreen(apiClient: apiClient)),
     );
     await tester.pumpAndSettle();
   }
@@ -91,6 +92,23 @@ void main() {
         style?.side?.resolve({}),
         const BorderSide(color: AppColors.primary),
       );
+    });
+
+    testWidgets('关闭状态的开关圆圈使用可辨识颜色而非浅灰隐形', (tester) async {
+      SharedPreferences.setMockInitialValues({});
+      await pumpSettings(tester);
+
+      // 取页面任意一个关闭态开关，解析主题关闭态颜色
+      final switchContext = tester.element(find.byType(Switch).first);
+      final switchTheme = Theme.of(switchContext).switchTheme;
+      final thumbOff = switchTheme.thumbColor?.resolve({});
+      final trackOff = switchTheme.trackColor?.resolve({});
+
+      // 圆圈必须明显深于白色卡片背景（不能是 outline 浅色）
+      expect(thumbOff, AppColors.textSecondary);
+      expect(trackOff, AppColors.surfaceSunken);
+      // 启用态未被覆盖：selected 分支返回 null 回退默认语义色
+      expect(switchTheme.thumbColor?.resolve({WidgetState.selected}), isNull);
     });
   });
 

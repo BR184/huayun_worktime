@@ -152,6 +152,23 @@ class AppTheme {
         color: AppColors.primary,
         linearTrackColor: AppColors.progressBackground,
       ),
+      switchTheme: SwitchThemeData(
+        // M3 默认关闭态圆圈用 outline 浅色，在白色卡片上几乎不可见；
+        // 这里显式改为可辨识的深灰圆圈+浅灰轨道，启用态仍跟随
+        // 页面 activeThumbColor 的语义色（返回 null 即回退默认）。
+        thumbColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return null;
+          return AppColors.textSecondary;
+        }),
+        trackColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return null;
+          return AppColors.surfaceSunken;
+        }),
+        trackOutlineColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.selected)) return null;
+          return AppColors.border;
+        }),
+      ),
       dialogTheme: DialogThemeData(
         backgroundColor: AppColors.surfaceRaised,
         surfaceTintColor: Colors.transparent,
