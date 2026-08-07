@@ -177,18 +177,21 @@ class _BestClockOutBannerState extends State<BestClockOutBanner> {
   @override
   Widget build(BuildContext context) {
     final checkIn = widget.checkInMinutes;
-    if (checkIn == null) {
-      return BestClockOutEntry(
-        status: BestClockOutStatus.unavailable,
-        title: '最佳下班时间',
-        subtitle: '打卡后为你推荐最合适的下班时刻',
-        onTap: widget.onTap,
-      );
-    }
 
     // DEBUG 时间模拟器开启时使用模拟时钟
     final now = MockTimeService.instance.now();
     final nowMinutes = now.hour * 60 + now.minute;
+
+    // 未打卡：灰色分栏卡，提示打卡
+    if (checkIn == null) {
+      return _buildCard(
+        color: AppColors.textSecondary,
+        bands: List.filled(10, WasteBand.poor),
+        title: '最佳下班时间',
+        subtitle: '打卡后为你推荐最合适的下班时刻',
+      );
+    }
+
     // 分钟整数精确残差，避免 9.1h 等整十分位被浮点下界误判
     final waste = BestClockOutPlanner.wasteMinutesOf(
       BestClockOutPlanner.wasteFractionFromMinutes(nowMinutes - checkIn),
@@ -196,84 +199,159 @@ class _BestClockOutBannerState extends State<BestClockOutBanner> {
     final band = BestClockOutPlanner.bandOf(
       BestClockOutPlanner.wasteFractionFromMinutes(nowMinutes - checkIn),
     );
+    final bands = _next10Bands(checkIn, nowMinutes);
+    // 最近绿色窗口起点（未来 10 分钟内）
+    final firstGreen = _firstGreenIn(bands);
 
-    final (status, title, subtitle) = switch (widget.mode) {
-      CommuteMode.free => (
-        _statusOf(band),
-        band == WasteBand.best ? '现在是最佳下班时间' : '现在下班浪费 $waste 分钟',
-        band == WasteBand.best ? '工时接近整点，浪费仅 $waste 分钟' : '等到整点再走可避免浪费',
-      ),
-      CommuteMode.metro => _metroBannerText(checkIn, nowMinutes, band, waste),
-      CommuteMode.bus => (
-        BestClockOutStatus.unavailable,
-        '公交模式即将上线',
-        '在设置中选择出行方式',
-      ),
+    // 标题与档位色
+    final color = switch (band) {
+      WasteBand.best => AppColors.success,
+      WasteBand.fair => AppColors.warning,
+      WasteBand.poor => AppColors.error,
     };
+    final title = switch (band) {
+      WasteBand.best => '现在下班正合适',
+      WasteBand.fair => '现在下班浪费 $waste 分钟',
+      WasteBand.poor => '现在下班浪费 $waste 分钟',
+    };
+    // 小字：最近最佳下班时间（最近绿段起点）
+    final subtitle = firstGreen != null
+        ? '最近最佳下班时间 ${_formatMinutes(nowMinutes + firstGreen)}'
+        : '暂无合适时刻';
 
-    return BestClockOutEntry(
-      status: status,
+    return _buildCard(
+      color: color,
+      bands: bands,
       title: title,
       subtitle: subtitle,
-      onTap: widget.onTap,
     );
   }
 
-  BestClockOutStatus _statusOf(WasteBand band) {
-    return switch (band) {
-      WasteBand.best => BestClockOutStatus.optimal,
-      WasteBand.fair => BestClockOutStatus.approaching,
-      WasteBand.poor => BestClockOutStatus.poor,
-    };
+  /// 分栏卡片：白底 + 状态色边框；左侧迷你柱状图，右侧标题
+  Widget _buildCard({
+    required Color color,
+    required List<WasteBand> bands,
+    required String title,
+    required String subtitle,
+  }) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color, width: 1.5),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: widget.onTap,
+          borderRadius: BorderRadius.circular(10),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                // 左侧：最近 10 分钟迷你柱状图
+                SizedBox(
+                  width: 84,
+                  height: 30,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      for (var i = 0; i < bands.length; i++)
+                        Expanded(
+                          child: Padding(
+                            padding: EdgeInsets.only(
+                              right: i == bands.length - 1 ? 0 : 2,
+                            ),
+                            child: Container(
+                              height: 30,
+                              decoration: BoxDecoration(
+                                color: _miniBarColor(bands[i]),
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                // 右侧：标题 + 小字
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: color,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(
+                  Icons.chevron_right,
+                  size: 18,
+                  color: AppColors.textSecondary,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
-  (BestClockOutStatus, String, String) _metroBannerText(
-    int checkInMinutes,
-    int nowMinutes,
-    WasteBand band,
-    double waste,
-  ) {
-    final line = HanyuJinguMetro.lines[widget.metroDirection];
-    // 地铁模式：档位与浪费按"总浪费 = 残差 + 等车"计算
-    final detail = BestClockOutPlanner.metroWasteDetail(
-      line: line,
-      checkInMinutes: checkInMinutes,
-      departTime: nowMinutes,
-      walkMinutes: widget.metroWalkMinutes,
-    );
-    final status = switch (detail.band) {
-      WasteBand.best => BestClockOutStatus.optimal,
-      WasteBand.fair => BestClockOutStatus.approaching,
-      WasteBand.poor => BestClockOutStatus.poor,
-    };
-    final trainText = detail.hasTrain
-        ? '下一班 ${_formatMinutes(nowMinutes + widget.metroWalkMinutes + detail.waitMinutes)}'
-        : '已无班次';
-    final wasteText = detail.hasTrain
-        ? '总浪费 ${detail.totalWaste} 分钟'
-              '（残差 ${detail.clockWaste} + 等车 ${detail.waitMinutes}）'
-        : '已无班次';
-    // 无班次时不显示"总浪费 999+ 分钟"这类无意义数字
-    if (!detail.hasTrain) {
-      return (BestClockOutStatus.poor, '已无班次', '该方向末班 ${line.lastTime} 已过');
+  /// 未来 10 分钟档位（自由看残差，地铁看总浪费）
+  List<WasteBand> _next10Bands(int checkIn, int nowMinutes) {
+    return List.generate(10, (i) {
+      final depart = nowMinutes + i;
+      if (widget.mode == CommuteMode.metro) {
+        return BestClockOutPlanner.metroWasteDetail(
+          line: HanyuJinguMetro.lines[widget.metroDirection],
+          checkInMinutes: checkIn,
+          departTime: depart,
+          walkMinutes: widget.metroWalkMinutes,
+        ).band;
+      }
+      return BestClockOutPlanner.bandOf(
+        BestClockOutPlanner.wasteFractionFromMinutes(depart - checkIn),
+      );
+    });
+  }
+
+  int? _firstGreenIn(List<WasteBand> bands) {
+    for (var i = 0; i < bands.length; i++) {
+      if (bands[i] == WasteBand.best) return i;
     }
-    return switch (detail.band) {
-      WasteBand.best => (status, '现在下班正合适', '$trainText · $wasteText'),
-      WasteBand.fair => (
-        status,
-        '现在下班总浪费 ${detail.totalWaste} 分钟',
-        '$trainText · $wasteText',
-      ),
-      WasteBand.poor => (
-        status,
-        '现在下班总浪费 ${detail.totalWaste} 分钟',
-        '$trainText · $wasteText',
-      ),
+    return null;
+  }
+
+  Color _miniBarColor(WasteBand band) {
+    return switch (band) {
+      WasteBand.best => AppColors.success,
+      WasteBand.fair => AppColors.warning,
+      WasteBand.poor => AppColors.error,
     };
   }
 
   String _formatMinutes(int minutes) {
-    return '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
-        '${(minutes % 60).toString().padLeft(2, '0')}';
+    final normalized = ((minutes % 1440) + 1440) % 1440;
+    return '${(normalized ~/ 60).toString().padLeft(2, '0')}:'
+        '${(normalized % 60).toString().padLeft(2, '0')}';
   }
 }
