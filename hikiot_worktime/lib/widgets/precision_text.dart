@@ -28,22 +28,28 @@ class PrecisionText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
-    final displayData = data.contains('%')
-        ? data.replaceFirstMapped(
-            RegExp(r'(-?\d+\.\d{2})(?=%)'),
-            (match) => match.group(1)!.substring(0, match.group(1)!.length - 1),
-          )
-        : data;
+    // 百分比是计算输出，保留两位小数、不镂空（不受工时限一位影响）；
+    // 小时数保留两位但百分位镂空提示不计入
+    if (data.contains('%')) {
+      return Text(
+        data,
+        style: effectiveStyle,
+        textAlign: textAlign,
+        maxLines: maxLines,
+        overflow: overflow,
+        softWrap: softWrap,
+      );
+    }
     return Text.rich(
-      TextSpan(children: _buildSpans(effectiveStyle, displayData)),
+      TextSpan(children: _buildSpans(effectiveStyle, data)),
       style: effectiveStyle,
       textAlign: textAlign,
       maxLines: maxLines,
       overflow: overflow,
       softWrap: softWrap,
-      semanticsLabel: _twoDecimalPattern.hasMatch(displayData)
-          ? '$displayData，小数点后第二位不计入工时'
-          : displayData,
+      semanticsLabel: _twoDecimalPattern.hasMatch(data)
+          ? '$data，小数点后第二位不计入工时'
+          : data,
     );
   }
 
