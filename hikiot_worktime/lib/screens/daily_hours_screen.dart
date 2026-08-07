@@ -195,6 +195,9 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
   /// 加载每日数据
   Future<void> _loadDailyData() async {
+    // 模拟开启且当前选中真实今天时，跟随模拟日期加载
+    // （否则类型/休息日判断仍按真实星期，模拟周几不生效）
+    _syncSelectedDateToMock();
     setState(() => _isLoading = true);
 
     try {
@@ -642,7 +645,10 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 onPressed: () async {
                   await HapticUtils.selectionClick();
                   setState(() {
-                    _selectedDate = DateHelper.getWorkDate();
+                    // 模拟开启时"今日"回到模拟日期
+                    _selectedDate = MockTimeService.instance.isMocked
+                        ? MockTimeService.instance.now()
+                        : DateHelper.getWorkDate();
                     _dayData = null;
                     _attendanceData = null;
                   });
@@ -1922,6 +1928,21 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
           _selectedDate.day == mock.day;
     }
     return DateHelper.isWorkToday(_selectedDate);
+  }
+
+  /// 同步选中日期：模拟开启且当前选中真实今天时，跟随模拟日期。
+  ///
+  /// 只同步"今天"，用户手动选的历史日期不受影响。
+  void _syncSelectedDateToMock() {
+    if (!MockTimeService.instance.isMocked) return;
+    final now = DateTime.now();
+    final isRealToday =
+        _selectedDate.year == now.year &&
+        _selectedDate.month == now.month &&
+        _selectedDate.day == now.day;
+    if (!isRealToday) return;
+    final mock = MockTimeService.instance.now();
+    _selectedDate = DateTime(mock.year, mock.month, mock.day);
   }
 
   /// 日期选择器展示的日期：
