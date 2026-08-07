@@ -22,8 +22,6 @@ class BestClockOutDetailScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOptimal = status == BestClockOutStatus.optimal;
-
     return Scaffold(
       appBar: AppBar(title: const Text('最佳下班时间')),
       body: ListView(
@@ -111,10 +109,11 @@ class BestClockOutDetailScreen extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Center(
-            child: Text(
-              isOptimal ? '当前处于最佳下班窗口' : '等待凑整时刻',
-              style: TextStyle(fontSize: 11, color: Colors.grey[500]),
-            ),
+            child: Text(switch (status) {
+              BestClockOutStatus.optimal => '当前处于最佳下班窗口',
+              BestClockOutStatus.approaching => '等待凑整时刻',
+              BestClockOutStatus.unavailable => '暂不可用，打卡后查看',
+            }, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
           ),
         ],
       ),

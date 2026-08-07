@@ -6,13 +6,16 @@ import '../core/theme/app_colors.dart';
 ///
 /// - [BestClockOutStatus.optimal]：现在就是最佳下班时间（绿色）
 /// - [BestClockOutStatus.approaching]：接近但还没到，显示建议时刻（琥珀色）
-/// - 不适用（未打卡/已下班/非今日）时不渲染该入口
+/// - [BestClockOutStatus.unavailable]：暂不可用（未打卡/已下班）（灰色）
 enum BestClockOutStatus {
   /// 现在是最佳下班时间
   optimal,
 
   /// 接近最佳，显示建议下班时刻
   approaching,
+
+  /// 暂不可用：未打卡或已下班
+  unavailable,
 }
 
 /// 每日页"最佳下班时间"入口。
@@ -40,11 +43,23 @@ class BestClockOutEntry extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isOptimal = status == BestClockOutStatus.optimal;
-    final color = isOptimal ? AppColors.success : AppColors.warning;
-    final lightColor = isOptimal
-        ? AppColors.successLight
-        : AppColors.warningLight;
+    final (color, lightColor, icon) = switch (status) {
+      BestClockOutStatus.optimal => (
+        AppColors.success,
+        AppColors.successLight,
+        Icons.check_circle,
+      ),
+      BestClockOutStatus.approaching => (
+        AppColors.warning,
+        AppColors.warningLight,
+        Icons.schedule,
+      ),
+      BestClockOutStatus.unavailable => (
+        AppColors.textSecondary,
+        AppColors.surfaceSunken,
+        Icons.info_outline,
+      ),
+    };
 
     return Material(
       color: Colors.transparent,
@@ -60,11 +75,7 @@ class BestClockOutEntry extends StatelessWidget {
           ),
           child: Row(
             children: [
-              Icon(
-                isOptimal ? Icons.check_circle : Icons.schedule,
-                color: color,
-                size: 20,
-              ),
+              Icon(icon, color: color, size: 20),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(

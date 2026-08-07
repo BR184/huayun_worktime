@@ -39,6 +39,16 @@ void main() {
     expect(icon.color, AppColors.warning);
   });
 
+  testWidgets('unavailable state renders neutral grey with info icon', (
+    tester,
+  ) async {
+    await tester.pumpWidget(buildEntry(BestClockOutStatus.unavailable));
+
+    expect(find.byIcon(Icons.info_outline), findsOneWidget);
+    final icon = tester.widget<Icon>(find.byIcon(Icons.info_outline));
+    expect(icon.color, AppColors.textSecondary);
+  });
+
   testWidgets('tapping the entry triggers onTap', (tester) async {
     var tapped = 0;
     await tester.pumpWidget(

@@ -826,16 +826,6 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  '📅 日历视图',
-                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
             // 星期标题
             Row(
               children: ['一', '二', '三', '四', '五', '六', '日']

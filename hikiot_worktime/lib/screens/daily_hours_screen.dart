@@ -496,6 +496,9 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                       children: [
                         _buildDateSelector(),
                         const SizedBox(height: 12),
+                        // 最佳下班时间入口：醒目位置，颜色即状态
+                        _buildBestClockOutBanner(),
+                        const SizedBox(height: 12),
                         _buildTypeWarning(type),
                         const SizedBox(height: 12),
                         if (_hasCrossDayPunch) ...[
@@ -1178,54 +1181,67 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 ),
               ],
             ),
-            // 最佳下班时间入口：颜色即状态（绿=现在最佳，琥珀=接近）
-            if (checkOut == null || checkOut.isEmpty) ...[
-              const SizedBox(height: 12),
-              _buildBestClockOutEntry(checkIn),
-            ],
           ],
         ),
       ),
     );
   }
 
-  /// 最佳下班时间入口。
+  /// 最佳下班时间入口（醒目横幅，仅今日显示）。
   ///
-  /// 过渡占位：按"工时凑整（十分位为 0）"推算建议下班时刻，
-  /// 颜色代表当前是否处于最佳窗口；后续由济南公交实时数据
-  /// （车来了协议）计算更精确的下班建议。详见 docs/操作记录.md。
-  Widget _buildBestClockOutEntry(String checkIn) {
-    final checkInMinutes = WorkTimeCalculator.parseTimeToMinutes(checkIn);
-    if (checkInMinutes == null) return const SizedBox.shrink();
+  /// 颜色即状态：绿=现在是最佳下班时间；琥珀=接近，显示建议时刻；
+  /// 灰=暂不可用（未打卡/已下班）。
+  /// 过渡判定：按"工时凑整（十分位为 0）"推算，后续由多路线评估
+  /// （自由下班/地铁固定时刻表/公交实时到站）替换，详见操作记录。
+  Widget _buildBestClockOutBanner() {
+    if (!_isToday()) return const SizedBox.shrink();
 
-    final now = DateTime.now();
-    final checkInTime = DateTime(
-      now.year,
-      now.month,
-      now.day,
-      checkInMinutes ~/ 60,
-      checkInMinutes % 60,
-    );
-    final wholeTime = WorkTimeCalculator.nextWholeTenthTime(checkInTime, now);
-    final waitMinutes = wholeTime.difference(now).inMinutes;
-    final isOptimal = waitMinutes <= 5;
-    final wholeHours = WorkTimeCalculator.calculateWorkHours(
-      checkInMinutes,
-      wholeTime.hour * 60 + wholeTime.minute,
-    );
-    final title = isOptimal
-        ? '现在是最佳下班时间'
-        : '最佳下班 ${_formatClockTime(wholeTime)}';
-    final subtitle = waitMinutes <= 0
-        ? '现在下班，工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h'
-        : isOptimal
-        ? '约 $waitMinutes 分钟后工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h'
-        : '再等 $waitMinutes 分钟，工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h';
+    final checkIn = _attendanceData?['checkInTime'] as String?;
+    final checkOut = _attendanceData?['checkOutTime'] as String?;
+
+    String title;
+    String subtitle;
+    BestClockOutStatus status;
+    if (checkIn == null || checkIn.isEmpty) {
+      status = BestClockOutStatus.unavailable;
+      title = '最佳下班时间';
+      subtitle = '打卡后为你推荐最合适的下班时刻';
+    } else if (checkOut != null && checkOut.isNotEmpty) {
+      status = BestClockOutStatus.unavailable;
+      title = '今日已下班';
+      subtitle = '打卡后即可查看当日最佳下班时间';
+    } else {
+      final checkInMinutes = WorkTimeCalculator.parseTimeToMinutes(checkIn);
+      if (checkInMinutes == null) return const SizedBox.shrink();
+
+      final now = DateTime.now();
+      final checkInTime = DateTime(
+        now.year,
+        now.month,
+        now.day,
+        checkInMinutes ~/ 60,
+        checkInMinutes % 60,
+      );
+      final wholeTime = WorkTimeCalculator.nextWholeTenthTime(checkInTime, now);
+      final waitMinutes = wholeTime.difference(now).inMinutes;
+      final isOptimal = waitMinutes <= 5;
+      final wholeHours = WorkTimeCalculator.calculateWorkHours(
+        checkInMinutes,
+        wholeTime.hour * 60 + wholeTime.minute,
+      );
+      status = isOptimal
+          ? BestClockOutStatus.optimal
+          : BestClockOutStatus.approaching;
+      title = isOptimal ? '现在是最佳下班时间' : '最佳下班 ${_formatClockTime(wholeTime)}';
+      subtitle = waitMinutes <= 0
+          ? '现在下班，工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h'
+          : isOptimal
+          ? '约 $waitMinutes 分钟后工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h'
+          : '再等 $waitMinutes 分钟，工时正好 ${WorkTimeCalculator.formatHours(wholeHours)}h';
+    }
 
     return BestClockOutEntry(
-      status: isOptimal
-          ? BestClockOutStatus.optimal
-          : BestClockOutStatus.approaching,
+      status: status,
       title: title,
       subtitle: subtitle,
       onTap: () {
@@ -1234,9 +1250,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
           context,
           MaterialPageRoute(
             builder: (_) => BestClockOutDetailScreen(
-              status: isOptimal
-                  ? BestClockOutStatus.optimal
-                  : BestClockOutStatus.approaching,
+              status: status,
               title: title,
               subtitle: subtitle,
             ),
