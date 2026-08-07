@@ -242,7 +242,9 @@ class WorkTimeCalculator {
 
   /// 按统一口径计算工时百分比。
   ///
-  /// 先截断参与统计的工时到一位小数，再计算并截断百分比到一位小数。
+  /// 参与统计的工时先截断到一位小数，再计算百分比；
+  /// 百分比是计算输出，不受"工时限一位"影响，结果保留两位小数
+  /// （截断，不四舍五入）。
   static double calculatePercentage({
     required num hours,
     required num baseHours,
@@ -252,12 +254,19 @@ class WorkTimeCalculator {
     final base = baseHours.toDouble();
     if (base <= 0) return 0.0;
 
-    final percentage = billableHours(billableHours(hours) / base * 100);
+    final percentage = _truncateToTwoDecimals(
+      billableHours(hours) / base * 100,
+    );
     if (min == null && max == null) return percentage;
     return percentage.clamp(
       min ?? double.negativeInfinity,
       max ?? double.infinity,
     );
+  }
+
+  /// 截断到两位小数（不四舍五入）。
+  static double _truncateToTwoDecimals(double value) {
+    return (value * 100).truncateToDouble() / 100;
   }
 
   /// 格式化两次打卡之间的原始时长，不扣除午休。

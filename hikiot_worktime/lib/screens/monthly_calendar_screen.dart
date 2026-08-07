@@ -1162,7 +1162,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   ),
                                 ),
                                 PrecisionText(
-                                  '${WorkTimeCalculator.formatHours(hours)}h',
+                                  '${WorkTimeCalculator.formatBillableHours(hours)}h',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -1852,12 +1852,12 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               children: [
                 _buildStatColumn(
                   '总工作日',
-                  '$totalWorkDays天/$totalWorkDaysAll天\n${WorkTimeCalculator.formatHours(totalWorkHours)}h',
+                  '$totalWorkDays天/$totalWorkDaysAll天\n${WorkTimeCalculator.formatBillableHours(totalWorkHours)}h',
                   AppColors.workday,
                 ),
                 _buildStatColumn(
                   '总加班日',
-                  '$totalOvertimeDays天/$totalOvertimeDaysAll天\n${WorkTimeCalculator.formatHours(totalOvertimeHours)}h',
+                  '$totalOvertimeDays天/$totalOvertimeDaysAll天\n${WorkTimeCalculator.formatBillableHours(totalOvertimeHours)}h',
                   AppColors.overtime,
                 ),
                 _buildStatColumn(
@@ -1876,13 +1876,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               children: [
                 _buildStatItem(
                   '总工时',
-                  WorkTimeCalculator.formatHours(totalHours),
+                  WorkTimeCalculator.formatBillableHours(totalHours),
                   '小时',
                   AppColors.primary,
                 ),
                 _buildStatItem(
                   '日均工时',
-                  WorkTimeCalculator.formatHours(avgHours),
+                  WorkTimeCalculator.formatBillableHours(avgHours),
                   '小时/天',
                   AppColors.accent,
                 ),
@@ -1925,7 +1925,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               Padding(
                 padding: const EdgeInsets.only(top: 8),
                 child: PrecisionText(
-                  '达成$_baseTarget%目标，今日需 ${WorkTimeCalculator.formatHours(totalWorkDays * 8.0 * _baseTarget / 100)}h，截至昨日需 ${WorkTimeCalculator.formatHours(totalWorkDaysExcludingToday * 8.0 * _baseTarget / 100)}h',
+                  '达成$_baseTarget%目标，今日需 ${WorkTimeCalculator.formatBillableHours(totalWorkDays * 8.0 * _baseTarget / 100)}h，截至昨日需 ${WorkTimeCalculator.formatBillableHours(totalWorkDaysExcludingToday * 8.0 * _baseTarget / 100)}h',
                   style: TextStyle(fontSize: 11, color: Colors.grey[600]),
                   textAlign: TextAlign.center,
                 ),
@@ -1996,7 +1996,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ],
               const SizedBox(height: 8),
               PrecisionText(
-                '${WorkTimeCalculator.formatHours(hours)}h / ${WorkTimeCalculator.formatHours(targetHours)}h',
+                '${WorkTimeCalculator.formatBillableHours(hours)}h / ${WorkTimeCalculator.formatBillableHours(targetHours)}h',
                 style: const TextStyle(fontSize: 11),
               ),
             ],
@@ -2274,7 +2274,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ],
               const Spacer(),
               PrecisionText(
-                '${WorkTimeCalculator.formatHours(currentHours)}h / ${WorkTimeCalculator.formatHours(targetHours)}h',
+                '${WorkTimeCalculator.formatBillableHours(currentHours)}h / ${WorkTimeCalculator.formatBillableHours(targetHours)}h',
                 style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
             ],
@@ -2466,7 +2466,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     ),
                   const Spacer(),
                   PrecisionText(
-                    '${WorkTimeCalculator.formatHours(currentHours)} / ${WorkTimeCalculator.formatHours(targetHours)}h',
+                    '${WorkTimeCalculator.formatBillableHours(currentHours)} / ${WorkTimeCalculator.formatBillableHours(targetHours)}h',
                     style: TextStyle(fontSize: 12, color: Colors.grey[700]),
                   ),
                 ],
@@ -2526,7 +2526,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       ),
                       const SizedBox(width: 8),
                       PrecisionText(
-                        '${WorkTimeCalculator.formatHours(avgProgressPercentage)}% (${WorkTimeCalculator.formatHours(avgHoursPerDay)}h/天)',
+                        '${WorkTimeCalculator.formatHours(avgProgressPercentage)}% (${WorkTimeCalculator.formatBillableHours(avgHoursPerDay)}h/天)',
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.bold,
@@ -2552,8 +2552,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               // 提示信息
               PrecisionText(
                 remainingDays > 0
-                    ? '还需 ${WorkTimeCalculator.formatHours(gapHours)}h，每天需上 ${WorkTimeCalculator.formatHours(dailyNeed)}h'
-                    : '还需 ${WorkTimeCalculator.formatHours(gapHours)}h (本月已无工作日)',
+                    ? '还需 ${WorkTimeCalculator.formatBillableHours(gapHours)}h，每天需上 ${WorkTimeCalculator.formatBillableHours(dailyNeed)}h'
+                    : '还需 ${WorkTimeCalculator.formatBillableHours(gapHours)}h (本月已无工作日)',
                 style: TextStyle(fontSize: 11, color: Colors.grey[600]),
               ),
             ],
@@ -2573,7 +2573,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: PrecisionText(
-        '$label: $count天 ${hours > 0 ? "${WorkTimeCalculator.formatHours(hours)}h" : ""}',
+        '$label: $count天 ${hours > 0 ? "${WorkTimeCalculator.formatBillableHours(hours)}h" : ""}',
         style: TextStyle(fontSize: 12, color: color.withValues(alpha: 0.9)),
       ),
     );

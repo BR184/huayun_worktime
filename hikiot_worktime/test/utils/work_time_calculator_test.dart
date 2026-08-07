@@ -43,15 +43,16 @@ void main() {
       expect(WorkTimeCalculator.formatHours(5.559), '5.55');
     });
 
-    test('truncates billable hours and percentages to one decimal', () {
+    test('truncates billable hours to one decimal and percentages to two', () {
       expect(WorkTimeCalculator.billableHours(8.59), 8.5);
+      // 百分比是计算输出，不受工时限一位影响，保留两位（截断）
       expect(
         WorkTimeCalculator.calculatePercentage(hours: 8.59, baseHours: 8),
-        106.2,
+        106.25,
       );
       expect(
         WorkTimeCalculator.calculatePercentage(hours: 79.99, baseHours: 80),
-        99.8,
+        99.87,
       );
       expect(
         WorkTimeCalculator.calculatePercentage(hours: 8, baseHours: 0),
