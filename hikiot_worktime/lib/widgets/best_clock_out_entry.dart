@@ -6,7 +6,6 @@ import '../core/theme/app_colors.dart';
 import '../data/metro_schedule.dart';
 import '../services/mock_time_service.dart';
 import '../utils/best_clockout_planner.dart';
-import '../utils/work_time_calculator.dart';
 
 /// 最佳下班时间入口的状态：颜色即状态。
 ///
@@ -190,10 +189,13 @@ class _BestClockOutBannerState extends State<BestClockOutBanner> {
     // DEBUG 时间模拟器开启时使用模拟时钟
     final now = MockTimeService.instance.now();
     final nowMinutes = now.hour * 60 + now.minute;
-    final elapsed = nowMinutes - checkIn;
-    final fraction = WorkTimeCalculator.wastedFraction(elapsed / 60.0);
-    final waste = BestClockOutPlanner.wasteMinutesOf(fraction);
-    final band = BestClockOutPlanner.bandOf(fraction);
+    // 分钟整数精确残差，避免 9.1h 等整十分位被浮点下界误判
+    final waste = BestClockOutPlanner.wasteMinutesOf(
+      BestClockOutPlanner.wasteFractionFromMinutes(nowMinutes - checkIn),
+    );
+    final band = BestClockOutPlanner.bandOf(
+      BestClockOutPlanner.wasteFractionFromMinutes(nowMinutes - checkIn),
+    );
 
     final (status, title, subtitle) = switch (widget.mode) {
       CommuteMode.free => (
@@ -232,30 +234,36 @@ class _BestClockOutBannerState extends State<BestClockOutBanner> {
     double waste,
   ) {
     final line = HanyuJinguMetro.lines[widget.metroDirection];
-    final catchPlan = BestClockOutPlanner.currentMetroCatch(
+    // 地铁模式：档位与浪费按"总浪费 = 残差 + 等车"计算
+    final detail = BestClockOutPlanner.metroWasteDetail(
       line: line,
       checkInMinutes: checkInMinutes,
-      nowMinutes: nowMinutes,
+      departTime: nowMinutes,
       walkMinutes: widget.metroWalkMinutes,
     );
-    final trainText = catchPlan == null
-        ? '已无班次'
-        : '下一班 ${_formatMinutes(catchPlan.trainTime)}';
-    return switch (band) {
-      WasteBand.best => (
-        BestClockOutStatus.optimal,
-        '现在下班正合适',
-        '$trainText · 浪费仅 $waste 分钟',
-      ),
+    final status = switch (detail.band) {
+      WasteBand.best => BestClockOutStatus.optimal,
+      WasteBand.fair => BestClockOutStatus.approaching,
+      WasteBand.poor => BestClockOutStatus.poor,
+    };
+    final trainText = detail.hasTrain
+        ? '下一班 ${_formatMinutes(nowMinutes + widget.metroWalkMinutes + detail.waitMinutes)}'
+        : '已无班次';
+    final wasteText = detail.hasTrain
+        ? '总浪费 ${detail.totalWaste} 分钟'
+              '（残差 ${detail.clockWaste} + 等车 ${detail.waitMinutes}）'
+        : '已无班次';
+    return switch (detail.band) {
+      WasteBand.best => (status, '现在下班正合适', '$trainText · $wasteText'),
       WasteBand.fair => (
-        BestClockOutStatus.approaching,
-        '现在下班浪费 $waste 分钟',
-        '$trainText · 建议等整点时刻',
+        status,
+        '现在下班总浪费 ${detail.totalWaste} 分钟',
+        '$trainText · $wasteText',
       ),
       WasteBand.poor => (
-        BestClockOutStatus.poor,
-        '现在下班浪费 $waste 分钟',
-        '$trainText · 等整点再走更划算',
+        status,
+        '现在下班总浪费 ${detail.totalWaste} 分钟',
+        '$trainText · $wasteText',
       ),
     };
   }

@@ -34,6 +34,62 @@ void main() {
   });
 
   group('地铁模式', () {
+    test('总浪费分档与自由出行阈值一致（≤1.2 绿 / ≤3 黄 / >3 红）', () {
+      expect(BestClockOutPlanner.bandOfTotalWaste(0), WasteBand.best);
+      expect(BestClockOutPlanner.bandOfTotalWaste(1.2), WasteBand.best);
+      expect(BestClockOutPlanner.bandOfTotalWaste(1.8), WasteBand.fair);
+      expect(BestClockOutPlanner.bandOfTotalWaste(3.0), WasteBand.fair);
+      expect(BestClockOutPlanner.bandOfTotalWaste(3.6), WasteBand.poor);
+    });
+
+    test('metroWasteDetail：残差 + 等车 = 总浪费，按总和分档', () {
+      // 8:00 打卡，17:00 下班，步行 7 分钟 → 17:07 到站，最近班次 17:11 → 等 4
+      // 工时 540 分钟 = 9.0h，残差 0 → 总浪费 4 分钟 → 红（>3）
+      final detail = BestClockOutPlanner.metroWasteDetail(
+        line: HanyuJinguMetro.lineWest,
+        checkInMinutes: 8 * 60,
+        departTime: 17 * 60,
+      );
+      expect(detail.clockWaste, 0);
+      expect(detail.waitMinutes, 4);
+      expect(detail.totalWaste, 4);
+      expect(detail.band, WasteBand.poor);
+      expect(detail.hasTrain, isTrue);
+
+      // 17:12 下班 → 17:19 到站 → 17:20 班次（等 1）；工时 552 分钟残差 0
+      // → 总浪费 1 ≤1.2 → 绿
+      final green = BestClockOutPlanner.metroWasteDetail(
+        line: HanyuJinguMetro.lineWest,
+        checkInMinutes: 8 * 60,
+        departTime: 17 * 60 + 12,
+      );
+      expect(green.clockWaste, 0);
+      expect(green.waitMinutes, 1);
+      expect(green.totalWaste, 1);
+      expect(green.band, WasteBand.best);
+
+      // 17:06 下班 → 17:13 到站 → 17:15 班次（等 2）；残差 0
+      // → 总浪费 2 → 黄（1.2 < 2 ≤ 3）
+      final fair = BestClockOutPlanner.metroWasteDetail(
+        line: HanyuJinguMetro.lineWest,
+        checkInMinutes: 8 * 60,
+        departTime: 17 * 60 + 6,
+      );
+      expect(fair.waitMinutes, 2);
+      expect(fair.totalWaste, 2);
+      expect(fair.band, WasteBand.fair);
+    });
+
+    test('metroWasteDetail：末班后无班次 → 红', () {
+      final detail = BestClockOutPlanner.metroWasteDetail(
+        line: HanyuJinguMetro.lineWest,
+        checkInMinutes: 8 * 60,
+        departTime: 23 * 60,
+      );
+      expect(detail.hasTrain, isFalse);
+      expect(detail.band, WasteBand.poor);
+    });
+
     test('候选班次下班时刻 = 到站 - 步行分钟，取性价比最高', () {
       // 8:00 打卡，17:00 现在，默认步行 7 分钟。17:06 班次 → 下班 16:59（已过）；
       // 17:11 班次 → 下班 17:04（wait 4，工时 544 分钟残差 0.06 较差 3.6 分钟，

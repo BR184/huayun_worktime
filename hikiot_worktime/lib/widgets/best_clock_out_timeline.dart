@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import '../core/theme/app_colors.dart';
 import '../services/mock_time_service.dart';
 import '../utils/best_clockout_planner.dart';
-import '../utils/work_time_calculator.dart';
 
 /// 最佳下班时间柱状图（60 分钟全览，可缩放 10/60 分钟）。
 ///
@@ -20,6 +19,7 @@ class BestClockOutTimeline extends StatefulWidget {
     required this.bands,
     required this.checkInMinutes,
     this.viewMinutes = 60,
+    this.metroDetails,
   });
 
   /// 未来 60 分钟每分钟的档位（索引 0 = 现在这一分钟）
@@ -27,6 +27,9 @@ class BestClockOutTimeline extends StatefulWidget {
 
   /// 今日首次打卡分钟数，用于提示框计算具体浪费分钟
   final int? checkInMinutes;
+
+  /// 地铁模式浪费明细（与 [bands] 等长）；为 null 时提示框显示纯残差
+  final List<MetroWasteDetail>? metroDetails;
 
   /// 显示范围：10 或 60 分钟
   final int viewMinutes;
@@ -287,7 +290,10 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
     );
   }
 
-  /// 选中柱子的提示框：时间 + 具体浪费分钟 + 档位结论（不重复区间文案）
+  /// 选中柱子的提示框：时间 + 浪费明细 + 档位结论。
+  ///
+  /// 地铁模式拆分显示"下班浪费 X + 地铁浪费 Y = 总和 Z"；
+  /// 自由模式显示纯残差浪费。
   Widget _buildSelectedTooltip(
     List<WasteBand> bands,
     int nowMinutes,
@@ -300,13 +306,21 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
       WasteBand.fair => '一般',
       WasteBand.poor => '别走',
     };
+
     var wasteText = '';
-    final checkIn = widget.checkInMinutes;
-    if (checkIn != null) {
-      final fraction = WorkTimeCalculator.wastedFraction(
-        (nowMinutes + selected - checkIn) / 60.0,
-      );
-      wasteText = '浪费 ${BestClockOutPlanner.wasteMinutesOf(fraction)} 分钟';
+    final details = widget.metroDetails;
+    if (details != null && selected < details.length) {
+      final detail = details[selected];
+      wasteText = detail.hasTrain
+          ? '下班浪费 ${detail.clockWaste} + 地铁浪费 ${detail.waitMinutes}'
+                ' = 总和 ${detail.totalWaste} 分钟'
+          : '已无班次';
+    } else {
+      final checkIn = widget.checkInMinutes;
+      if (checkIn != null) {
+        wasteText =
+            '浪费 ${BestClockOutPlanner.wasteMinutesOf(BestClockOutPlanner.wasteFractionFromMinutes(nowMinutes + selected - checkIn))} 分钟';
+      }
     }
 
     return Container(

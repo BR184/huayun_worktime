@@ -24,6 +24,35 @@ enum WasteBand { best, fair, poor }
 /// 到达地铁站所需步行分钟默认值（公司门口到站台，用户可在设置中调整）。
 const int metroWalkMinutes = 7;
 
+/// 地铁模式总浪费分档阈值（与自由出行残差边界一致）：
+/// 残差 0.02 → 1.2 分钟、0.05 → 3 分钟。
+const double metroBestWasteMinutes = 1.2;
+const double metroFairWasteMinutes = 3.0;
+
+/// 地铁模式某下班时刻的浪费明细（工时残差分钟 + 等车分钟）。
+class MetroWasteDetail {
+  const MetroWasteDetail({
+    required this.clockWaste,
+    required this.waitMinutes,
+    required this.totalWaste,
+    required this.band,
+  });
+
+  /// 工时百分位浪费（分钟，0~5.4）
+  final double clockWaste;
+
+  /// 到站后等车分钟（无班次时为极大值）
+  final int waitMinutes;
+
+  /// 总浪费 = 残差分钟 + 等车分钟
+  final double totalWaste;
+
+  /// 按总浪费分出的档位（绿/黄/红）
+  final WasteBand band;
+
+  bool get hasTrain => waitMinutes < 999;
+}
+
 /// 地铁模式候选班次的评估结果。
 class MetroPlan {
   const MetroPlan({
@@ -67,6 +96,46 @@ class BestClockOutPlanner {
     if (fraction <= 0.02) return WasteBand.best;
     if (fraction <= 0.05) return WasteBand.fair;
     return WasteBand.poor;
+  }
+
+  /// 从分钟数精确计算百分位残差（0.00~0.09）。
+  ///
+  /// 用整数运算避免浮点下界：546/60 = 9.0999… 会把"9.1h 整十分位"
+  /// 误判成残差 0.09。分钟制下残差只由 elapsed % 6 决定：
+  /// 余 0→0.00、1→0.01、2→0.03、3→0.05、4→0.06、5→0.08。
+  static double wasteFractionFromMinutes(int elapsedMinutes) {
+    return (elapsedMinutes % 6) * 5 ~/ 3 / 100;
+  }
+
+  /// 按总浪费分钟分档（与自由出行阈值一致：≤1.2 绿 / ≤3 黄 / >3 红）。
+  static WasteBand bandOfTotalWaste(double totalWaste) {
+    if (totalWaste <= metroBestWasteMinutes) return WasteBand.best;
+    if (totalWaste <= metroFairWasteMinutes) return WasteBand.fair;
+    return WasteBand.poor;
+  }
+
+  /// 地铁模式：某时刻下班的浪费明细。
+  ///
+  /// 残差分钟 = 工时百分位残差 × 60；等车 = 最近班次 − (下班 + 步行)；
+  /// 无剩余班次时等车为极大值（总浪费 → 红）。
+  static MetroWasteDetail metroWasteDetail({
+    required MetroLine line,
+    required int checkInMinutes,
+    required int departTime,
+    int walkMinutes = metroWalkMinutes,
+  }) {
+    final elapsed = departTime - checkInMinutes;
+    final clockWaste = wasteMinutesOf(wasteFractionFromMinutes(elapsed));
+    final arriveTime = departTime + walkMinutes;
+    final train = line.nextTrainAfter(arriveTime);
+    final wait = train == null ? 999 : train - arriveTime;
+    final totalWaste = clockWaste + wait;
+    return MetroWasteDetail(
+      clockWaste: clockWaste,
+      waitMinutes: wait,
+      totalWaste: totalWaste,
+      band: bandOfTotalWaste(totalWaste),
+    );
   }
 
   /// 当前时刻的浪费分钟（残差 × 60，保留一位）。

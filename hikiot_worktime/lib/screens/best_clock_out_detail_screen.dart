@@ -123,16 +123,42 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
     };
   }
 
-  /// 未来 [minutes] 分钟的档位序列（索引 0 = 现在）
+  /// 未来 [minutes] 分钟的档位序列（索引 0 = 现在）。
+  ///
+  /// 自由模式：只看工时残差；地铁模式：总浪费 = 残差 + 等车。
   List<WasteBand> _futureBands(int minutes) {
     final checkIn = widget.checkInMinutes;
     if (checkIn == null) return List.filled(minutes, WasteBand.poor);
     final now = _nowMinutes;
     return List.generate(minutes, (i) {
-      final fraction = WorkTimeCalculator.wastedFraction(
-        (now + i - checkIn) / 60.0,
+      final depart = now + i;
+      if (_mode == CommuteMode.metro) {
+        return BestClockOutPlanner.metroWasteDetail(
+          line: HanyuJinguMetro.lines[_direction],
+          checkInMinutes: checkIn,
+          departTime: depart,
+          walkMinutes: _walkMinutes,
+        ).band;
+      }
+      return BestClockOutPlanner.bandOf(
+        BestClockOutPlanner.wasteFractionFromMinutes(depart - checkIn),
       );
-      return BestClockOutPlanner.bandOf(fraction);
+    });
+  }
+
+  /// 地铁模式未来 [minutes] 分钟的浪费明细（提示框拆分展示用）
+  List<MetroWasteDetail>? _futureMetroDetails(int minutes) {
+    if (_mode != CommuteMode.metro) return null;
+    final checkIn = widget.checkInMinutes;
+    if (checkIn == null) return null;
+    final now = _nowMinutes;
+    return List.generate(minutes, (i) {
+      return BestClockOutPlanner.metroWasteDetail(
+        line: HanyuJinguMetro.lines[_direction],
+        checkInMinutes: checkIn,
+        departTime: now + i,
+        walkMinutes: _walkMinutes,
+      );
     });
   }
 
@@ -209,6 +235,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
               bands: _futureBands(60),
               checkInMinutes: checkIn,
               viewMinutes: _timelineViewMinutes,
+              metroDetails: _futureMetroDetails(60),
             ),
             const SizedBox(height: 16),
           ],
@@ -336,10 +363,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   BestClockOutStatus _currentStatus() {
     final checkIn = widget.checkInMinutes;
     if (checkIn == null) return BestClockOutStatus.unavailable;
-    final fraction = WorkTimeCalculator.wastedFraction(
-      (_nowMinutes - checkIn) / 60.0,
-    );
-    final band = BestClockOutPlanner.bandOf(fraction);
+    final band = _currentBand();
     return switch (band) {
       WasteBand.best => BestClockOutStatus.optimal,
       WasteBand.fair => BestClockOutStatus.approaching,
@@ -347,19 +371,46 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
     };
   }
 
+  /// 当前时刻下班的档位：自由看残差，地铁看总浪费（残差+等车）
+  WasteBand _currentBand() {
+    final checkIn = widget.checkInMinutes!;
+    if (_mode == CommuteMode.metro) {
+      return BestClockOutPlanner.metroWasteDetail(
+        line: HanyuJinguMetro.lines[_direction],
+        checkInMinutes: checkIn,
+        departTime: _nowMinutes,
+        walkMinutes: _walkMinutes,
+      ).band;
+    }
+    return BestClockOutPlanner.bandOf(
+      BestClockOutPlanner.wasteFractionFromMinutes(_nowMinutes - checkIn),
+    );
+  }
+
   String _currentSubtitle() {
     final checkIn = widget.checkInMinutes;
     if (checkIn == null) return '打卡后为你推荐最合适的下班时刻';
-    final fraction = WorkTimeCalculator.wastedFraction(
-      (_nowMinutes - checkIn) / 60.0,
-    );
-    final waste = BestClockOutPlanner.wasteMinutesOf(fraction);
-    final band = BestClockOutPlanner.bandOf(fraction);
-    final bandText = switch (band) {
+    final bandText = switch (_currentBand()) {
       WasteBand.best => '最佳',
       WasteBand.fair => '一般',
       WasteBand.poor => '较差',
     };
+    if (_mode == CommuteMode.metro) {
+      final detail = BestClockOutPlanner.metroWasteDetail(
+        line: HanyuJinguMetro.lines[_direction],
+        checkInMinutes: checkIn,
+        departTime: _nowMinutes,
+        walkMinutes: _walkMinutes,
+      );
+      final wasteText = detail.hasTrain
+          ? '总浪费 ${detail.totalWaste} 分钟'
+                '（残差 ${detail.clockWaste} + 等车 ${detail.waitMinutes}）'
+          : '已无班次';
+      return '现在下班：$wasteText · $bandText';
+    }
+    final waste = BestClockOutPlanner.wasteMinutesOf(
+      BestClockOutPlanner.wasteFractionFromMinutes(_nowMinutes - checkIn),
+    );
     return '当前浪费 $waste 分钟（$bandText）';
   }
 
