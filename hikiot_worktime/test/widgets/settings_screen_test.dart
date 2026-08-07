@@ -29,7 +29,10 @@ void main() {
   }) async {
     useTallViewport(tester);
     await tester.pumpWidget(
-      MaterialApp(theme: AppTheme.light, home: SettingsScreen(apiClient: apiClient)),
+      MaterialApp(
+        theme: AppTheme.light,
+        home: SettingsScreen(apiClient: apiClient),
+      ),
     );
     await tester.pumpAndSettle();
   }
