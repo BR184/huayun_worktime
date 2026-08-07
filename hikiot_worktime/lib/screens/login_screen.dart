@@ -189,11 +189,18 @@ class _LoginScreenState extends State<LoginScreen> {
                 source: LoginWebviewPolicy.buildViewportFixScript(),
               );
 
-              // 检查是否是登录后的页面
-              if (url != null && !url.toString().contains('/login')) {
-                // 可能已经登录，尝试提取Token
+              // 整页加载完成后，非登录页可能已登录，尝试提取Token
+              if (LoginWebviewPolicy.shouldTryExtractToken(url)) {
                 await _tryExtractToken(controller);
               }
+            },
+            onUpdateVisitedHistory: (controller, url, isReload) {
+              // Hikiot 登录页为单页应用：登录成功、网页团队选择等是
+              // 客户端路由跳转，不触发 onLoadStop。这里在每次路由变化
+              // 时主动探测 Cookie，一旦出现 www_token 立即由 App 接管
+              // 团队选择，避免用户在网页里选一次、进 App 又选一次。
+              debugPrint('路由变化: ${url?.toString()}');
+              _tryExtractToken(controller);
             },
             onProgressChanged: (controller, progress) {
               setState(() {

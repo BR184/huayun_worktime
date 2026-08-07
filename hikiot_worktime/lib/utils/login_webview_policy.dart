@@ -84,4 +84,13 @@ class LoginWebviewPolicy {
       })();
     ''';
   }
+
+  /// 整页加载（onLoadStop）后是否尝试提取 token。
+  ///
+  /// 登录页本身（URL 含 /login）不提取；登录成功、团队选择、
+  /// 软件页面等非登录页加载完成后才尝试。
+  static bool shouldTryExtractToken(Uri? url) {
+    if (url == null) return false;
+    return !url.toString().contains('/login');
+  }
 }

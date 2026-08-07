@@ -90,4 +90,32 @@ void main() {
       );
     });
   });
+
+  group('LoginWebviewPolicy.shouldTryExtractToken', () {
+    test('skips extraction on login page loads', () {
+      expect(
+        LoginWebviewPolicy.shouldTryExtractToken(
+          Uri.parse('https://www.hikiot.com/portal/login'),
+        ),
+        isFalse,
+      );
+      expect(
+        LoginWebviewPolicy.shouldTryExtractToken(
+          Uri.parse('https://www.hikiot.com/portal/login#/sso'),
+        ),
+        isFalse,
+      );
+    });
+
+    test('extracts after login or on any non-login page', () {
+      expect(
+        LoginWebviewPolicy.shouldTryExtractToken(
+          Uri.parse('https://www.hikiot.com/portal/main'),
+        ),
+        isTrue,
+      );
+      // hash 路由仍带 /login 前缀时无法区分，交给 Cookie 探测兜底
+      expect(LoginWebviewPolicy.shouldTryExtractToken(null), isFalse);
+    });
+  });
 }
