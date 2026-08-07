@@ -5,17 +5,25 @@ import 'package:hikiot_worktime/utils/best_clockout_planner.dart';
 import 'package:hikiot_worktime/widgets/best_clock_out_timeline.dart';
 
 void main() {
-  testWidgets('柱子颜色按档位渲染：绿/黄/红', (tester) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        home: Scaffold(
-          body: BestClockOutTimeline(
-            bands: const [WasteBand.best, WasteBand.fair, WasteBand.poor],
-            minutes: 3,
-          ),
+  Widget buildTimeline({
+    List<WasteBand>? bands,
+    int viewMinutes = 60,
+    int? checkInMinutes,
+  }) {
+    return MaterialApp(
+      home: Scaffold(
+        body: BestClockOutTimeline(
+          bands:
+              bands ?? const [WasteBand.best, WasteBand.fair, WasteBand.poor],
+          checkInMinutes: checkInMinutes,
+          viewMinutes: viewMinutes,
         ),
       ),
     );
+  }
+
+  testWidgets('柱子颜色按档位渲染：绿/黄/红', (tester) async {
+    await tester.pumpWidget(buildTimeline());
 
     final containers = tester
         .widgetList<Container>(
@@ -25,7 +33,6 @@ void main() {
           ),
         )
         .toList();
-    // 3 根柱子 + 3 个图例圆点
     final barColors = containers
         .map((c) => c.decoration)
         .whereType<BoxDecoration>()
@@ -36,25 +43,52 @@ void main() {
     expect(barColors, contains(AppColors.error));
   });
 
-  testWidgets('柱子数量等于展示分钟数', (tester) async {
+  testWidgets('60 分钟视图标注现在/+30/+60 三个时间点', (tester) async {
+    await tester.pumpWidget(buildTimeline(viewMinutes: 60));
+
+    expect(find.textContaining('现在'), findsOneWidget);
+    expect(find.textContaining('+30 分钟'), findsOneWidget);
+    expect(find.textContaining('+60 分钟'), findsOneWidget);
+  });
+
+  testWidgets('连续绿色首柱显示最佳窗口标记', (tester) async {
     await tester.pumpWidget(
-      const MaterialApp(
-        home: Scaffold(
-          body: BestClockOutTimeline(
-            bands: [
-              WasteBand.best,
-              WasteBand.fair,
-              WasteBand.poor,
-              WasteBand.best,
-              WasteBand.fair,
-            ],
-            minutes: 5,
-          ),
-        ),
+      buildTimeline(
+        bands: const [
+          WasteBand.fair,
+          WasteBand.poor,
+          WasteBand.best,
+          WasteBand.best,
+          WasteBand.fair,
+        ],
       ),
     );
 
-    expect(find.byType(BestClockOutTimeline), findsOneWidget);
-    expect(find.text('未来下班档位'), findsOneWidget);
+    expect(find.textContaining('最佳窗口'), findsOneWidget);
+  });
+
+  testWidgets('点击柱子后提示框显示时间与原因', (tester) async {
+    await tester.pumpWidget(
+      buildTimeline(
+        bands: const [WasteBand.poor, WasteBand.fair, WasteBand.best],
+        viewMinutes: 3,
+        checkInMinutes: 8 * 60,
+      ),
+    );
+
+    // 点击最左侧第一根柱子（柱子区：顶部提示框 44 + 间距 6 之后）
+    final rect = tester.getRect(find.byType(BestClockOutTimeline));
+    await tester.tapAt(Offset(rect.left + 10, rect.top + 80));
+    await tester.pump();
+
+    expect(find.textContaining('下班：'), findsOneWidget);
+    expect(find.textContaining('别走'), findsOneWidget);
+  });
+
+  testWidgets('10 分钟视图显示倾斜时间标签', (tester) async {
+    await tester.pumpWidget(buildTimeline(viewMinutes: 10));
+
+    // 10 分钟视图的底部时间标签（HH:MM）
+    expect(find.textContaining(':'), findsWidgets);
   });
 }

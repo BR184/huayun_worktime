@@ -34,6 +34,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   int _direction = 0;
   bool _ready = false;
   Timer? _ticker;
+  int _timelineViewMinutes = 60; // 柱状图显示范围：10 或 60 分钟
 
   @override
   void initState() {
@@ -154,6 +155,9 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
+          // 实时时钟卡：当前时间（秒级走时）+ 打卡时间 + 现在下班的工时
+          _buildClockCard(),
+          const SizedBox(height: 16),
           // 当前状态
           BestClockOutEntry(
             status: _currentStatus(),
@@ -168,9 +172,36 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
           else
             _buildNoRecommendation(),
           const SizedBox(height: 16),
-          // 实时柱状图
+          // 实时柱状图（60 分钟全览，可切换 10 分钟视图）
           if (checkIn != null) ...[
-            BestClockOutTimeline(bands: _futureBands(12)),
+            Row(
+              children: [
+                const Text(
+                  '下班档位时间轴',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+                ),
+                const Spacer(),
+                SegmentedButton<int>(
+                  segments: const [
+                    ButtonSegment(value: 10, label: Text('10 分钟')),
+                    ButtonSegment(value: 60, label: Text('60 分钟')),
+                  ],
+                  selected: {_timelineViewMinutes},
+                  style: const ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                  ),
+                  onSelectionChanged: (selection) {
+                    setState(() => _timelineViewMinutes = selection.first);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            BestClockOutTimeline(
+              bands: _futureBands(60),
+              checkInMinutes: checkIn,
+              viewMinutes: _timelineViewMinutes,
+            ),
             const SizedBox(height: 16),
           ],
           // 功能说明
@@ -205,6 +236,86 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  /// 实时时钟卡：当前时间（秒级走时）+ 打卡时间 + 现在下班的工时
+  Widget _buildClockCard() {
+    final now = DateTime.now();
+    final checkIn = widget.checkInMinutes;
+    final current =
+        '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}:'
+        '${now.second.toString().padLeft(2, '0')}';
+    final checkInText = checkIn == null ? '--:--' : _minutesToText(checkIn);
+    final nowHours = checkIn == null
+        ? null
+        : WorkTimeCalculator.formatBillableHours(
+            (now.hour * 60 + now.minute - checkIn) / 60.0,
+          );
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: AppColors.surfaceRaised,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.access_time, size: 16, color: AppColors.primary),
+              const SizedBox(width: 6),
+              const Text(
+                '当前时间',
+                style: TextStyle(fontSize: 12, color: AppColors.textSecondary),
+              ),
+              const Spacer(),
+              Text(
+                current,
+                style: const TextStyle(
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.primaryDark,
+                  fontFeatures: [FontFeature.tabularFigures()],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _clockItem('上班打卡', checkInText)),
+              Container(width: 1, height: 28, color: AppColors.divider),
+              Expanded(
+                child: _clockItem('如果现在下班', nowHours ?? '--'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _clockItem(String label, String value) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontSize: 14,
+            fontWeight: FontWeight.w700,
+            color: AppColors.textPrimary,
+          ),
+        ),
+      ],
     );
   }
 
