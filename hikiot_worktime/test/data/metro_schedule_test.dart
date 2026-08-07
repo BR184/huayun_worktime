@@ -47,5 +47,18 @@ void main() {
       expect(west.nextTrainAfter(14 * 60 + 8), 14 * 60 + 8);
       expect(west.nextTrainAfter(23 * 60), isNull); // 已收班
     });
+
+    test('20:00 时方向①仍有车，方向③（8号线）已停运', () {
+      // 方向① 末班 22:51，20:00 下班仍有 20:10 班次
+      expect(
+        HanyuJinguMetro.lineWest.nextTrainAfter(20 * 60 + 7),
+        20 * 60 + 10,
+      );
+      // 方向③ 末班 19:58，20:00 后无车（用户提供的数据：贯通停运）
+      expect(
+        HanyuJinguMetro.lineEastThrough.nextTrainAfter(20 * 60 + 7),
+        isNull,
+      );
+    });
   });
 }

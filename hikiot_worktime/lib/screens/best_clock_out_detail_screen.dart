@@ -196,8 +196,12 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
           if (checkIn != null) ...[
             Row(
               children: [
-                const Text(
-                  '下班档位时间轴',
+                Text(
+                  _mode == CommuteMode.metro
+                      ? '下班档位时间轴 · '
+                            '${HanyuJinguMetro.lines[_direction].name}'
+                            '（末班 ${HanyuJinguMetro.lines[_direction].lastTime}）'
+                      : '下班档位时间轴',
                   style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
                 ),
                 const Spacer(),
@@ -355,7 +359,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
       final wasteText = detail.hasTrain
           ? '总浪费 ${detail.totalWaste} 分钟'
                 '（残差 ${detail.clockWaste} + 等车 ${detail.waitMinutes}）'
-          : '已无班次';
+          : '该方向末班 ${HanyuJinguMetro.lines[_direction].lastTime} 已过';
       return '现在下班：$wasteText · $bandText';
     }
     final waste = BestClockOutPlanner.wasteMinutesOf(
@@ -472,7 +476,9 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
       nowMinutes: _nowMinutes,
       walkMinutes: _walkMinutes,
     );
-    if (plan == null) return '今日已无剩余班次';
+    if (plan == null) {
+      return '该方向末班 ${HanyuJinguMetro.lines[_direction].lastTime} 已过';
+    }
     final bandText = switch (plan.band) {
       WasteBand.best => '最佳',
       WasteBand.fair => '一般',
