@@ -115,7 +115,7 @@ class PunchReminderService {
           title: '下班打卡提醒',
           body: '今天还没有打下班卡，别忘了打卡！',
         );
-      } else if (workHours < 8) {
+      } else if (WorkTimeCalculator.billableHours(workHours) < 8) {
         // 已打卡但工时不足
         await notification.showNotification(
           id: 102,
@@ -253,7 +253,7 @@ class PunchReminderService {
           title: '下班打卡提醒 (3/3)',
           body: '今天还没有打下班卡，别忘了打卡！',
         );
-      } else if (workHours < 8.0) {
+      } else if (WorkTimeCalculator.billableHours(workHours) < 8.0) {
         await notification.showNotification(
           id: 102,
           title: '下班打卡状态 (3/3)',
