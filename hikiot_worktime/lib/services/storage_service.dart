@@ -280,6 +280,12 @@ class StorageService {
     return prefs.getString(StorageKeys.commuteMode) ?? 'free';
   }
 
+  /// 是否已设置过通勤方式（用于首次进入弹初始化设置）
+  Future<bool> hasCommuteSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(StorageKeys.commuteMode) != null;
+  }
+
   Future<void> saveCommuteMetroDirection(int direction) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setInt(StorageKeys.commuteMetroDirection, direction);

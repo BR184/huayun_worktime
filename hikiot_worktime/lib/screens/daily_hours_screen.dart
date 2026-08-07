@@ -7,7 +7,6 @@ import '../core/theme/theme.dart';
 import '../services/daily_attendance_repository.dart';
 import '../services/storage_service.dart';
 import '../services/token_expired_service.dart';
-import '../data/metro_schedule.dart';
 import '../utils/work_time_calculator.dart';
 import '../utils/best_clockout_planner.dart';
 import '../utils/haptic_utils.dart';
@@ -1209,7 +1208,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     );
   }
 
-  /// 最佳下班时间入口（醒目横幅，仅今日显示）。
+  /// 最佳下班时间入口（醒目横幅，仅今日显示，内部实时刷新）。
   ///
   /// 颜色即状态：绿=现在下班最佳；琥珀=一般；红=浪费较多；灰=未打卡。
   /// 有打卡记录即按当前时刻计算（公司打卡机进出频繁，
@@ -1218,128 +1217,36 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     if (!_isToday()) return const SizedBox.shrink();
 
     final checkIn = _attendanceData?['checkInTime'] as String?;
-    if (checkIn == null || checkIn.isEmpty) {
-      return BestClockOutEntry(
-        status: BestClockOutStatus.unavailable,
-        title: '最佳下班时间',
-        subtitle: '打卡后为你推荐最合适的下班时刻',
-        onTap: () => _openBestClockOutDetail(
-          BestClockOutStatus.unavailable,
-          '最佳下班时间',
-          '打卡后为你推荐最合适的下班时刻',
-        ),
-      );
-    }
-
-    final checkInMinutes = WorkTimeCalculator.parseTimeToMinutes(checkIn);
-    if (checkInMinutes == null) return const SizedBox.shrink();
-
-    final now = DateTime.now();
-    final nowMinutes = now.hour * 60 + now.minute;
+    final checkInMinutes = checkIn == null || checkIn.isEmpty
+        ? null
+        : WorkTimeCalculator.parseTimeToMinutes(checkIn);
     final mode = CommuteMode.values.firstWhere(
       (m) => m.name == _commuteMode,
       orElse: () => CommuteMode.free,
     );
-    final elapsed = nowMinutes - checkInMinutes;
-    final fraction = WorkTimeCalculator.wastedFraction(elapsed / 60.0);
-    final waste = BestClockOutPlanner.wasteMinutesOf(fraction);
-    final band = BestClockOutPlanner.bandOf(fraction);
-    final (status, title, subtitle) = switch (mode) {
-      CommuteMode.free => (
-        _statusOf(band),
-        band == WasteBand.best ? '现在是最佳下班时间' : '现在下班浪费 $waste 分钟',
-        band == WasteBand.best
-            ? '工时接近整点，浪费仅 $waste 分钟'
-            : '等到整点再走可避免浪费',
-      ),
-      CommuteMode.metro => _metroBannerText(checkInMinutes, nowMinutes, band, waste),
-      CommuteMode.bus => (
-        BestClockOutStatus.unavailable,
-        '公交模式即将上线',
-        '先在详情页选择出行方式',
-      ),
-    };
 
-    return BestClockOutEntry(
-      status: status,
-      title: title,
-      subtitle: subtitle,
-      onTap: () => _openBestClockOutDetail(status, title, subtitle),
+    return BestClockOutBanner(
+      checkInMinutes: checkInMinutes,
+      mode: mode,
+      metroDirection: _commuteMetroDirection,
+      onTap: _openBestClockOutDetail,
     );
   }
 
   /// 打开最佳下班时间详情页，返回后刷新本地通勤设置
-  void _openBestClockOutDetail(
-    BestClockOutStatus status,
-    String title,
-    String subtitle,
-  ) {
+  void _openBestClockOutDetail() {
     HapticUtils.lightImpact();
     final checkIn = _attendanceData?['checkInTime'] as String?;
-    final checkInMinutes = checkIn == null
+    final checkInMinutes = checkIn == null || checkIn.isEmpty
         ? null
         : WorkTimeCalculator.parseTimeToMinutes(checkIn);
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => BestClockOutDetailScreen(
-          status: status,
-          title: title,
-          subtitle: subtitle,
-          checkInMinutes: checkInMinutes,
-        ),
+        builder: (_) =>
+            BestClockOutDetailScreen(checkInMinutes: checkInMinutes),
       ),
     ).then((_) => _reloadCommuteMode());
-  }
-
-  /// 档位映射为入口状态色
-  BestClockOutStatus _statusOf(WasteBand band) {
-    return switch (band) {
-      WasteBand.best => BestClockOutStatus.optimal,
-      WasteBand.fair => BestClockOutStatus.approaching,
-      WasteBand.poor => BestClockOutStatus.poor,
-    };
-  }
-
-  /// 地铁模式的横幅文案：现在下班能否赶上最近班次 + 残差分档
-  (BestClockOutStatus, String, String) _metroBannerText(
-    int checkInMinutes,
-    int nowMinutes,
-    WasteBand band,
-    double waste,
-  ) {
-    final line = HanyuJinguMetro.lines[_commuteMetroDirection];
-    final catchPlan = BestClockOutPlanner.currentMetroCatch(
-      line: line,
-      checkInMinutes: checkInMinutes,
-      nowMinutes: nowMinutes,
-    );
-    final trainText = catchPlan == null
-        ? '已无班次'
-        : '下一班 ${_formatMinutes(catchPlan.trainTime)}';
-    return switch (band) {
-      WasteBand.best => (
-        BestClockOutStatus.optimal,
-        '现在下班正合适',
-        '$trainText · 浪费仅 $waste 分钟',
-      ),
-      WasteBand.fair => (
-        BestClockOutStatus.approaching,
-        '现在下班浪费 $waste 分钟',
-        '$trainText · 建议等整点时刻',
-      ),
-      WasteBand.poor => (
-        BestClockOutStatus.poor,
-        '现在下班浪费 $waste 分钟',
-        '$trainText · 等整点再走更划算',
-      ),
-    };
-  }
-
-  /// 第几分钟 → HH:mm
-  String _formatMinutes(int minutes) {
-    return '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
-        '${(minutes % 60).toString().padLeft(2, '0')}';
   }
 
   /// 构建历史统计信息(用于过去的日期)

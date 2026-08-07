@@ -1,6 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
+import '../data/metro_schedule.dart';
+import '../utils/best_clockout_planner.dart';
+import '../utils/work_time_calculator.dart';
 
 /// 最佳下班时间入口的状态：颜色即状态。
 ///
@@ -119,5 +124,136 @@ class BestClockOutEntry extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// 每日页"最佳下班时间"实时横幅。
+///
+/// 独立 Timer 每秒刷新，用户对时间敏感：状态颜色与文案
+/// 随时钟推进实时更新（分钟级变化，秒级驱动重绘）。
+class BestClockOutBanner extends StatefulWidget {
+  const BestClockOutBanner({
+    super.key,
+    required this.checkInMinutes,
+    required this.mode,
+    required this.metroDirection,
+    required this.onTap,
+  });
+
+  /// 今日首次打卡分钟数；null = 未打卡
+  final int? checkInMinutes;
+
+  final CommuteMode mode;
+  final int metroDirection;
+  final VoidCallback onTap;
+
+  @override
+  State<BestClockOutBanner> createState() => _BestClockOutBannerState();
+}
+
+class _BestClockOutBannerState extends State<BestClockOutBanner> {
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    // 每秒刷新，保证时间敏感信息实时可见
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted) setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final checkIn = widget.checkInMinutes;
+    if (checkIn == null) {
+      return BestClockOutEntry(
+        status: BestClockOutStatus.unavailable,
+        title: '最佳下班时间',
+        subtitle: '打卡后为你推荐最合适的下班时刻',
+        onTap: widget.onTap,
+      );
+    }
+
+    final now = DateTime.now();
+    final nowMinutes = now.hour * 60 + now.minute;
+    final elapsed = nowMinutes - checkIn;
+    final fraction = WorkTimeCalculator.wastedFraction(elapsed / 60.0);
+    final waste = BestClockOutPlanner.wasteMinutesOf(fraction);
+    final band = BestClockOutPlanner.bandOf(fraction);
+
+    final (status, title, subtitle) = switch (widget.mode) {
+      CommuteMode.free => (
+        _statusOf(band),
+        band == WasteBand.best ? '现在是最佳下班时间' : '现在下班浪费 $waste 分钟',
+        band == WasteBand.best ? '工时接近整点，浪费仅 $waste 分钟' : '等到整点再走可避免浪费',
+      ),
+      CommuteMode.metro => _metroBannerText(checkIn, nowMinutes, band, waste),
+      CommuteMode.bus => (
+        BestClockOutStatus.unavailable,
+        '公交模式即将上线',
+        '在设置中选择出行方式',
+      ),
+    };
+
+    return BestClockOutEntry(
+      status: status,
+      title: title,
+      subtitle: subtitle,
+      onTap: widget.onTap,
+    );
+  }
+
+  BestClockOutStatus _statusOf(WasteBand band) {
+    return switch (band) {
+      WasteBand.best => BestClockOutStatus.optimal,
+      WasteBand.fair => BestClockOutStatus.approaching,
+      WasteBand.poor => BestClockOutStatus.poor,
+    };
+  }
+
+  (BestClockOutStatus, String, String) _metroBannerText(
+    int checkInMinutes,
+    int nowMinutes,
+    WasteBand band,
+    double waste,
+  ) {
+    final line = HanyuJinguMetro.lines[widget.metroDirection];
+    final catchPlan = BestClockOutPlanner.currentMetroCatch(
+      line: line,
+      checkInMinutes: checkInMinutes,
+      nowMinutes: nowMinutes,
+    );
+    final trainText = catchPlan == null
+        ? '已无班次'
+        : '下一班 ${_formatMinutes(catchPlan.trainTime)}';
+    return switch (band) {
+      WasteBand.best => (
+        BestClockOutStatus.optimal,
+        '现在下班正合适',
+        '$trainText · 浪费仅 $waste 分钟',
+      ),
+      WasteBand.fair => (
+        BestClockOutStatus.approaching,
+        '现在下班浪费 $waste 分钟',
+        '$trainText · 建议等整点时刻',
+      ),
+      WasteBand.poor => (
+        BestClockOutStatus.poor,
+        '现在下班浪费 $waste 分钟',
+        '$trainText · 等整点再走更划算',
+      ),
+    };
+  }
+
+  String _formatMinutes(int minutes) {
+    return '${(minutes ~/ 60).toString().padLeft(2, '0')}:'
+        '${(minutes % 60).toString().padLeft(2, '0')}';
   }
 }
