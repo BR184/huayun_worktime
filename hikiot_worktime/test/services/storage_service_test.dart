@@ -22,14 +22,91 @@ void main() {
       expect(await storage.loadPersonNo(), 'person-1');
     });
 
-    test('does not overwrite person number when it is absent', () async {
+    test(
+      'clears person number when switching team without a new one',
+      () async {
+        final storage = StorageService();
+        await storage.saveTeamContext(teamNo: 'team-1', personNo: 'person-1');
+
+        // 切换团队但新团队没有 personNo 时，必须清除旧 personNo，
+        // 避免换账号后沿用旧账号的人员编号
+        await storage.saveTeamContext(teamNo: 'team-2');
+
+        expect(await storage.loadTeamNo(), 'team-2');
+        expect(await storage.loadPersonNo(), isNull);
+      },
+    );
+
+    test(
+      'clearAuthInfo wipes auth context but keeps global preferences',
+      () async {
+        final storage = StorageService();
+        // 认证上下文
+        await storage.saveToken('token-1');
+        await storage.saveUserName('张三');
+        await storage.saveTeamContext(
+          teamNo: 'team-1',
+          personNo: 'person-1',
+          teamName: '研发团队',
+        );
+        await storage.saveSelectedTeam('team-1');
+        // 全局偏好设置（登出后应保留）
+        await storage.saveMorningReminder(enabled: true, hour: 8, minute: 50);
+        await storage.saveBaseTarget(150);
+        await storage.saveHapticModeIndex(1);
+        await storage.saveSmartSort(false);
+
+        await storage.clearAuthInfo();
+
+        // 认证上下文全部清理（含 legacy key）
+        expect(await storage.loadToken(), isNull);
+        expect(await storage.loadUserName(), isNull);
+        expect(await storage.loadTeamNo(), isNull);
+        expect(await storage.loadPersonNo(), isNull);
+        expect(await storage.loadTeamName(), isNull);
+        expect(await storage.loadSelectedTeam(), isNull);
+        final prefs = await SharedPreferences.getInstance();
+        expect(prefs.getString('current_team_no'), isNull);
+        expect(prefs.getString('current_team_name'), isNull);
+        expect(prefs.getString('current_user_name'), isNull);
+        // 全局偏好设置未受影响
+        expect(await storage.loadBaseTarget(), 150);
+        expect(await storage.loadHapticModeIndex(), 1);
+        expect(await storage.loadSmartSort(), isFalse);
+        final reminder = await storage.loadReminderSettings();
+        expect(reminder.morningEnabled, isTrue);
+        expect(reminder.morningHour, 8);
+        expect(reminder.morningMinute, 50);
+      },
+    );
+
+    test('switching accounts does not leak old personNo or teamNo', () async {
       final storage = StorageService();
-      await storage.saveTeamContext(teamNo: 'team-1', personNo: 'person-1');
+      // 账号A：登录、选择团队
+      await storage.saveToken('token-a');
+      await storage.saveTeamContext(
+        teamNo: 'team-a',
+        personNo: 'person-a',
+        teamName: 'A团队',
+      );
+      await storage.saveSelectedTeam('team-a');
+      // 账号A登出
+      await storage.clearAuthInfo();
 
-      await storage.saveTeamContext(teamNo: 'team-2');
+      // 账号B：重新登录、初始化团队上下文
+      await storage.saveToken('token-b');
+      await storage.saveTeamContext(
+        teamNo: 'team-b',
+        personNo: 'person-b',
+        teamName: 'B团队',
+      );
 
-      expect(await storage.loadTeamNo(), 'team-2');
-      expect(await storage.loadPersonNo(), 'person-1');
+      // 新账号只能读到自己的上下文
+      expect(await storage.loadToken(), 'token-b');
+      expect(await storage.loadTeamNo(), 'team-b');
+      expect(await storage.loadPersonNo(), 'person-b');
+      expect(await storage.loadTeamName(), 'B团队');
+      expect(await storage.loadSelectedTeam(), isNull);
     });
   });
 

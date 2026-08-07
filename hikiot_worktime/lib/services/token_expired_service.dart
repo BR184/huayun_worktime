@@ -11,6 +11,14 @@ class TokenExpiredService {
   static bool _isShowingDialog = false;
 
   /// 检查错误是否是Token失效导致的
+  ///
+  /// 判定口径（与 HikiotApiClient 保持一致）：
+  /// - HTTP 401 与业务 code 999999 视为 token 失效（有实际观测依据）；
+  /// - HTTP 403 暂按 token 失效处理，来自现有实现的继承语义，
+  ///   仓库暂无正式接口契约证明其语义，若后续契约明确需同步调整
+  ///   [hikiot_api_client.dart] 与此处两处判定；
+  /// - 网络异常、JSON 解析异常、普通业务错误（如业务 code 10001）
+  ///   一律不判定为 token 失效。
   static bool isTokenExpiredError(dynamic error) {
     if (error == null) return false;
 
@@ -21,7 +29,7 @@ class TokenExpiredService {
       return true;
     }
 
-    // 字符串匹配兼容
+    // 字符串匹配兼容（面向历史遗留的字符串异常传播路径，尽力而为）
     final errorStr = error.toString();
     final lower = errorStr.toLowerCase();
     if (lower.contains('tokenexpiredexception')) return true;
@@ -65,6 +73,8 @@ class TokenExpiredService {
   /// 显示Token失效对话框并引导用户重新登录
   /// 返回 true 如果用户选择重新登录，false 如果用户取消
   static Future<bool> showTokenExpiredDialog(BuildContext context) async {
+    // 页面销毁后不再弹框
+    if (!context.mounted) return false;
     // 防止重复弹出
     if (_isShowingDialog) return false;
     _isShowingDialog = true;

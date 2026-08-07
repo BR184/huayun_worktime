@@ -120,6 +120,32 @@ void main() {
       },
     );
 
+    test('reports missing person number without touching the API', () async {
+      // 有 token 和团队，但缺少 personNo（如登出清理后的新账号）
+      final storage = StorageService();
+      await storage.saveToken('token-1');
+      await storage.saveTeamContext(teamNo: 'team-1');
+      var apiCalled = false;
+
+      final repository = DailyAttendanceRepository(
+        storage: storage,
+        loadDailyAttendance: (_, _, _) async {
+          apiCalled = true;
+          return _dailyResponse();
+        },
+      );
+
+      final result = await repository.load(
+        DateTime(2026, 6, 8),
+        workDate: DateTime(2026, 6, 8),
+      );
+
+      // 明确的 missingPersonNo 状态，不静默当空数据处理，也不误判成网络错误
+      expect(result.status, DailyAttendanceLoadStatus.missingPersonNo);
+      expect(apiCalled, isFalse);
+      expect(result.attendanceData, isNull);
+    });
+
     test(
       'saves and restores a manual day mark through the repository',
       () async {

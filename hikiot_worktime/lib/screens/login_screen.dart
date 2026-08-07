@@ -3,6 +3,7 @@ import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import '../core/theme/theme.dart';
 import '../services/session_service.dart';
 import '../services/storage_service.dart';
+import '../utils/login_token_extractor.dart';
 import 'main_screen.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -32,12 +33,28 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  /// 强制登出时先清理 Cookie；失败也不能阻塞进入登录页。
   Future<void> _clearCookiesFirst() async {
-    await SessionService.clearHikiotCookies();
+    var cleanupFailed = false;
+    try {
+      await SessionService.clearHikiotCookies();
+    } catch (e) {
+      // Cookie 清理失败不阻塞进入登录页，给出明确但不阻塞的提示
+      cleanupFailed = true;
+      debugPrint('强制登出清理 Cookie 失败: $e');
+    }
     if (mounted) {
       setState(() {
         _cookiesCleared = true;
       });
+      if (cleanupFailed) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('清理登录状态失败，若登录异常请手动清除浏览器数据'),
+            backgroundColor: AppColors.warning,
+          ),
+        );
+      }
     }
   }
 
@@ -239,48 +256,40 @@ class _LoginScreenState extends State<LoginScreen> {
 
   Future<void> _tryExtractToken(InAppWebViewController controller) async {
     try {
-      // 注入JavaScript提取Cookie中的Token
-      String js = '''
+      // 注入JavaScript返回完整Cookie字符串，在Dart侧解析，
+      // 使提取/规范化逻辑可单测（见 LoginTokenExtractor）
+      const js = '''
         (function() {
-          var cookies = document.cookie.split(';');
-          var token = null;
-          for (var i = 0; i < cookies.length; i++) {
-            var cookie = cookies[i].trim();
-            if (cookie.startsWith('www_token=')) {
-              token = cookie.substring('www_token='.length);
-              break;
-            }
-          }
-          return token;
+          return document.cookie;
         })();
       ''';
 
-      final token = _normalizeExtractedToken(
-        await controller.evaluateJavascript(source: js),
+      final rawCookie = await controller.evaluateJavascript(source: js);
+      final token = LoginTokenExtractor.normalizeExtractedToken(
+        LoginTokenExtractor.extractWwwTokenFromCookieString(
+          rawCookie?.toString() ?? '',
+        ),
       );
 
       if (token != null) {
         await _saveTokenAndNavigate(token);
       }
     } catch (e) {
-      // 提取Token失败
+      // 提取失败保持可恢复：页面仍可通过刷新/重登重试
+      debugPrint('提取登录 token 失败: $e');
     }
-  }
-
-  String? _normalizeExtractedToken(Object? result) {
-    final token = result?.toString().trim();
-    if (token == null || token.isEmpty || token.toLowerCase() == 'null') {
-      return null;
-    }
-    return token;
   }
 
   Future<void> _saveTokenAndNavigate(String token) async {
+    // 防止重复回调导致重复保存/重复导航
     if (_isSavingToken || !mounted) return;
+    if (token.isEmpty) return;
     _isSavingToken = true;
 
     try {
       // 保存Token到本地
+      // 不做 account/detail 预验证：会引入阻塞请求并改变现有启动流程；
+      // 无效 token 会由主流程的 TokenExpiredService 失效处理兜底。
       await StorageService().saveToken(token);
 
       // 显示成功提示

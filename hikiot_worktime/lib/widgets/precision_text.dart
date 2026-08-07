@@ -30,9 +30,9 @@ class PrecisionText extends StatelessWidget {
     final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
     final displayData = data.contains('%')
         ? data.replaceFirstMapped(
-        RegExp(r'(-?\d+\.\d{2})(?=%)'),
-        (match) => match.group(1)!.substring(0, match.group(1)!.length - 1),
-      )
+            RegExp(r'(-?\d+\.\d{2})(?=%)'),
+            (match) => match.group(1)!.substring(0, match.group(1)!.length - 1),
+          )
         : data;
     return Text.rich(
       TextSpan(children: _buildSpans(effectiveStyle, displayData)),

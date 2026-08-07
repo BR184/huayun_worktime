@@ -162,6 +162,10 @@ class StorageService {
     return userName;
   }
 
+  /// 保存当前团队上下文。
+  ///
+  /// personNo 属于团队认证上下文，与当前团队强绑定：没有新值时必须清除
+  /// 旧值，否则换账号/切团队后会把旧账号的 personNo 当成新账号的。
   Future<void> saveTeamContext({
     required String teamNo,
     String? personNo,
@@ -170,8 +174,10 @@ class StorageService {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(StorageKeys.teamNo, teamNo);
     await prefs.setString(_legacyCurrentTeamNo, teamNo);
-    if (personNo != null) {
+    if (personNo != null && personNo.isNotEmpty) {
       await prefs.setString(StorageKeys.personNo, personNo);
+    } else {
+      await prefs.remove(StorageKeys.personNo);
     }
     if (teamName != null && teamName.isNotEmpty) {
       await prefs.setString(StorageKeys.teamName, teamName);
@@ -208,11 +214,22 @@ class StorageService {
     return prefs.getString(StorageKeys.personNo);
   }
 
+  /// 清理全部认证上下文：token、用户名、团队、人员编号及 legacy key。
+  ///
+  /// 只清理"当前是谁"相关的键，保留全局用户偏好设置（午休、目标、
+  /// 震动模式、提醒开关等）。月度缓存与日历手动标记按 teamNo 分键，
+  /// 登出后新账号使用自己的 teamNo 读取，不会串号，因此保留。
   Future<void> clearAuthInfo() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.remove(StorageKeys.token);
     await prefs.remove(StorageKeys.userName);
     await prefs.remove(_legacyCurrentUserName);
+    await prefs.remove(StorageKeys.teamNo);
+    await prefs.remove(_legacyCurrentTeamNo);
+    await prefs.remove(StorageKeys.teamName);
+    await prefs.remove(_legacyCurrentTeamName);
+    await prefs.remove(StorageKeys.personNo);
+    await prefs.remove(StorageKeys.selectedTeam);
   }
 
   Future<void> saveOnboardingCompleted(bool completed) async {

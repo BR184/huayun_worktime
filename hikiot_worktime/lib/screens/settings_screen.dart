@@ -10,6 +10,7 @@ import '../services/notification_service.dart';
 import '../services/reminder_coordinator.dart';
 import '../services/settings_repository.dart';
 import '../services/team_context_service.dart';
+import '../services/token_expired_service.dart';
 import '../core/theme/app_colors.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
@@ -22,7 +23,10 @@ import 'feature_guide_page.dart';
 
 /// 设置页面
 class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({super.key});
+  /// 可注入的 API 客户端（测试用）；为 null 时从本地 token 创建。
+  final HikiotApiClient? apiClient;
+
+  const SettingsScreen({super.key, this.apiClient});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -110,10 +114,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _teamNo = snapshot.teamNo;
       _teamName = snapshot.teamName;
 
-      // 初始化 API 客户端
-      final token = snapshot.token;
-      if (token != null && token.isNotEmpty) {
-        _apiClient = HikiotApiClient(token: token);
+      // 初始化 API 客户端（测试注入优先，否则从本地 token 创建）
+      _apiClient = widget.apiClient;
+      if (_apiClient == null) {
+        final token = snapshot.token;
+        if (token != null && token.isNotEmpty) {
+          _apiClient = HikiotApiClient(token: token);
+        }
       }
     } catch (e) {
       // 忽略加载设置失败
@@ -772,8 +779,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     onPressed: _showPermissionGuide,
                     icon: const Icon(Icons.settings_suggest, size: 18),
                     label: const Text('权限设置'),
+                    // 显式声明主色，保证边框、文字、图标与主题一致
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 10),
+                      foregroundColor: AppColors.primary,
+                      side: const BorderSide(color: AppColors.primary),
                     ),
                   ),
                 ),
@@ -795,6 +805,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
               ],
             ),
+            if (!_morningReminderEnabled && !_eveningReminderEnabled) ...[
+              const SizedBox(height: 8),
+              // 禁用时给出明确辅助说明，避免误以为功能损坏
+              Row(
+                children: [
+                  Icon(Icons.info_outline, size: 14, color: Colors.grey[500]),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      '请先开启上班或下班提醒，再测试提醒是否生效',
+                      style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+                    ),
+                  ),
+                ],
+              ),
+            ],
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(10),
@@ -1884,14 +1910,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         (route) => false,
       );
     } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('切换团队失败: $e'),
-            backgroundColor: AppColors.error,
-          ),
-        );
+      if (!mounted) return;
+      // Token 失效统一走 TokenExpiredService 对话框和重新登录流程
+      if (TokenExpiredService.isTokenExpiredError(e)) {
+        await TokenExpiredService.handleTokenExpired(context);
+        return;
       }
+      // 非 token 错误显示普通错误和可恢复提示
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('切换团队失败: $e'), backgroundColor: AppColors.error),
+      );
     }
   }
 
@@ -1934,7 +1962,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (confirmed != true) return;
 
-    await _sessionService.logout();
+    try {
+      await _sessionService.logout();
+    } catch (e) {
+      // 登出失败也继续跳转登录页，不把用户卡在设置页
+      debugPrint('退出登录失败: $e');
+    }
 
     if (mounted) {
       // 跳转到登录页（使用 forceLogout 确保 WebView 也清除 cookies）

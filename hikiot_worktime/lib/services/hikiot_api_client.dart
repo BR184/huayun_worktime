@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:http/http.dart' as http;
@@ -13,11 +14,18 @@ class HikiotApiClient {
   static const String dailyAttendanceUrl = ApiConstants.dailyAttendanceUrl;
 
   final http.Client _httpClient;
+  final Duration _requestTimeout;
   String? _token;
 
-  HikiotApiClient({String? token, http.Client? httpClient})
-    : _token = token,
-      _httpClient = httpClient ?? http.Client();
+  HikiotApiClient({
+    String? token,
+    http.Client? httpClient,
+    Duration? requestTimeout,
+  }) : _token = token,
+       _httpClient = httpClient ?? http.Client(),
+       _requestTimeout =
+           requestTimeout ??
+           const Duration(seconds: ApiConstants.readTimeoutSeconds);
 
   void setToken(String token) {
     _token = token;
@@ -124,9 +132,16 @@ class HikiotApiClient {
     }
   }
 
+  /// 发送请求并应用统一的超时保护。
+  ///
+  /// 连接与读取共用 `_requestTimeout`（默认读取 ApiConstants 配置），
+  /// 超时转换为 [NetworkException.timeout]；超时不属于 token 失效，
+  /// 不会被 [TokenExpiredService.isTokenExpiredError] 误判。
   Future<http.Response> _send(Future<http.Response> Function() request) async {
     try {
-      return await request();
+      return await request().timeout(_requestTimeout);
+    } on TimeoutException {
+      throw NetworkException.timeout();
     } on AppException {
       rethrow;
     } catch (e) {
@@ -135,6 +150,8 @@ class HikiotApiClient {
   }
 
   Map<String, dynamic> _decodeResponse(http.Response response) {
+    // HTTP 401/403 按 token 失效处理（403 为现有继承语义，
+    // 仓库暂无正式契约证明其含义，与 TokenExpiredService 保持口径一致）。
     if (response.statusCode == 401 || response.statusCode == 403) {
       throw const TokenExpiredException('未授权访问');
     }

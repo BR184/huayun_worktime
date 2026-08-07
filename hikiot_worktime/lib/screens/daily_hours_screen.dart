@@ -34,6 +34,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
   Map<String, dynamic>? _dayData;
   Map<String, dynamic>? _attendanceData;
   bool _isLoading = false;
+  String? _loadError; // 加载失败提示（如缺少员工编号），非空时显示错误视图
   String? _teamNo;
   Map<String, String> _holidayPlan = {}; // 节假日计划
   bool _useCheckInTime = true; // 默认使用打卡时间计算
@@ -180,9 +181,20 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       _holidayPlan = result.holidayPlan;
       _dayData = result.dayData.isEmpty ? null : result.dayData;
       _attendanceData = result.attendanceData;
+      _loadError = null;
 
       if (result.status == DailyAttendanceLoadStatus.missingToken) {
         await TokenExpiredService.handleTokenExpired(context);
+        return;
+      }
+
+      if (result.status == DailyAttendanceLoadStatus.missingPersonNo) {
+        // 缺少员工编号：不能静默显示空工时，需重新登录初始化团队上下文
+        setState(() {
+          _loadError = '未找到员工编号，团队上下文可能已失效，请重新登录';
+          _dayData = null;
+          _attendanceData = null;
+        });
         return;
       }
 
@@ -467,6 +479,8 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
           ),
           body: _isLoading
               ? const Center(child: CircularProgressIndicator())
+              : _loadError != null
+              ? _buildLoadErrorView()
               : HapticRefreshIndicator(
                   onRefresh: () async {
                     _isUserPullRefresh = true; // 标记为用户主动下拉
@@ -499,6 +513,51 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         // 新手引导覆盖层
         if (_showOnboarding) PullRefreshGuide(onCompleted: _completeOnboarding),
       ],
+    );
+  }
+
+  /// 加载失败视图（如缺少员工编号），提供重试与重新登录入口
+  Widget _buildLoadErrorView() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: AppColors.error),
+            const SizedBox(height: 12),
+            Text(
+              _loadError!,
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                fontSize: 14,
+                color: AppColors.textSecondary,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                OutlinedButton.icon(
+                  onPressed: () {
+                    setState(() => _loadError = null);
+                    _loadDailyData();
+                  },
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('重试'),
+                ),
+                const SizedBox(width: 12),
+                FilledButton.icon(
+                  onPressed: () =>
+                      TokenExpiredService.performLogoutAndNavigate(context),
+                  icon: const Icon(Icons.login),
+                  label: const Text('重新登录'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
     );
   }
 
