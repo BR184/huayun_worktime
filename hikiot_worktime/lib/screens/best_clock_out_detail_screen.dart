@@ -32,6 +32,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   final StorageService _storage = StorageService();
   CommuteMode _mode = CommuteMode.free;
   int _direction = 0;
+  int _walkMinutes = metroWalkMinutes;
   bool _ready = false;
   Timer? _ticker;
   int _timelineViewMinutes = 60; // 柱状图显示范围：10 或 60 分钟
@@ -55,6 +56,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   Future<void> _init() async {
     final modeName = await _storage.loadCommuteMode();
     final direction = await _storage.loadCommuteMetroDirection();
+    final walkMinutes = await _storage.loadCommuteMetroWalkMinutes();
     if (!mounted) return;
     setState(() {
       _mode = CommuteMode.values.firstWhere(
@@ -62,6 +64,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
         orElse: () => CommuteMode.free,
       );
       _direction = direction;
+      _walkMinutes = walkMinutes;
       _ready = true;
     });
 
@@ -76,6 +79,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   Future<void> _reloadSettings() async {
     final modeName = await _storage.loadCommuteMode();
     final direction = await _storage.loadCommuteMetroDirection();
+    final walkMinutes = await _storage.loadCommuteMetroWalkMinutes();
     if (mounted) {
       setState(() {
         _mode = CommuteMode.values.firstWhere(
@@ -83,6 +87,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
           orElse: () => CommuteMode.free,
         );
         _direction = direction;
+        _walkMinutes = walkMinutes;
       });
     }
   }
@@ -110,6 +115,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
         line: HanyuJinguMetro.lines[_direction],
         checkInMinutes: checkIn,
         nowMinutes: _nowMinutes,
+        walkMinutes: _walkMinutes,
       )?.departTime,
       CommuteMode.bus => null,
     };
@@ -408,6 +414,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
       line: HanyuJinguMetro.lines[_direction],
       checkInMinutes: widget.checkInMinutes!,
       nowMinutes: _nowMinutes,
+      walkMinutes: _walkMinutes,
     );
     if (plan == null) return '今日已无剩余班次';
     final bandText = switch (plan.band) {

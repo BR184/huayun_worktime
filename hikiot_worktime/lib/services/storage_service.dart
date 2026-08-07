@@ -296,6 +296,21 @@ class StorageService {
     return prefs.getInt(StorageKeys.commuteMetroDirection) ?? 0;
   }
 
+  Future<void> saveCommuteMetroWalkMinutes(int minutes) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(
+      StorageKeys.commuteMetroWalkMinutes,
+      minutes.clamp(4, 10),
+    );
+  }
+
+  /// 到地铁站步行分钟，默认 7，范围 4~10
+  Future<int> loadCommuteMetroWalkMinutes() async {
+    final prefs = await SharedPreferences.getInstance();
+    final value = prefs.getInt(StorageKeys.commuteMetroWalkMinutes) ?? 7;
+    return value.clamp(4, 10);
+  }
+
   Future<void> saveCalendarMarks(
     String teamNo,
     Map<String, Map<String, dynamic>> marks,

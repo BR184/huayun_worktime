@@ -137,6 +137,7 @@ class BestClockOutBanner extends StatefulWidget {
     required this.checkInMinutes,
     required this.mode,
     required this.metroDirection,
+    required this.metroWalkMinutes,
     required this.onTap,
   });
 
@@ -145,6 +146,10 @@ class BestClockOutBanner extends StatefulWidget {
 
   final CommuteMode mode;
   final int metroDirection;
+
+  /// 到地铁站步行分钟（设置中可调，默认 7）
+  final int metroWalkMinutes;
+
   final VoidCallback onTap;
 
   @override
@@ -229,6 +234,7 @@ class _BestClockOutBannerState extends State<BestClockOutBanner> {
       line: line,
       checkInMinutes: checkInMinutes,
       nowMinutes: nowMinutes,
+      walkMinutes: widget.metroWalkMinutes,
     );
     final trainText = catchPlan == null
         ? '已无班次'

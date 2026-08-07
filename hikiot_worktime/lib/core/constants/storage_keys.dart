@@ -84,6 +84,9 @@ class StorageKeys {
   /// 地铁方向下标（对应 MetroSchedule.lines 顺序）
   static const String commuteMetroDirection = 'commute_metro_direction';
 
+  /// 到地铁站步行分钟（默认 7，范围 4~10）
+  static const String commuteMetroWalkMinutes = 'commute_metro_walk_minutes';
+
   // ============ 引导相关 ============
   /// 新手引导完成标记
   static const String onboardingCompleted = 'onboarding_completed';

@@ -370,5 +370,21 @@ void main() {
       await storage.saveCommuteMetroDirection(2);
       expect(await storage.loadCommuteMetroDirection(), 2);
     });
+
+    test('saves and loads metro walk minutes clamped to 4~10', () async {
+      final storage = StorageService();
+
+      // 默认 7 分钟
+      expect(await storage.loadCommuteMetroWalkMinutes(), 7);
+
+      await storage.saveCommuteMetroWalkMinutes(9);
+      expect(await storage.loadCommuteMetroWalkMinutes(), 9);
+
+      // 越界值被收敛到范围
+      await storage.saveCommuteMetroWalkMinutes(3);
+      expect(await storage.loadCommuteMetroWalkMinutes(), 4);
+      await storage.saveCommuteMetroWalkMinutes(15);
+      expect(await storage.loadCommuteMetroWalkMinutes(), 10);
+    });
   });
 }

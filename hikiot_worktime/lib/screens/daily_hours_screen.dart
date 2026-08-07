@@ -48,15 +48,18 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
   bool _isUserPullRefresh = false; // 是否是用户主动下拉刷新
   String _commuteMode = 'free'; // 通勤方式（free/metro/bus）
   int _commuteMetroDirection = 0; // 地铁方向下标
+  int _commuteMetroWalkMinutes = 7; // 到地铁站步行分钟
 
-  /// 加载通勤设置（出行方式 + 地铁方向）
+  /// 加载通勤设置（出行方式 + 地铁方向 + 步行分钟）
   Future<void> _loadCommuteSettings() async {
     final mode = await _storage.loadCommuteMode();
     final direction = await _storage.loadCommuteMetroDirection();
+    final walkMinutes = await _storage.loadCommuteMetroWalkMinutes();
     if (mounted) {
       setState(() {
         _commuteMode = mode;
         _commuteMetroDirection = direction;
+        _commuteMetroWalkMinutes = walkMinutes;
       });
     }
   }
@@ -1229,6 +1232,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       checkInMinutes: checkInMinutes,
       mode: mode,
       metroDirection: _commuteMetroDirection,
+      metroWalkMinutes: _commuteMetroWalkMinutes,
       onTap: _openBestClockOutDetail,
     );
   }

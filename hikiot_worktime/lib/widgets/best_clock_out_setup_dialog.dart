@@ -31,6 +31,7 @@ class _BestClockOutSetupDialogState extends State<BestClockOutSetupDialog> {
   final StorageService _storage = StorageService();
   CommuteMode _mode = CommuteMode.free;
   int _direction = 0;
+  int _walkMinutes = 7;
 
   @override
   void initState() {
@@ -42,6 +43,7 @@ class _BestClockOutSetupDialogState extends State<BestClockOutSetupDialog> {
   Future<void> _loadCurrent() async {
     final modeName = await _storage.loadCommuteMode();
     final direction = await _storage.loadCommuteMetroDirection();
+    final walkMinutes = await _storage.loadCommuteMetroWalkMinutes();
     if (mounted) {
       setState(() {
         _mode = CommuteMode.values.firstWhere(
@@ -49,6 +51,7 @@ class _BestClockOutSetupDialogState extends State<BestClockOutSetupDialog> {
           orElse: () => CommuteMode.free,
         );
         _direction = direction;
+        _walkMinutes = walkMinutes;
       });
     }
   }
@@ -56,6 +59,7 @@ class _BestClockOutSetupDialogState extends State<BestClockOutSetupDialog> {
   Future<void> _save() async {
     await _storage.saveCommuteMode(_mode.name);
     await _storage.saveCommuteMetroDirection(_direction);
+    await _storage.saveCommuteMetroWalkMinutes(_walkMinutes);
   }
 
   @override
@@ -102,7 +106,7 @@ class _BestClockOutSetupDialogState extends State<BestClockOutSetupDialog> {
             _mode == CommuteMode.free
                 ? '开车/骑车下班，按工时凑整推荐时刻'
                 : _mode == CommuteMode.metro
-                ? '按汉峪金谷站地铁时刻表推荐（需提前 6 分钟到站）'
+                ? '按汉峪金谷站地铁时刻表推荐（需提前 $_walkMinutes 分钟到站）'
                 : '公交模式即将上线',
             style: const TextStyle(
               fontSize: 12,
@@ -130,6 +134,50 @@ class _BestClockOutSetupDialogState extends State<BestClockOutSetupDialog> {
                     onSelected: (_) => setState(() => _direction = i),
                   ),
               ],
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              '到站步行时长',
+              style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                const Text(
+                  '慢',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+                Expanded(
+                  child: Slider(
+                    value: _walkMinutes.toDouble(),
+                    min: 4,
+                    max: 10,
+                    divisions: 6,
+                    label: '$_walkMinutes 分钟',
+                    activeColor: AppColors.primary,
+                    onChanged: (value) {
+                      setState(() => _walkMinutes = value.round());
+                    },
+                  ),
+                ),
+                const Text(
+                  '快',
+                  style: TextStyle(
+                    fontSize: 11,
+                    color: AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+            Text(
+              '当前 $_walkMinutes 分钟（推荐 7 分钟）',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
             ),
           ],
         ],

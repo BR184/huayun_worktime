@@ -21,8 +21,8 @@ enum CommuteMode {
 /// - poor：0.06~0.09，浪费 3.6~5.4 分钟
 enum WasteBand { best, fair, poor }
 
-/// 到达地铁站所需步行分钟（公司门口到站台）。
-const int metroWalkMinutes = 6;
+/// 到达地铁站所需步行分钟默认值（公司门口到站台，用户可在设置中调整）。
+const int metroWalkMinutes = 7;
 
 /// 地铁模式候选班次的评估结果。
 class MetroPlan {
@@ -89,17 +89,18 @@ class BestClockOutPlanner {
 
   /// 地铁模式：评估全部剩余候选班次，返回性价比最高者。
   ///
-  /// 候选 = 今天剩余班次中，下班时刻（班次 - 6 分钟）不早于现在。
+  /// 候选 = 今天剩余班次中，下班时刻（班次 - 步行分钟）不早于现在。
   /// 得分 = 工时浪费分钟 + 等待分钟；同得分取残差更小者。
   static MetroPlan? bestMetroPlan({
     required MetroLine line,
     required int checkInMinutes,
     required int nowMinutes,
+    int walkMinutes = metroWalkMinutes,
   }) {
     final times = line.times();
     MetroPlan? best;
     for (final trainTime in times) {
-      final departTime = trainTime - metroWalkMinutes;
+      final departTime = trainTime - walkMinutes;
       if (departTime < nowMinutes) continue;
       final elapsed = departTime - checkInMinutes;
       final hours = elapsed / 60.0;
@@ -129,10 +130,11 @@ class BestClockOutPlanner {
     required MetroLine line,
     required int checkInMinutes,
     required int nowMinutes,
+    int walkMinutes = metroWalkMinutes,
   }) {
-    final trainTime = line.nextTrainAfter(nowMinutes + metroWalkMinutes);
+    final trainTime = line.nextTrainAfter(nowMinutes + walkMinutes);
     if (trainTime == null) return null;
-    final departTime = trainTime - metroWalkMinutes;
+    final departTime = trainTime - walkMinutes;
     final elapsed = departTime - checkInMinutes;
     final hours = elapsed / 60.0;
     final fraction = WorkTimeCalculator.wastedFraction(hours);
