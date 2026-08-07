@@ -77,6 +77,13 @@ class StorageKeys {
   /// 下班提醒时间
   static const String eveningReminderTime = 'evening_reminder_time';
 
+  // ============ 通勤设置 ============
+  /// 通勤出行方式（free/metro/bus）
+  static const String commuteMode = 'commute_mode';
+
+  /// 地铁方向下标（对应 MetroSchedule.lines 顺序）
+  static const String commuteMetroDirection = 'commute_metro_direction';
+
   // ============ 引导相关 ============
   /// 新手引导完成标记
   static const String onboardingCompleted = 'onboarding_completed';

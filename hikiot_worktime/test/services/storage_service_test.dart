@@ -349,5 +349,26 @@ void main() {
       final prefs = await SharedPreferences.getInstance();
       expect(prefs.getInt(StorageKeys.hapticMode), 2);
     });
+
+    test('saves and loads commute mode with free default', () async {
+      final storage = StorageService();
+
+      // 默认自由出行
+      expect(await storage.loadCommuteMode(), 'free');
+
+      await storage.saveCommuteMode('metro');
+      expect(await storage.loadCommuteMode(), 'metro');
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getString(StorageKeys.commuteMode), 'metro');
+    });
+
+    test('saves and loads metro direction with index zero default', () async {
+      final storage = StorageService();
+
+      expect(await storage.loadCommuteMetroDirection(), 0);
+
+      await storage.saveCommuteMetroDirection(2);
+      expect(await storage.loadCommuteMetroDirection(), 2);
+    });
   });
 }

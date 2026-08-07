@@ -4,17 +4,21 @@ import '../core/theme/app_colors.dart';
 
 /// 最佳下班时间入口的状态：颜色即状态。
 ///
-/// - [BestClockOutStatus.optimal]：现在就是最佳下班时间（绿色）
-/// - [BestClockOutStatus.approaching]：接近但还没到，显示建议时刻（琥珀色）
-/// - [BestClockOutStatus.unavailable]：暂不可用（未打卡/已下班）（灰色）
+/// - [BestClockOutStatus.optimal]：现在是最佳下班时间（绿色）
+/// - [BestClockOutStatus.approaching]：接近但还没到（琥珀色）
+/// - [BestClockOutStatus.poor]：现在下班浪费较多（红色）
+/// - [BestClockOutStatus.unavailable]：暂不可用（未打卡）（灰色）
 enum BestClockOutStatus {
   /// 现在是最佳下班时间
   optimal,
 
-  /// 接近最佳，显示建议下班时刻
+  /// 接近最佳
   approaching,
 
-  /// 暂不可用：未打卡或已下班
+  /// 现在下班浪费较多
+  poor,
+
+  /// 暂不可用：未打卡
   unavailable,
 }
 
@@ -53,6 +57,11 @@ class BestClockOutEntry extends StatelessWidget {
         AppColors.warning,
         AppColors.warningLight,
         Icons.schedule,
+      ),
+      BestClockOutStatus.poor => (
+        AppColors.error,
+        AppColors.errorLight,
+        Icons.error_outline,
       ),
       BestClockOutStatus.unavailable => (
         AppColors.textSecondary,

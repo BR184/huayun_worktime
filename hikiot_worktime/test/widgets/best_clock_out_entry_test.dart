@@ -49,6 +49,14 @@ void main() {
     expect(icon.color, AppColors.textSecondary);
   });
 
+  testWidgets('poor state renders red with error icon', (tester) async {
+    await tester.pumpWidget(buildEntry(BestClockOutStatus.poor));
+
+    expect(find.byIcon(Icons.error_outline), findsOneWidget);
+    final icon = tester.widget<Icon>(find.byIcon(Icons.error_outline));
+    expect(icon.color, AppColors.error);
+  });
+
   testWidgets('tapping the entry triggers onTap', (tester) async {
     var tapped = 0;
     await tester.pumpWidget(

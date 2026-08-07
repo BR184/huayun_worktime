@@ -269,6 +269,27 @@ class StorageService {
     return prefs.getString(StorageKeys.selectedTeam);
   }
 
+  Future<void> saveCommuteMode(String mode) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString(StorageKeys.commuteMode, mode);
+  }
+
+  /// 默认自由出行
+  Future<String> loadCommuteMode() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString(StorageKeys.commuteMode) ?? 'free';
+  }
+
+  Future<void> saveCommuteMetroDirection(int direction) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt(StorageKeys.commuteMetroDirection, direction);
+  }
+
+  Future<int> loadCommuteMetroDirection() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getInt(StorageKeys.commuteMetroDirection) ?? 0;
+  }
+
   Future<void> saveCalendarMarks(
     String teamNo,
     Map<String, Map<String, dynamic>> marks,
