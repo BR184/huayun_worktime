@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -19,11 +21,17 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
+  /// Cookie 探测间隔：Hikiot 登录页为 SPA，登录成功后由网页 JS 写
+  /// www_token cookie 并客户端路由跳转，Android WebView 不触发
+  /// 页面加载/历史回调，只能靠轮询接管。
+  static const Duration _tokenProbeInterval = Duration(seconds: 1);
+
   InAppWebViewController? webViewController;
   double progress = 0;
   bool isLoading = true;
   bool _cookiesCleared = false;
   bool _isSavingToken = false;
+  Timer? _tokenProbeTimer;
 
   @override
   void initState() {
@@ -33,6 +41,25 @@ class _LoginScreenState extends State<LoginScreen> {
     } else {
       _cookiesCleared = true;
     }
+    _startTokenProbe();
+  }
+
+  /// 轮询探测登录 Cookie：一旦出现 www_token 立即由 App 接管
+  /// （跳转主框架并用原生对话框选团队），避免用户在网页里
+  /// 选一次团队、进 App 又选一次。
+  void _startTokenProbe() {
+    _tokenProbeTimer?.cancel();
+    _tokenProbeTimer = Timer.periodic(_tokenProbeInterval, (_) async {
+      final controller = webViewController;
+      if (controller == null || _isSavingToken || !mounted) return;
+      await _tryExtractToken(controller);
+    });
+  }
+
+  @override
+  void dispose() {
+    _tokenProbeTimer?.cancel();
+    super.dispose();
   }
 
   /// 强制登出时先清理 Cookie；失败也不能阻塞进入登录页。
