@@ -24,10 +24,10 @@ enum WasteBand { best, fair, poor }
 /// 到达地铁站所需步行分钟默认值（公司门口到站台，用户可在设置中调整）。
 const int metroWalkMinutes = 7;
 
-/// 地铁模式总浪费分档阈值（与自由出行残差边界一致）：
-/// 残差 0.02 → 1.2 分钟、0.05 → 3 分钟。
-const double metroBestWasteMinutes = 1.2;
-const double metroFairWasteMinutes = 3.0;
+/// 全模式统一的总浪费分档阈值（分钟）：
+/// 绿 < 2 / 黄 2~4 / 红 > 4（绿色窗口过窄，放宽到 2 分钟）。
+const double bestWasteMinutes = 2.0;
+const double fairWasteMinutes = 4.0;
 
 /// 地铁模式某下班时刻的浪费明细（工时残差分钟 + 等车分钟）。
 class MetroWasteDetail {
@@ -91,11 +91,9 @@ class MetroPlan {
 class BestClockOutPlanner {
   BestClockOutPlanner._();
 
-  /// 百分位残差分档。
+  /// 百分位残差分档（委托分钟口径，全模式统一 <2 绿 / 2~4 黄 / >4 红）。
   static WasteBand bandOf(double fraction) {
-    if (fraction <= 0.02) return WasteBand.best;
-    if (fraction <= 0.05) return WasteBand.fair;
-    return WasteBand.poor;
+    return bandOfTotalWaste(wasteMinutesOf(fraction));
   }
 
   /// 从分钟数精确计算百分位残差（0.00~0.09）。
@@ -107,10 +105,10 @@ class BestClockOutPlanner {
     return (elapsedMinutes % 6) * 5 ~/ 3 / 100;
   }
 
-  /// 按总浪费分钟分档（与自由出行阈值一致：≤1.2 绿 / ≤3 黄 / >3 红）。
+  /// 按总浪费分钟分档（全模式统一：绿 <2 / 黄 2~4 / 红 >4）。
   static WasteBand bandOfTotalWaste(double totalWaste) {
-    if (totalWaste <= metroBestWasteMinutes) return WasteBand.best;
-    if (totalWaste <= metroFairWasteMinutes) return WasteBand.fair;
+    if (totalWaste < bestWasteMinutes) return WasteBand.best;
+    if (totalWaste <= fairWasteMinutes) return WasteBand.fair;
     return WasteBand.poor;
   }
 

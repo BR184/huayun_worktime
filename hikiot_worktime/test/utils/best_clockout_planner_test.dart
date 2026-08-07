@@ -4,13 +4,14 @@ import 'package:hikiot_worktime/utils/best_clockout_planner.dart';
 
 void main() {
   group('WasteBand 分档', () {
-    test('0.00~0.02 最佳，0.03~0.05 一般，0.06~0.09 较差', () {
+    test('全模式统一按浪费分钟分档：<2 绿 / 2~4 黄 / >4 红', () {
+      // 残差 0.02=1.2 分钟 → 绿；0.03=1.8 → 绿；0.05=3 → 黄；0.06=3.6 → 黄
       expect(BestClockOutPlanner.bandOf(0.0), WasteBand.best);
       expect(BestClockOutPlanner.bandOf(0.01), WasteBand.best);
       expect(BestClockOutPlanner.bandOf(0.02), WasteBand.best);
-      expect(BestClockOutPlanner.bandOf(0.03), WasteBand.fair);
+      expect(BestClockOutPlanner.bandOf(0.03), WasteBand.best);
       expect(BestClockOutPlanner.bandOf(0.05), WasteBand.fair);
-      expect(BestClockOutPlanner.bandOf(0.06), WasteBand.poor);
+      expect(BestClockOutPlanner.bandOf(0.06), WasteBand.fair);
       expect(BestClockOutPlanner.bandOf(0.09), WasteBand.poor);
     });
 
@@ -34,30 +35,30 @@ void main() {
   });
 
   group('地铁模式', () {
-    test('总浪费分档与自由出行阈值一致（≤1.2 绿 / ≤3 黄 / >3 红）', () {
+    test('总浪费分档统一阈值：<2 绿 / 2~4 黄 / >4 红', () {
       expect(BestClockOutPlanner.bandOfTotalWaste(0), WasteBand.best);
-      expect(BestClockOutPlanner.bandOfTotalWaste(1.2), WasteBand.best);
-      expect(BestClockOutPlanner.bandOfTotalWaste(1.8), WasteBand.fair);
-      expect(BestClockOutPlanner.bandOfTotalWaste(3.0), WasteBand.fair);
-      expect(BestClockOutPlanner.bandOfTotalWaste(3.6), WasteBand.poor);
+      expect(BestClockOutPlanner.bandOfTotalWaste(1.9), WasteBand.best);
+      expect(BestClockOutPlanner.bandOfTotalWaste(2.0), WasteBand.fair);
+      expect(BestClockOutPlanner.bandOfTotalWaste(4.0), WasteBand.fair);
+      expect(BestClockOutPlanner.bandOfTotalWaste(4.1), WasteBand.poor);
     });
 
     test('metroWasteDetail：残差 + 等车 = 总浪费，按总和分档', () {
-      // 8:00 打卡，17:00 下班，步行 7 分钟 → 17:07 到站，最近班次 17:11 → 等 4
-      // 工时 540 分钟 = 9.0h，残差 0 → 总浪费 4 分钟 → 红（>3）
-      final detail = BestClockOutPlanner.metroWasteDetail(
+      // 8:00 打卡，16:58 下班，步行 7 分钟 → 17:05 到站，最近班次 17:06 → 等 1
+      // 工时 538 分钟残差 0.06 → 3.6 → 总浪费 4.6 分钟 → 红（>4）
+      final red = BestClockOutPlanner.metroWasteDetail(
         line: HanyuJinguMetro.lineWest,
         checkInMinutes: 8 * 60,
-        departTime: 17 * 60,
+        departTime: 16 * 60 + 58,
       );
-      expect(detail.clockWaste, 0);
-      expect(detail.waitMinutes, 4);
-      expect(detail.totalWaste, 4);
-      expect(detail.band, WasteBand.poor);
-      expect(detail.hasTrain, isTrue);
+      expect(red.clockWaste, 3.6);
+      expect(red.waitMinutes, 1);
+      expect(red.totalWaste, 4.6);
+      expect(red.band, WasteBand.poor);
+      expect(red.hasTrain, isTrue);
 
       // 17:12 下班 → 17:19 到站 → 17:20 班次（等 1）；工时 552 分钟残差 0
-      // → 总浪费 1 ≤1.2 → 绿
+      // → 总浪费 1 <2 → 绿
       final green = BestClockOutPlanner.metroWasteDetail(
         line: HanyuJinguMetro.lineWest,
         checkInMinutes: 8 * 60,
@@ -69,7 +70,7 @@ void main() {
       expect(green.band, WasteBand.best);
 
       // 17:06 下班 → 17:13 到站 → 17:15 班次（等 2）；残差 0
-      // → 总浪费 2 → 黄（1.2 < 2 ≤ 3）
+      // → 总浪费 2 → 黄（2 ≤ 4）
       final fair = BestClockOutPlanner.metroWasteDetail(
         line: HanyuJinguMetro.lineWest,
         checkInMinutes: 8 * 60,

@@ -8,9 +8,9 @@ import '../services/mock_time_service.dart';
 import '../services/storage_service.dart';
 import '../utils/best_clockout_planner.dart';
 import '../utils/work_time_calculator.dart';
-import '../widgets/best_clock_out_entry.dart';
 import '../widgets/best_clock_out_setup_dialog.dart';
 import '../widgets/best_clock_out_timeline.dart';
+import '../widgets/precision_text.dart';
 
 /// 最佳下班时间详情页。
 ///
@@ -189,24 +189,10 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // 实时时钟卡：当前时间（秒级走时）+ 打卡时间 + 现在下班的工时
+          // 第一行：实时时钟卡（当前时间秒级走时 + 打卡 + 现在下班的工时）
           _buildClockCard(),
           const SizedBox(height: 16),
-          // 当前状态
-          BestClockOutEntry(
-            status: _currentStatus(),
-            title: '${_modeName()}出行',
-            subtitle: _currentSubtitle(),
-            onTap: () {},
-          ),
-          const SizedBox(height: 16),
-          // 推荐一句话
-          if (recommended != null)
-            _buildRecommendation(recommended, nowMinutes)
-          else
-            _buildNoRecommendation(),
-          const SizedBox(height: 16),
-          // 实时柱状图（60 分钟全览，可切换 10 分钟视图）
+          // 第二行：时间轴（紧跟时钟卡）
           if (checkIn != null) ...[
             Row(
               children: [
@@ -239,36 +225,14 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
             ),
             const SizedBox(height: 16),
           ],
-          // 功能说明
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppColors.primaryLight,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Icon(
-                  Icons.info_outline,
-                  size: 16,
-                  color: AppColors.primary,
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    '工时统计只保留一位小数，百分位会被截断（如 11.19h 只计 11.1h）。'
-                    '在工时百分位接近 0（浪费 ≤1.2 分钟）的时刻下班可避免浪费。'
-                    '右上角齿轮可随时调整出行方式。',
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: AppColors.primary,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+          // 推荐一句话（含当前档位信息）
+          if (recommended != null)
+            _buildRecommendation(recommended, nowMinutes)
+          else
+            _buildNoRecommendation(),
+          const SizedBox(height: 16),
+          // 功能说明（默认折叠，点击 (?) 展开）
+          _buildExplanation(),
         ],
       ),
     );
@@ -283,9 +247,10 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
         '${now.minute.toString().padLeft(2, '0')}:'
         '${now.second.toString().padLeft(2, '0')}';
     final checkInText = checkIn == null ? '--:--' : _minutesToText(checkIn);
+    // 现在下班的工时显示两位，百分位镂空提示不计入
     final nowHours = checkIn == null
         ? null
-        : WorkTimeCalculator.formatBillableHours(
+        : WorkTimeCalculator.formatHours(
             (now.hour * 60 + now.minute - checkIn) / 60.0,
           );
 
@@ -340,7 +305,8 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
           style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
         ),
         const SizedBox(height: 2),
-        Text(
+        // PrecisionText：两位工时百分位镂空（如 14.50 的 0），一位/无小数正常
+        PrecisionText(
           value,
           style: const TextStyle(
             fontSize: 14,
@@ -350,25 +316,6 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
         ),
       ],
     );
-  }
-
-  String _modeName() {
-    return switch (_mode) {
-      CommuteMode.free => '自由',
-      CommuteMode.metro => '地铁',
-      CommuteMode.bus => '公交',
-    };
-  }
-
-  BestClockOutStatus _currentStatus() {
-    final checkIn = widget.checkInMinutes;
-    if (checkIn == null) return BestClockOutStatus.unavailable;
-    final band = _currentBand();
-    return switch (band) {
-      WasteBand.best => BestClockOutStatus.optimal,
-      WasteBand.fair => BestClockOutStatus.approaching,
-      WasteBand.poor => BestClockOutStatus.poor,
-    };
   }
 
   /// 当前时刻下班的档位：自由看残差，地铁看总浪费（残差+等车）
@@ -455,6 +402,59 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
               fontWeight: FontWeight.w600,
               color: AppColors.success,
               fontFeatures: const [FontFeature.tabularFigures()],
+            ),
+          ),
+          // 当前档位信息（原状态卡合并至此）
+          if (widget.checkInMinutes != null) ...[
+            const SizedBox(height: 6),
+            Text(
+              '现在下班：${_currentSubtitle()}',
+              style: const TextStyle(
+                fontSize: 11,
+                color: AppColors.textSecondary,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  /// 功能说明（默认折叠，点击展开）
+  Widget _buildExplanation() {
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.primaryLight,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: ExpansionTile(
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+        shape: const Border(),
+        collapsedShape: const Border(),
+        leading: const Icon(
+          Icons.help_outline,
+          size: 18,
+          color: AppColors.primary,
+        ),
+        title: const Text(
+          '功能说明 (?)',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: AppColors.primary,
+          ),
+        ),
+        children: [
+          const Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '工时统计只保留一位小数，百分位会被截断（如 11.19h 只计 11.1h）。'
+              '在工时浪费较少（<2 分钟）的时刻下班可避免损失：'
+              '绿=适合走 / 黄=一般 / 红=别走。'
+              '地铁模式按"工时残差 + 等车"总浪费分档。'
+              '右上角齿轮可随时调整出行方式。',
+              style: TextStyle(fontSize: 12, color: AppColors.primary),
             ),
           ),
         ],
