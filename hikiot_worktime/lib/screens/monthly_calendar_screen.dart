@@ -1030,7 +1030,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               const SizedBox(height: 2),
               if (hours > 0)
                 PrecisionText(
-                  '${WorkTimeCalculator.formatHours(hours)}H',
+                  '${WorkTimeCalculator.formatBillableHours(hours)}H',
                   style: TextStyle(fontSize: 10, color: textColor),
                   overflow: TextOverflow.visible,
                   softWrap: false,

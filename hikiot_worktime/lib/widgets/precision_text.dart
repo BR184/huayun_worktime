@@ -28,26 +28,32 @@ class PrecisionText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final effectiveStyle = DefaultTextStyle.of(context).style.merge(style);
+    final displayData = data.contains('%')
+        ? data.replaceFirstMapped(
+        RegExp(r'(-?\d+\.\d{2})(?=%)'),
+        (match) => match.group(1)!.substring(0, match.group(1)!.length - 1),
+      )
+        : data;
     return Text.rich(
-      TextSpan(children: _buildSpans(effectiveStyle)),
+      TextSpan(children: _buildSpans(effectiveStyle, displayData)),
       style: effectiveStyle,
       textAlign: textAlign,
       maxLines: maxLines,
       overflow: overflow,
       softWrap: softWrap,
-      semanticsLabel: _twoDecimalPattern.hasMatch(data)
-          ? '$data，小数点后第二位不计入工时'
-          : data,
+      semanticsLabel: _twoDecimalPattern.hasMatch(displayData)
+          ? '$displayData，小数点后第二位不计入工时'
+          : displayData,
     );
   }
 
-  List<InlineSpan> _buildSpans(TextStyle effectiveStyle) {
+  List<InlineSpan> _buildSpans(TextStyle effectiveStyle, String displayData) {
     final spans = <InlineSpan>[];
     var cursor = 0;
 
-    for (final match in _twoDecimalPattern.allMatches(data)) {
+    for (final match in _twoDecimalPattern.allMatches(displayData)) {
       if (match.start > cursor) {
-        spans.add(TextSpan(text: data.substring(cursor, match.start)));
+        spans.add(TextSpan(text: displayData.substring(cursor, match.start)));
       }
 
       final value = match.group(0)!;
@@ -56,18 +62,21 @@ class PrecisionText extends StatelessWidget {
         TextSpan(
           text: value.substring(value.length - 1),
           style: effectiveStyle.copyWith(
-            color: mutedColor ?? AppColors.decimalMuted,
+            foreground: Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 0.8
+              ..color = mutedColor ?? AppColors.decimalMuted,
           ),
         ),
       );
       cursor = match.end;
     }
 
-    if (cursor < data.length) {
-      spans.add(TextSpan(text: data.substring(cursor)));
+    if (cursor < displayData.length) {
+      spans.add(TextSpan(text: displayData.substring(cursor)));
     }
     if (spans.isEmpty) {
-      spans.add(TextSpan(text: data));
+      spans.add(TextSpan(text: displayData));
     }
     return spans;
   }

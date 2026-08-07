@@ -2,17 +2,17 @@
 name: 华云工时查询工具
 description: 面向高频工时核对的现代精密仪表界面
 colors:
-  primary: "#176B58"
+  primary: "#3D5A57"
   primary-strong: "#0F4F42"
-  accent: "#C88718"
+  accent: "#B56B45"
   error: "#BA1A1A"
-  canvas: "#F2F4F3"
+  canvas: "#F5F3EF"
   surface: "#FAFBFA"
   surface-raised: "#FFFFFF"
   graphite: "#17201E"
   graphite-muted: "#59635F"
   outline: "#D7DEDA"
-  decimal-muted: "#6F7975"
+  decimal-muted: "#9AA6A1"
 typography:
   headline:
     fontFamily: "Roboto, sans-serif"
@@ -81,7 +81,7 @@ components:
 
 全应用使用 Android 系统 Roboto 字体和 Material 3 类型角色。数据启用等宽数字特性；标题保持紧凑，不在面板内使用展示级大字。
 
-**The Counted Digit Rule.** 两位小数仍完整显示，但百分位统一使用 `decimal-muted`，其余数位保持当前文本色；百分位不参与工时和百分比计算。
+**The Counted Digit Rule.** 完成率显示一位小数。普通工时的两位小数仍完整显示，但百分位统一使用 `decimal-muted` 的浅灰中空字形；日历格内工时直接显示一位小数。末位不参与工时和百分比计算。
 
 ## Layout
 

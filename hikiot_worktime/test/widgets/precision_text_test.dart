@@ -25,15 +25,27 @@ void main() {
     collectSpans(root);
 
     expect(root.toPlainText(), '8.59h / 10.40h');
-    expect(
-      spans
-          .where((span) => span.style?.color == AppColors.decimalMuted)
-          .map((span) => span.text),
-      ['9', '0'],
-    );
+    final outlined = spans
+        .where((span) => span.style?.foreground != null)
+        .map((span) => span.text);
+    expect(outlined, ['9', '0']);
+    final outlinePaint = spans
+        .firstWhere((span) => span.style?.foreground != null)
+        .style!
+        .foreground!;
+    expect(outlinePaint.style, PaintingStyle.stroke);
+    expect(outlinePaint.color.toARGB32(), AppColors.decimalMuted.toARGB32());
     expect(
       find.bySemanticsLabel('8.59h / 10.40h，小数点后第二位不计入工时'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('shows percentages with one decimal place', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: PrecisionText('完成率 37.50%'))),
+    );
+
+    expect(find.text('完成率 37.5%'), findsOneWidget);
   });
 }
