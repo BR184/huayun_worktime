@@ -71,6 +71,21 @@ void main() {
       expect(8.04 + 8.03, isNot(16.0));
     });
 
+    test('wasted fraction is the truncated hundredths remainder', () {
+      // 无效工时 = 显示两位值 - 计入一位值（与 formatHours 显示链一致，
+      // 浮点下界下 8.04 显示为 8.03，残差 0.03）
+      expect(WorkTimeCalculator.wastedFraction(8.04), 0.03);
+      expect(WorkTimeCalculator.wastedFraction(8.03), 0.02);
+      expect(WorkTimeCalculator.wastedFraction(8.5333), 0.03);
+      expect(WorkTimeCalculator.wastedFraction(8.0), 0.0);
+      expect(WorkTimeCalculator.wastedFraction(0.09), 0.09);
+      // 月度无效工时 = 逐日残差累计
+      final wasted =
+          WorkTimeCalculator.wastedFraction(8.04) +
+          WorkTimeCalculator.wastedFraction(8.03);
+      expect(wasted, 0.05);
+    });
+
     test('formats raw punch duration including after-midnight checkout', () {
       expect(
         WorkTimeCalculator.formatPunchDuration('09:00', '18:30'),

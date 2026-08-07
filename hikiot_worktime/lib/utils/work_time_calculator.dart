@@ -240,6 +240,17 @@ class WorkTimeCalculator {
     return (hours.toDouble() * 10).truncateToDouble() / 10;
   }
 
+  /// 被截断掉的百分位工时（显示两位与计入一位的差值）。
+  ///
+  /// 例如 8.04 显示为 8.03 镂空 0.04 时，计入 8.0，残差为 0.04；
+  /// 月度页"无效工时"即所有天的残差累计。
+  /// 用整数运算避免浮点误差（8.04 * 100 会得到 804.000...1）。
+  static double wastedFraction(num hours) {
+    final hundredths = (hours.toDouble() * 100).truncate();
+    final tenths = (hours.toDouble() * 10).truncate() * 10;
+    return (hundredths - tenths) / 100;
+  }
+
   /// 按统一口径计算工时百分比。
   ///
   /// 参与统计的工时先截断到一位小数，再计算百分比；

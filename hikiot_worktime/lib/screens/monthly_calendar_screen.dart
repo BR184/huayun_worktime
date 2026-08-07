@@ -1162,7 +1162,8 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                   ),
                                 ),
                                 PrecisionText(
-                                  '${WorkTimeCalculator.formatBillableHours(hours)}h',
+                                  // 当天的工时显示两位，百分位镂空提示不计入
+                                  '${WorkTimeCalculator.formatHours(hours)}h',
                                   style: TextStyle(
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
@@ -1551,6 +1552,9 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     double customNormalHours = 0.0, customOvertimeHours = 0.0;
     double tripNormalHours = 0.0, tripOvertimeHours = 0.0;
 
+    // 无效工时：所有天被截断掉的百分位工时累计（显示两位与计入一位的差值）
+    double wastedHours = 0.0;
+
     final today = DateHelper.getWorkDate();
     final currentMonthKey = DateHelper.formatMonth(_selectedMonth);
     final todayKey = DateHelper.formatMonth(today);
@@ -1559,11 +1563,11 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     _monthlyData.forEach((dateStr, data) {
       final date = DateTime.parse(dateStr);
       final type = data['type'] as String;
+      final rawHours = (data['hours'] ?? 0.0) as double;
       // 公司口径百分位不计入：参与累计的每日工时先截断到一位小数，
       // 保证累计值、百分比与日历格内显示口径一致
-      final hours = WorkTimeCalculator.billableHours(
-        (data['hours'] ?? 0.0) as double,
-      );
+      final hours = WorkTimeCalculator.billableHours(rawHours);
+      wastedHours += WorkTimeCalculator.wastedFraction(rawHours);
       final isOvertime = (data['isOvertime'] ?? false) as bool;
 
       final isFuture = isCurrentMonth && date.isAfter(today);
@@ -1885,6 +1889,13 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                   WorkTimeCalculator.formatBillableHours(avgHours),
                   '小时/天',
                   AppColors.accent,
+                ),
+                _buildStatItem(
+                  '无效工时',
+                  // 百分位残差累计，保留两位展示其来源
+                  WorkTimeCalculator.formatHours(wastedHours),
+                  '小时',
+                  AppColors.textSecondary,
                 ),
               ],
             ),
