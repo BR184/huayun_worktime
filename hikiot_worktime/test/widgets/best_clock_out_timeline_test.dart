@@ -67,6 +67,36 @@ void main() {
     expect(find.textContaining('最佳窗口'), findsOneWidget);
   });
 
+  testWidgets('每段连续绿色都有独立时间标签（不重叠标记）', (tester) async {
+    // 两段绿色：index 1-2 与 index 4-5
+    await tester.pumpWidget(
+      buildTimeline(
+        bands: const [
+          WasteBand.poor,
+          WasteBand.best,
+          WasteBand.best,
+          WasteBand.fair,
+          WasteBand.best,
+          WasteBand.best,
+          WasteBand.poor,
+        ],
+        viewMinutes: 7,
+      ),
+    );
+
+    // 两个绿段起点各一个时间标签（HH:MM 格式）
+    final labels = tester
+        .widgetList<Text>(
+          find.descendant(
+            of: find.byType(BestClockOutTimeline),
+            matching: find.byType(Text),
+          ),
+        )
+        .where((t) => RegExp(r'^\d{2}:\d{2}$').hasMatch(t.data ?? ''))
+        .toList();
+    expect(labels.length, greaterThanOrEqualTo(2));
+  });
+
   testWidgets('点击柱子后提示框显示时间与原因', (tester) async {
     await tester.pumpWidget(
       buildTimeline(

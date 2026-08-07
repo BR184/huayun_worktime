@@ -33,9 +33,10 @@ class AppColors {
   static const Color successDark = secondaryDark;
 
   /// 警告 - 橙色
-  static const Color warning = Color(0xFFA66300);
-  static const Color warningLight = Color(0xFFFFF0C2);
-  static const Color warningDark = Color(0xFF5A3A00);
+  // 警告/一般状态 - 铜橙（与钴蓝/青柚/莓红体系协调，避免刺眼黄）
+  static const Color warning = Color(0xFFC2602D);
+  static const Color warningLight = Color(0xFFFBE4D5);
+  static const Color warningDark = Color(0xFF6B2F0E);
 
   /// 错误 - 红色
   static const Color error = Color(0xFFBA1A1A);

@@ -41,13 +41,17 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
   List<WasteBand> get _effective =>
       widget.bands.take(widget.viewMinutes).toList();
 
-  /// 连续绿色段第一根柱子的下标；无则 null
-  int? get _firstGreenIndex {
+  /// 所有连续绿色段的起点下标（每段第一根绿色柱子）
+  List<int> get _greenStarts {
     final bands = _effective;
+    final starts = <int>[];
     for (var i = 0; i < bands.length; i++) {
-      if (bands[i] == WasteBand.best) return i;
+      if (bands[i] == WasteBand.best &&
+          (i == 0 || bands[i - 1] != WasteBand.best)) {
+        starts.add(i);
+      }
     }
-    return null;
+    return starts;
   }
 
   /// 拖动/点击位置 → 柱子下标
@@ -72,7 +76,8 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
     final selected = (_selected != null && _selected! < bands.length)
         ? _selected
         : null;
-    final firstGreen = _firstGreenIndex;
+    final greenStarts = _greenStarts;
+    final firstGreen = greenStarts.isEmpty ? null : greenStarts.first;
     final now = DateTime.now();
     final nowMinutes = now.hour * 60 + now.minute;
 
@@ -118,69 +123,106 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
         LayoutBuilder(
           builder: (context, constraints) {
             final width = constraints.maxWidth;
-            return GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTapDown: (details) {
-                setState(
-                  () =>
-                      _selected = _indexFromDx(details.localPosition.dx, width),
-                );
-              },
-              onHorizontalDragStart: (details) {
-                setState(
-                  () =>
-                      _selected = _indexFromDx(details.localPosition.dx, width),
-                );
-              },
-              onHorizontalDragUpdate: (details) {
-                setState(
-                  () =>
-                      _selected = _indexFromDx(details.localPosition.dx, width),
-                );
-              },
-              child: SizedBox(
-                height: 64,
-                width: width,
-                child: Stack(
-                  children: [
-                    // 柱子
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.end,
+            return Column(
+              children: [
+                // 绿色标签独立行：每段连续绿色的起点标时间，
+                // 放在柱子区上方，不被高柱子遮挡
+                SizedBox(
+                  height: 16,
+                  width: width,
+                  child: Stack(
+                    children: [
+                      for (final start in greenStarts)
+                        Positioned(
+                          left: _labelLeft(start, bands.length, width),
+                          child: Text(
+                            _minutesToText(nowMinutes + start),
+                            style: const TextStyle(
+                              fontSize: 9,
+                              fontWeight: FontWeight.w700,
+                              color: AppColors.success,
+                            ),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: (details) {
+                    setState(
+                      () => _selected = _indexFromDx(
+                        details.localPosition.dx,
+                        width,
+                      ),
+                    );
+                  },
+                  onHorizontalDragStart: (details) {
+                    setState(
+                      () => _selected = _indexFromDx(
+                        details.localPosition.dx,
+                        width,
+                      ),
+                    );
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    setState(
+                      () => _selected = _indexFromDx(
+                        details.localPosition.dx,
+                        width,
+                      ),
+                    );
+                  },
+                  child: SizedBox(
+                    height: 64,
+                    width: width,
+                    child: Stack(
                       children: [
-                        for (var i = 0; i < bands.length; i++)
-                          Expanded(
-                            child: Padding(
-                              padding: EdgeInsets.only(
-                                left: i == 0 ? 0 : 1,
-                                right: i == bands.length - 1 ? 0 : 1,
-                              ),
-                              child: AnimatedContainer(
-                                duration: const Duration(milliseconds: 80),
-                                height: selected == i
-                                    ? 64
-                                    : i == 0
-                                    ? 56
-                                    : 46,
-                                decoration: BoxDecoration(
-                                  color: _colorOf(bands[i]),
-                                  borderRadius: BorderRadius.circular(2),
+                        // 柱子
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            for (var i = 0; i < bands.length; i++)
+                              Expanded(
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    left: i == 0 ? 0 : 1,
+                                    right: i == bands.length - 1 ? 0 : 1,
+                                  ),
+                                  child: AnimatedContainer(
+                                    duration: const Duration(milliseconds: 80),
+                                    height: selected == i
+                                        ? 64
+                                        : i == 0
+                                        ? 56
+                                        : 46,
+                                    decoration: BoxDecoration(
+                                      color: _colorOf(bands[i]),
+                                      borderRadius: BorderRadius.circular(2),
+                                    ),
+                                  ),
                                 ),
+                              ),
+                          ],
+                        ),
+                        // 折线：从标签行引到各绿色段起点的柱子顶端
+                        if (greenStarts.isNotEmpty)
+                          Positioned.fill(
+                            child: CustomPaint(
+                              painter: _GreenGuidesPainter(
+                                barCenters: [
+                                  for (final s in greenStarts)
+                                    (s + 0.5) / bands.length * width,
+                                ],
+                                guideLength: 18,
                               ),
                             ),
                           ),
                       ],
                     ),
-                    // 连续绿色首柱折线标记（时间标签 + 折线指引到柱子）
-                    if (firstGreen != null)
-                      _buildGreenMarker(
-                        firstGreen,
-                        bands.length,
-                        width,
-                        nowMinutes,
-                      ),
-                  ],
+                  ),
                 ),
-              ),
+              ],
             );
           },
         ),
@@ -293,41 +335,11 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
     );
   }
 
-  /// 连续绿色首柱的折线标记：时间标签 + 折线指引到柱子顶部。
-  ///
-  /// 标签位置按柱子中心对齐并夹在容器内，避免被裁切。
-  Widget _buildGreenMarker(
-    int firstGreen,
-    int bandCount,
-    double width,
-    int nowMinutes,
-  ) {
-    const labelWidth = 34.0;
-    final barCenter = (firstGreen + 0.5) / bandCount * width;
-    final left = (barCenter - labelWidth / 2).clamp(0.0, width - labelWidth);
-    final barCenterRel = (barCenter - left).clamp(0.0, labelWidth);
-
-    return Positioned(
-      left: left,
-      top: 0,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            _minutesToText(nowMinutes + firstGreen),
-            style: const TextStyle(
-              fontSize: 9,
-              fontWeight: FontWeight.w700,
-              color: AppColors.success,
-            ),
-          ),
-          CustomPaint(
-            size: const Size(labelWidth, 10),
-            painter: _GreenGuidePainter(barCenterRel: barCenterRel),
-          ),
-        ],
-      ),
-    );
+  /// 绿色段起点标签的左侧位置：按柱子中心对齐并夹在容器内防裁切
+  double _labelLeft(int start, int bandCount, double width) {
+    const labelWidth = 30.0;
+    final barCenter = (start + 0.5) / bandCount * width;
+    return (barCenter - labelWidth / 2).clamp(0.0, width - labelWidth);
   }
 
   Color _colorOf(WasteBand band) {
@@ -339,13 +351,20 @@ class _BestClockOutTimelineState extends State<BestClockOutTimeline> {
   }
 }
 
-/// 绿色首柱折线指引画布：从标签中心垂直向下，再水平折向柱子中心，
-/// 最后垂直落到柱子顶部（L 形折线）。
-class _GreenGuidePainter extends CustomPainter {
-  const _GreenGuidePainter({required this.barCenterRel});
+/// 绿色段折线指引画布：从柱子区顶部（标签行下缘）向下引竖线，
+/// 落进各绿色段起点的柱子顶端（普通柱顶端在区内 18px 处，
+/// 首柱 8px，选中柱 0px，统一画到 18px 即保证连接到柱子）。
+class _GreenGuidesPainter extends CustomPainter {
+  const _GreenGuidesPainter({
+    required this.barCenters,
+    required this.guideLength,
+  });
 
-  /// 柱子中心相对标签左侧的偏移（已夹在标签宽度内）
-  final double barCenterRel;
+  /// 各绿色段起点的柱子中心 x 坐标
+  final List<double> barCenters;
+
+  /// 引导线长度（柱子区顶部向下的像素数）
+  final double guideLength;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -353,18 +372,14 @@ class _GreenGuidePainter extends CustomPainter {
       ..color = AppColors.success
       ..strokeWidth = 1.5
       ..style = PaintingStyle.stroke;
-
-    final targetX = barCenterRel.clamp(0.0, size.width);
-    final path = Path()
-      ..moveTo(size.width / 2, 0)
-      ..lineTo(size.width / 2, size.height * 0.55)
-      ..lineTo(targetX, size.height * 0.55)
-      ..lineTo(targetX, size.height);
-    canvas.drawPath(path, paint);
+    for (final center in barCenters) {
+      canvas.drawLine(Offset(center, 0), Offset(center, guideLength), paint);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant _GreenGuidePainter oldDelegate) {
-    return oldDelegate.barCenterRel != barCenterRel;
+  bool shouldRepaint(covariant _GreenGuidesPainter oldDelegate) {
+    return oldDelegate.barCenters.length != barCenters.length ||
+        oldDelegate.guideLength != guideLength;
   }
 }
