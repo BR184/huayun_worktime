@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/theme/app_colors.dart';
 import '../data/metro_schedule.dart';
+import '../services/mock_time_service.dart';
 import '../services/storage_service.dart';
 import '../utils/best_clockout_planner.dart';
 import '../utils/work_time_calculator.dart';
@@ -98,7 +99,8 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   }
 
   int get _nowMinutes {
-    final now = DateTime.now();
+    // DEBUG 时间模拟器开启时使用模拟时钟
+    final now = MockTimeService.instance.now();
     return now.hour * 60 + now.minute;
   }
 
@@ -247,7 +249,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
 
   /// 实时时钟卡：当前时间（秒级走时）+ 打卡时间 + 现在下班的工时
   Widget _buildClockCard() {
-    final now = DateTime.now();
+    final now = MockTimeService.instance.now();
     final checkIn = widget.checkInMinutes;
     final current =
         '${now.hour.toString().padLeft(2, '0')}:'
@@ -364,7 +366,7 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
   /// 推荐 + 秒级倒计时
   Widget _buildRecommendation(int recommended, int nowMinutes) {
     final diff = recommended - nowMinutes;
-    final seconds = diff * 60 - DateTime.now().second;
+    final seconds = diff * 60 - MockTimeService.instance.now().second;
     final minute = seconds ~/ 60;
     final second = seconds % 60;
 

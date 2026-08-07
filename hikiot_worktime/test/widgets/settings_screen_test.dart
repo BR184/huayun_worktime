@@ -115,6 +115,47 @@ void main() {
     });
   });
 
+  group('时间模拟器（DEBUG）', () {
+    testWidgets('开启模拟器显示模拟时间与随机按钮，随机后进入模拟态', (tester) async {
+      // 开启开发者工具才能看到模拟器
+      SharedPreferences.setMockInitialValues({
+        StorageKeys.debugToolsEnabled: true,
+      });
+      await pumpSettings(tester);
+
+      expect(find.text('时间模拟器（DEBUG）'), findsOneWidget);
+
+      // 模拟器开关：时间模拟器标题行内的 Switch
+      // （Timer 每秒刷新，用 pump 而非 pumpAndSettle）
+      final mockSwitch = find.descendant(
+        of: find.ancestor(
+          of: find.text('时间模拟器（DEBUG）'),
+          matching: find.byType(Row),
+        ),
+        matching: find.byType(Switch),
+      );
+      expect(mockSwitch, findsOneWidget);
+
+      await tester.tap(mockSwitch);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.textContaining('模拟现在'), findsOneWidget);
+      expect(find.textContaining('打卡序列：'), findsOneWidget);
+      expect(find.text('一键随机模拟'), findsOneWidget);
+
+      // 点击一键随机：模拟时间仍在 8~23 点
+      await tester.tap(find.text('一键随机模拟'));
+      await tester.pump();
+      expect(find.textContaining('模拟现在'), findsOneWidget);
+
+      // 关闭开关恢复真实
+      await tester.tap(mockSwitch);
+      await tester.pump();
+      expect(find.textContaining('模拟现在'), findsNothing);
+    });
+  });
+
   group('切换团队 Token 失效', () {
     testWidgets('account/detail 抛 token 失效时进入统一失效对话框', (tester) async {
       SharedPreferences.setMockInitialValues({});

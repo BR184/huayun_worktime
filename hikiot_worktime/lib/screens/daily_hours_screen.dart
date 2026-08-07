@@ -5,6 +5,7 @@ import 'package:intl/date_symbol_data_local.dart';
 import '../core/constants/constants.dart';
 import '../core/theme/theme.dart';
 import '../services/daily_attendance_repository.dart';
+import '../services/mock_time_service.dart';
 import '../services/storage_service.dart';
 import '../services/token_expired_service.dart';
 import '../utils/work_time_calculator.dart';
@@ -208,6 +209,11 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
       _dayData = result.dayData.isEmpty ? null : result.dayData;
       _attendanceData = result.attendanceData;
       _loadError = null;
+
+      // DEBUG 时间模拟器：开启时用模拟打卡序列覆盖展示层（不写存储）
+      if (MockTimeService.instance.isMocked) {
+        _attendanceData = _buildMockAttendanceData();
+      }
 
       if (result.status == DailyAttendanceLoadStatus.missingToken) {
         await TokenExpiredService.handleTokenExpired(context);
@@ -1209,6 +1215,20 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         ),
       ),
     );
+  }
+
+  /// DEBUG 模拟打卡展示数据（仅内存，不写存储）
+  Map<String, dynamic>? _buildMockAttendanceData() {
+    final punches = MockTimeService.instance.punches;
+    if (punches.isEmpty) return null;
+    return {
+      'checkInTime': punches.first,
+      'checkOutTime': punches.last,
+      'hours': WorkTimeCalculator.calculateWorkHoursStr(
+        punches.first,
+        punches.last,
+      ),
+    };
   }
 
   /// 最佳下班时间入口（醒目横幅，仅今日显示，内部实时刷新）。

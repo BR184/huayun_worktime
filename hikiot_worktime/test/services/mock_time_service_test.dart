@@ -1,0 +1,69 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hikiot_worktime/services/mock_time_service.dart';
+
+void main() {
+  group('MockPunchGenerator', () {
+    test('随机打卡序列：首次 6~9 点、末次不晚于模拟时间、有序', () {
+      final mockNow = DateTime(2026, 8, 8, 18, 30);
+      for (var i = 0; i < 50; i++) {
+        final punches = MockPunchGenerator.randomPunches(mockNow);
+        expect(punches.length, greaterThanOrEqualTo(2));
+        expect(punches.length, lessThanOrEqualTo(6)); // 首末 + 最多 3 次中间 + 边界
+
+        final first = punches.first;
+        final last = punches.last;
+        // 首次在 06:00~08:59
+        expect(first.compareTo('06:00') >= 0, isTrue, reason: '首次 $first');
+        expect(first.compareTo('09:00') < 0, isTrue, reason: '首次 $first');
+        // 末次不晚于模拟时间且晚于首次
+        expect(last.compareTo('18:30') <= 0, isTrue, reason: '末次 $last');
+        expect(last.compareTo(first) > 0, isTrue, reason: '首末 $first/$last');
+
+        // 序列有序且不重复
+        final sorted = [...punches]..sort();
+        expect(punches, sorted);
+      }
+    });
+
+    test('随机时间落在 8~23 点', () {
+      for (var i = 0; i < 30; i++) {
+        final time = MockPunchGenerator.randomTime();
+        expect(time.hour, inInclusiveRange(8, 23));
+      }
+    });
+
+    test('星期名映射正确', () {
+      expect(MockPunchGenerator.weekdayName(DateTime(2026, 8, 8)), '周六');
+      expect(MockPunchGenerator.weekdayName(DateTime(2026, 8, 7)), '周五');
+      expect(MockPunchGenerator.weekdayName(DateTime(2026, 8, 10)), '周一');
+    });
+  });
+
+  group('MockTimeService', () {
+    tearDown(() => MockTimeService.instance.clear());
+
+    test('未启用时返回真实时间，启用后返回模拟时间', () {
+      final service = MockTimeService.instance;
+      expect(service.isMocked, isFalse);
+
+      final mock = DateTime(2026, 8, 8, 18, 0);
+      service.setMock(mock);
+      expect(service.isMocked, isTrue);
+      // 模拟时钟与基准时间一致（±2 秒容差，因为随真实时间走秒）
+      final now = service.now();
+      expect(now.difference(mock).inSeconds.abs(), lessThanOrEqualTo(2));
+
+      service.clear();
+      expect(service.isMocked, isFalse);
+    });
+
+    test('打卡序列读写与清除', () {
+      final service = MockTimeService.instance;
+      service.setPunches(['08:05', '12:10', '13:20', '18:00']);
+      expect(service.punches, ['08:05', '12:10', '13:20', '18:00']);
+
+      service.clear();
+      expect(service.punches, isEmpty);
+    });
+  });
+}

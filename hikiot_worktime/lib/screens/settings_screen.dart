@@ -7,6 +7,7 @@ import '../services/session_service.dart';
 import '../services/storage_service.dart';
 import '../services/hikiot_api_client.dart';
 import '../services/notification_service.dart';
+import '../services/mock_time_service.dart';
 import '../services/reminder_coordinator.dart';
 import '../services/settings_repository.dart';
 import '../services/team_context_service.dart';
@@ -71,11 +72,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
   String? _teamNo;
   String? _teamName;
 
+  // 时间模拟器（DEBUG）
+  bool _mockTimeEnabled = false;
+  double _mockHour = 18; // 拖动条模拟时间（8~23 点）
+  Timer? _mockTicker;
+
   @override
   void initState() {
     super.initState();
     _settingsRepository = SettingsRepository(storage: _storage);
     _loadSettings();
+  }
+
+  @override
+  void dispose() {
+    _mockTicker?.cancel();
+    super.dispose();
   }
 
   /// 加载设置
@@ -2082,10 +2094,145 @@ class _SettingsScreenState extends State<SettingsScreen> {
               '复制Token到剪贴板，用于API调试',
               style: TextStyle(fontSize: 11, color: Colors.grey[600]),
             ),
+            const SizedBox(height: 16),
+            const Divider(height: 1),
+            const SizedBox(height: 16),
+            // 时间模拟器（DEBUG）：仅内存模拟，不影响真实数据
+            Row(
+              children: [
+                const Icon(Icons.schedule, size: 20, color: AppColors.warning),
+                const SizedBox(width: 8),
+                const Expanded(
+                  child: Text(
+                    '时间模拟器（DEBUG）',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                  ),
+                ),
+                Switch(
+                  value: _mockTimeEnabled,
+                  onChanged: _toggleMockTime,
+                  activeThumbColor: AppColors.warning,
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              '模拟工作日 8~23 点任意时刻与打卡序列，验证最佳下班时间；'
+              '仅内存态，不影响任何真实数据',
+              style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            ),
+            if (_mockTimeEnabled) ...[
+              const SizedBox(height: 12),
+              Text(
+                '模拟现在：${_formatMockNow()}'
+                '（${MockPunchGenerator.weekdayName(MockTimeService.instance.now())}）',
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: AppColors.warningDark,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+              Row(
+                children: [
+                  const Text(
+                    '8:00',
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                  Expanded(
+                    child: Slider(
+                      value: _mockHour,
+                      min: 8,
+                      max: 23,
+                      divisions: 15,
+                      label: '${_mockHour.floor()}:00',
+                      activeColor: AppColors.warning,
+                      onChanged: _onMockHourChanged,
+                    ),
+                  ),
+                  const Text(
+                    '23:00',
+                    style: TextStyle(fontSize: 10, color: Colors.grey),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '打卡序列：${MockTimeService.instance.punches.join(' → ')}',
+                style: TextStyle(fontSize: 11, color: Colors.grey[700]),
+              ),
+              const SizedBox(height: 12),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.tonalIcon(
+                  onPressed: _randomizeMock,
+                  icon: const Icon(Icons.casino),
+                  label: const Text('一键随机模拟'),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '随机模拟时间（8~23 点）、首次打卡（6~9 点）、中间多次进出与星期',
+                style: TextStyle(fontSize: 10, color: Colors.grey[500]),
+              ),
+            ],
           ],
         ),
       ),
     );
+  }
+
+  /// 切换时间模拟器：开启后设置模拟时间与打卡序列，关闭即恢复真实
+  void _toggleMockTime(bool enabled) {
+    setState(() => _mockTimeEnabled = enabled);
+    if (enabled) {
+      _applyMockTime();
+      // 秒级刷新模拟时钟显示
+      _mockTicker?.cancel();
+      _mockTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+        if (mounted && _mockTimeEnabled) setState(() {});
+      });
+    } else {
+      _mockTicker?.cancel();
+      MockTimeService.instance.clear();
+    }
+  }
+
+  /// 按拖动条小时设置模拟时间并随机生成打卡序列
+  void _applyMockTime() {
+    final now = DateTime.now();
+    final mock = DateTime(now.year, now.month, now.day, _mockHour.floor(), 0);
+    MockTimeService.instance.setMock(mock);
+    MockTimeService.instance.setPunches(MockPunchGenerator.randomPunches(mock));
+  }
+
+  /// 拖动条变化：更新模拟时间与打卡序列
+  void _onMockHourChanged(double value) {
+    setState(() => _mockHour = value);
+    if (_mockTimeEnabled) _applyMockTime();
+  }
+
+  /// 一键随机：随机模拟时间（8~23 点）+ 随机打卡序列 + 随机星期
+  void _randomizeMock() {
+    final time = MockPunchGenerator.randomTime();
+    setState(() {
+      _mockTimeEnabled = true;
+      _mockHour = time.hour.toDouble();
+    });
+    MockTimeService.instance.setMock(time);
+    MockTimeService.instance.setPunches(MockPunchGenerator.randomPunches(time));
+    _mockTicker?.cancel();
+    _mockTicker = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (mounted && _mockTimeEnabled) setState(() {});
+    });
+  }
+
+  /// 模拟当前时间 HH:mm:ss
+  String _formatMockNow() {
+    final now = MockTimeService.instance.now();
+    return '${now.hour.toString().padLeft(2, '0')}:'
+        '${now.minute.toString().padLeft(2, '0')}:'
+        '${now.second.toString().padLeft(2, '0')}';
   }
 
   /// 复制当前Token
