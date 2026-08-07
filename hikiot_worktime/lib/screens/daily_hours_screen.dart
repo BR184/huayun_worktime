@@ -651,14 +651,16 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: isManual ? Colors.orange[50] : Colors.green[50],
+                  color: isManual
+                      ? AppColors.warningLight
+                      : AppColors.successLight,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
                   isManual ? '手动' : '自动',
                   style: TextStyle(
                     fontSize: 10,
-                    color: isManual ? Colors.orange[700] : Colors.green[700],
+                    color: isManual ? AppColors.warning : AppColors.success,
                   ),
                 ),
               ),
@@ -718,13 +720,13 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final cutoffTime = DateHelper.getCrossDayTimeString();
 
     return Card(
-      color: Colors.amber[50],
+      color: AppColors.warningLight,
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(Icons.nights_stay, color: Colors.amber[800], size: 22),
+            Icon(Icons.nights_stay, color: AppColors.warningDark, size: 22),
             const SizedBox(width: 10),
             Expanded(
               child: Column(
@@ -735,7 +737,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.bold,
-                      color: Colors.amber[900],
+                      color: AppColors.warningDark,
                     ),
                   ),
                   const SizedBox(height: 6),
@@ -744,7 +746,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     style: TextStyle(
                       fontSize: 12,
                       height: 1.4,
-                      color: Colors.amber[900],
+                      color: AppColors.warningDark,
                     ),
                   ),
                 ],
@@ -940,7 +942,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                 Expanded(
                   child: Column(
                     children: [
-                      Icon(Icons.login, color: Colors.green[600], size: 20),
+                      Icon(Icons.login, color: AppColors.success, size: 20),
                       const SizedBox(height: 8),
                       const Text(
                         '上班打卡',
@@ -952,7 +954,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         style: TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
-                          color: Colors.green[700],
+                          color: AppColors.success,
                         ),
                       ),
                     ],
@@ -965,7 +967,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                       Icon(
                         Icons.logout,
                         color: checkOut != null
-                            ? Colors.orange[600]
+                            ? AppColors.warning
                             : Colors.grey[400],
                         size: 20,
                       ),
@@ -981,7 +983,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                           color: checkOut != null
-                              ? Colors.orange[700]
+                              ? AppColors.warning
                               : Colors.grey[400],
                         ),
                       ),
@@ -1038,8 +1040,8 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     );
 
     Color getPercentageColor(double percentage) {
-      if (percentage >= _baseTarget) return Colors.green;
-      if (percentage >= 100) return Colors.orange;
+      if (percentage >= _baseTarget) return AppColors.success;
+      if (percentage >= 100) return AppColors.warning;
       return AppColors.primary;
     }
 
@@ -1152,9 +1154,9 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     }
 
     Color getCompletionColor() {
-      if (completionRaw >= 100) return Colors.green;
-      if (completionRaw >= 80) return Colors.orange;
-      return Colors.red;
+      if (completionRaw >= 100) return AppColors.success;
+      if (completionRaw >= 80) return AppColors.warning;
+      return AppColors.error;
     }
 
     return Column(
@@ -1238,7 +1240,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: Colors.amber[50],
+                      color: AppColors.warningLight,
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
@@ -1246,14 +1248,14 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         Icon(
                           Icons.flight_takeoff,
                           size: 16,
-                          color: Colors.amber[700],
+                          color: AppColors.warning,
                         ),
                         const SizedBox(width: 8),
                         Text(
                           '出差类型(固定8小时)',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.amber[700],
+                            color: AppColors.warning,
                           ),
                         ),
                       ],
@@ -1396,7 +1398,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     fontSize: 12,
                     color: _useCheckInTime
                         ? AppColors.primaryDark
-                        : Colors.orange[700],
+                        : AppColors.warning,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
@@ -1469,19 +1471,23 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         _togglePinnedTarget(target);
       },
       child: Card(
-        color: Colors.green[50],
+        color: AppColors.successLight,
         margin: const EdgeInsets.only(bottom: 8),
         shape: isPinned
             ? RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
-                side: const BorderSide(color: Colors.amber, width: 2),
+                side: const BorderSide(color: AppColors.warning, width: 2),
               )
             : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 18),
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.success,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text(
                 '$target% 目标已达成',
@@ -1498,7 +1504,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange,
+                    color: AppColors.warning,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
@@ -1513,7 +1519,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
               ],
               if (isPinned) ...[
                 const SizedBox(width: 6),
-                Icon(Icons.push_pin, size: 14, color: Colors.amber[700]),
+                Icon(Icons.push_pin, size: 14, color: AppColors.warning),
               ],
               const Spacer(),
               PrecisionText(
@@ -1546,14 +1552,14 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
     final progress = progressPercentageRaw / 100;
 
     Color getProgressColor() {
-      if (isCompleted) return Colors.green;
-      if (isBaseTarget) return Colors.orange;
+      if (isCompleted) return AppColors.success;
+      if (isBaseTarget) return AppColors.warning;
       return AppColors.primary;
     }
 
     // 特殊标记的边框颜色
     Color? getBorderColor() {
-      if (isHighestAchieved) return Colors.green;
+      if (isHighestAchieved) return AppColors.success;
       if (isNextToAchieve) return AppColors.primaryDark;
       return null;
     }
@@ -1564,7 +1570,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.green,
+            color: AppColors.success,
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text(
@@ -1601,7 +1607,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
 
     // 边框颜色优先级：置顶 > 最高达成 > 即将达成
     Color? actualBorderColor() {
-      if (isPinned) return Colors.amber;
+      if (isPinned) return AppColors.warning;
       return getBorderColor();
     }
 
@@ -1611,7 +1617,9 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
         _togglePinnedTarget(target);
       },
       child: Card(
-        color: isBaseTarget && !isCompleted ? Colors.orange[50] : Colors.white,
+        color: isBaseTarget && !isCompleted
+            ? AppColors.warningLight
+            : Colors.white,
         shape: actualBorderColor() != null
             ? RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -1650,7 +1658,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.amber,
+                        color: AppColors.warning,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
@@ -1679,7 +1687,7 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.orange,
+                        color: AppColors.warning,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Text(
@@ -2008,16 +2016,16 @@ class _EditDayDialogState extends State<_EditDayDialog> {
                 Color typeColor;
                 switch (type) {
                   case '工作日':
-                    typeColor = Colors.green;
+                    typeColor = AppColors.success;
                     break;
                   case '加班日':
                     typeColor = AppColors.overtime;
                     break;
                   case '出差':
-                    typeColor = Colors.amber;
+                    typeColor = AppColors.warning;
                     break;
                   case '请假':
-                    typeColor = Colors.red;
+                    typeColor = AppColors.error;
                     break;
                   case '自定义':
                     typeColor = AppColors.custom;
@@ -2196,8 +2204,8 @@ class _EditDayDialogState extends State<_EditDayDialog> {
         // 恢复默认按钮(仅在有手动修改时显示)
         if (widget.onRestore != null)
           TextButton.icon(
-            icon: const Icon(Icons.restore, color: Colors.red),
-            label: const Text('恢复默认', style: TextStyle(color: Colors.red)),
+            icon: const Icon(Icons.restore, color: AppColors.error),
+            label: const Text('恢复默认', style: TextStyle(color: AppColors.error)),
             onPressed: () async {
               await HapticUtils.mediumImpact();
               await widget.onRestore!();
@@ -2323,7 +2331,7 @@ class _CongratulationsDialogState extends State<_CongratulationsDialog>
                       height: 80,
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.amber[400]!, Colors.orange[400]!],
+                          colors: [AppColors.warningLight, AppColors.warning],
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
                         ),
@@ -2343,7 +2351,7 @@ class _CongratulationsDialogState extends State<_CongratulationsDialog>
                       style: TextStyle(
                         fontSize: 28,
                         fontWeight: FontWeight.bold,
-                        color: Colors.orange,
+                        color: AppColors.warning,
                       ),
                     ),
                     const SizedBox(height: 12),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../core/theme/app_colors.dart';
 import '../utils/haptic_utils.dart';
 
 class TeamSelectionDialog {
@@ -32,7 +33,7 @@ class TeamSelectionDialog {
                 return ListTile(
                   title: Text(teamName),
                   trailing: isCurrentTeam
-                      ? const Icon(Icons.check, color: Colors.green)
+                      ? const Icon(Icons.check, color: AppColors.success)
                       : null,
                   onTap: () {
                     HapticUtils.selectionClick();

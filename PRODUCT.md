@@ -32,7 +32,7 @@ android
 
 ## Brand Commitments
 
-产品名称沿用“华云工时查询工具”。界面采用现代、高级、高信息密度的轻拟物设计，但必须保持 Android Material 3 的导航、触控与系统返回习惯。
+产品名称沿用“华云工时查询工具”。界面采用现代、高级、高信息密度的轻拟物设计，使用钴蓝青柚主题角色，但必须保持 Android Material 3 的导航、触控与系统返回习惯。
 
 ## Evidence on Hand
 

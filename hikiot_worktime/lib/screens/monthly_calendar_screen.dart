@@ -950,16 +950,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     Color bgColor;
     switch (dayType) {
       case '工作日':
-        bgColor = Colors.green;
+        bgColor = AppColors.success;
         break;
       case '加班日':
         bgColor = AppColors.overtime;
         break;
       case '出差':
-        bgColor = Colors.amber;
+        bgColor = AppColors.warning;
         break;
       case '请假':
-        bgColor = Colors.red;
+        bgColor = AppColors.error;
         break;
       case '自定义':
         bgColor = AppColors.custom;
@@ -989,7 +989,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
       decoration: BoxDecoration(
         color: bgColor.withValues(alpha: opacity),
         border: isToday
-            ? Border.all(color: Colors.orange, width: 2)
+            ? Border.all(color: AppColors.warning, width: 2)
             : Border.all(color: Colors.grey[300]!, width: 0.5),
         borderRadius: BorderRadius.circular(8),
       ),
@@ -1021,7 +1021,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                       width: 6,
                       height: 6,
                       decoration: const BoxDecoration(
-                        color: Colors.red,
+                        color: AppColors.error,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -1086,7 +1086,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                               children: [
                                 Icon(
                                   Icons.login,
-                                  color: Colors.green[600],
+                                  color: AppColors.success,
                                   size: 18,
                                 ),
                                 const SizedBox(height: 4),
@@ -1103,7 +1103,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: checkIn != null
-                                        ? Colors.green[700]
+                                        ? AppColors.success
                                         : Colors.grey,
                                   ),
                                 ),
@@ -1118,7 +1118,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                               children: [
                                 Icon(
                                   Icons.logout,
-                                  color: Colors.orange[600],
+                                  color: AppColors.warning,
                                   size: 18,
                                 ),
                                 const SizedBox(height: 4),
@@ -1135,7 +1135,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                                     fontSize: 16,
                                     fontWeight: FontWeight.bold,
                                     color: checkOut != null
-                                        ? Colors.orange[700]
+                                        ? AppColors.warning
                                         : Colors.grey,
                                   ),
                                 ),
@@ -1204,16 +1204,16 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         Color typeColor;
                         switch (type) {
                           case '工作日':
-                            typeColor = Colors.green;
+                            typeColor = AppColors.success;
                             break;
                           case '加班日':
                             typeColor = AppColors.overtime;
                             break;
                           case '出差':
-                            typeColor = Colors.amber;
+                            typeColor = AppColors.warning;
                             break;
                           case '请假':
-                            typeColor = Colors.red;
+                            typeColor = AppColors.error;
                             break;
                           case '自定义':
                             typeColor = AppColors.custom;
@@ -1383,10 +1383,10 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                 // 取消修改按钮（恢复默认）
                 if (dayData['isManual'] == true)
                   TextButton.icon(
-                    icon: const Icon(Icons.restore, color: Colors.red),
+                    icon: const Icon(Icons.restore, color: AppColors.error),
                     label: const Text(
                       '恢复默认',
-                      style: TextStyle(color: Colors.red),
+                      style: TextStyle(color: AppColors.error),
                     ),
                     onPressed: () async {
                       HapticUtils.mediumImpact(); // 恢复默认震动
@@ -1433,14 +1433,14 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     return Container(
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: Colors.amber[50],
+        color: AppColors.warningLight,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.amber[200]!),
+        border: Border.all(color: AppColors.warningLight),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.nights_stay, size: 18, color: Colors.amber[800]),
+          Icon(Icons.nights_stay, size: 18, color: AppColors.warningDark),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -1448,7 +1448,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               style: TextStyle(
                 fontSize: 12,
                 height: 1.35,
-                color: Colors.amber[900],
+                color: AppColors.warningDark,
               ),
             ),
           ),
@@ -2215,19 +2215,23 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         _togglePinnedTarget(target);
       },
       child: Card(
-        color: Colors.green[50],
+        color: AppColors.successLight,
         margin: const EdgeInsets.only(bottom: 8),
         shape: isPinned
             ? RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
-                side: const BorderSide(color: Colors.amber, width: 2),
+                side: const BorderSide(color: AppColors.warning, width: 2),
               )
             : null,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
             children: [
-              const Icon(Icons.check_circle, color: Colors.green, size: 18),
+              const Icon(
+                Icons.check_circle,
+                color: AppColors.success,
+                size: 18,
+              ),
               const SizedBox(width: 8),
               Text(
                 '$target% 目标已达成',
@@ -2244,7 +2248,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange,
+                    color: AppColors.warning,
                     borderRadius: BorderRadius.circular(4),
                   ),
                   child: const Text(
@@ -2259,7 +2263,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
               ],
               if (isPinned) ...[
                 const SizedBox(width: 6),
-                Icon(Icons.push_pin, size: 14, color: Colors.amber[700]),
+                Icon(Icons.push_pin, size: 14, color: AppColors.warning),
               ],
               const Spacer(),
               PrecisionText(
@@ -2302,20 +2306,20 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
     );
 
     Color getProgressColor() {
-      if (isCompleted) return Colors.green;
-      if (isBaseTarget) return Colors.orange;
+      if (isCompleted) return AppColors.success;
+      if (isBaseTarget) return AppColors.warning;
       return AppColors.primary;
     }
 
     Color getAvgProgressColor() {
-      if (avgProgress >= 1.0) return Colors.green;
-      if (isBaseTarget) return Colors.orange;
+      if (avgProgress >= 1.0) return AppColors.success;
+      if (isBaseTarget) return AppColors.warning;
       return AppColors.overtime;
     }
 
     // 特殊标记的边框颜色
     Color? getBorderColor() {
-      if (isHighestAchieved) return Colors.green; // 绿色 - 最高达成
+      if (isHighestAchieved) return AppColors.success; // 绿色 - 最高达成
       if (isNextToAchieve) return AppColors.primaryDark;
       return null;
     }
@@ -2326,7 +2330,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         return Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: Colors.green,
+            color: AppColors.success,
             borderRadius: BorderRadius.circular(4),
           ),
           child: const Text(
@@ -2363,7 +2367,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
 
     // 边框颜色优先级：置顶 > 最高达成 > 即将达成
     Color? actualBorderColor() {
-      if (isPinned) return Colors.amber;
+      if (isPinned) return AppColors.warning;
       return getBorderColor();
     }
 
@@ -2373,7 +2377,9 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
         _togglePinnedTarget(target);
       },
       child: Card(
-        color: isBaseTarget && !isCompleted ? Colors.orange[50] : Colors.white,
+        color: isBaseTarget && !isCompleted
+            ? AppColors.warningLight
+            : Colors.white,
         shape: actualBorderColor() != null
             ? RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(4),
@@ -2413,7 +2419,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.amber,
+                        color: AppColors.warning,
                         borderRadius: BorderRadius.circular(4),
                       ),
                       child: Row(
@@ -2443,7 +2449,7 @@ class MonthlyCalendarScreenState extends State<MonthlyCalendarScreen> {
                         vertical: 2,
                       ),
                       decoration: BoxDecoration(
-                        color: Colors.orange,
+                        color: AppColors.warning,
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Text(

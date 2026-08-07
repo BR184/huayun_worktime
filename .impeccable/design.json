@@ -6,21 +6,27 @@
     "colorMeta": {
       "primary": {
         "role": "primary",
-        "displayName": "仪表玉绿",
-        "canonical": "#176B58",
-        "tonalRamp": ["#06251E", "#0F4F42", "#176B58", "#3B8A75", "#72AD9B", "#A7D0C3", "#D2E8E0", "#F0F8F5"]
+        "displayName": "活力钴蓝",
+        "canonical": "#4057E8",
+        "tonalRamp": ["#10143D", "#18245D", "#2A3BA6", "#4057E8", "#6174F0", "#96A4F7", "#DDE4FF", "#F7F8FF"]
       },
       "accent": {
         "role": "secondary",
-        "displayName": "精密琥珀",
-        "canonical": "#C88718",
-        "tonalRamp": ["#342000", "#674300", "#96630C", "#C88718", "#DFA948", "#EDC77F", "#F7E2B7", "#FFF7E7"]
+        "displayName": "青柚辅色",
+        "canonical": "#008F7A",
+        "tonalRamp": ["#001F1A", "#00382F", "#006B5B", "#008F7A", "#2EAE98", "#76D5C2", "#B9F2E5", "#EEFFF9"]
+      },
+      "tertiary": {
+        "role": "tertiary",
+        "displayName": "莓红第三色",
+        "canonical": "#C23B63",
+        "tonalRamp": ["#3A0718", "#5A1025", "#8E2949", "#C23B63", "#E66B89", "#F6A4B7", "#FFD9E1", "#FFF5F7"]
       },
       "canvas": {
         "role": "neutral",
-        "displayName": "冷灰画布",
-        "canonical": "#F2F4F3",
-        "tonalRamp": ["#202422", "#3C423F", "#59615D", "#78817D", "#9AA39F", "#BBC3BF", "#DDE2DF", "#F2F4F3"]
+        "displayName": "冷白画布",
+        "canonical": "#F7F8FC",
+        "tonalRamp": ["#202422", "#3C423F", "#59615D", "#78817D", "#9AA39F", "#BBC3BF", "#DDE2DF", "#F7F8FC"]
       }
     },
     "typographyMeta": {
@@ -45,9 +51,9 @@
       "name": "Primary Button",
       "kind": "button",
       "refersTo": "button-primary",
-      "description": "48dp 玉绿主要操作按钮。",
+      "description": "48dp 钴蓝主要操作按钮。",
       "html": "<button class=\"ds-btn-primary\">保存设置</button>",
-      "css": ".ds-btn-primary{height:48px;padding:0 20px;border:0;border-radius:8px;background:#176B58;color:#fff;font:600 14px Roboto,sans-serif;box-shadow:2px 3px 8px rgba(36,50,45,.11);transition:background .22s,transform .22s}.ds-btn-primary:hover{background:#0F4F42}.ds-btn-primary:focus-visible{outline:2px solid #C88718;outline-offset:2px}.ds-btn-primary:active{transform:translateY(1px)}"
+      "css": ".ds-btn-primary{height:48px;padding:0 20px;border:0;border-radius:8px;background:#4057E8;color:#fff;font:600 14px Roboto,sans-serif;box-shadow:2px 3px 8px rgba(36,50,45,.11);transition:background .22s,transform .22s}.ds-btn-primary:hover{background:#18245D}.ds-btn-primary:focus-visible{outline:2px solid #008F7A;outline-offset:2px}.ds-btn-primary:active{transform:translateY(1px)}"
     },
     {
       "name": "Instrument Card",
@@ -55,34 +61,34 @@
       "refersTo": "card",
       "description": "带细边和克制双影的数据承载表面。",
       "html": "<section class=\"ds-card\"><strong>今日打卡工时</strong><p>8.5<span>9</span> 小时</p></section>",
-      "css": ".ds-card{padding:16px;border:1px solid #D7DEDA;border-radius:8px;background:#fff;color:#17201E;box-shadow:-1px -1px 2px rgba(255,255,255,.85),2px 3px 8px rgba(36,50,45,.11);font:400 14px Roboto,sans-serif}.ds-card p{margin:12px 0 0;font-size:36px;font-weight:700;font-variant-numeric:tabular-nums}.ds-card p span{color:#6F7975}"
+      "css": ".ds-card{padding:16px;border:1px solid #DCE1EC;border-radius:8px;background:#fff;color:#17201E;box-shadow:-1px -1px 2px rgba(255,255,255,.85),2px 3px 8px rgba(36,50,45,.11);font:400 14px Roboto,sans-serif}.ds-card p{margin:12px 0 0;font-size:36px;font-weight:700;font-variant-numeric:tabular-nums}.ds-card p span{color:#9AA6A1}"
     },
     {
       "name": "Input Field",
       "kind": "input",
       "description": "浅色填充、明确焦点边的 Material 输入框。",
       "html": "<input class=\"ds-input\" value=\"12:00\" aria-label=\"午休开始时间\">",
-      "css": ".ds-input{height:48px;padding:0 14px;border:1px solid #D7DEDA;border-radius:8px;background:#fff;color:#17201E;font:400 14px Roboto,sans-serif}.ds-input:focus{border:2px solid #176B58;outline:0}.ds-input:disabled{color:#A8B1AD;background:#E9EEEB}"
+      "css": ".ds-input{height:48px;padding:0 14px;border:1px solid #DCE1EC;border-radius:8px;background:#fff;color:#17201E;font:400 14px Roboto,sans-serif}.ds-input:focus{border:2px solid #4057E8;outline:0}.ds-input:disabled{color:#A8B1AD;background:#EEF1F7}"
     },
     {
       "name": "Navigation",
       "kind": "nav",
       "description": "三目的地 Android Material NavigationBar。",
       "html": "<nav class=\"ds-nav\"><button class=\"active\">每日</button><button>月度</button><button>设置</button></nav>",
-      "css": ".ds-nav{display:flex;height:68px;border-top:1px solid #D7DEDA;background:#fff}.ds-nav button{flex:1;border:0;background:transparent;color:#59635F;font:500 11px Roboto,sans-serif}.ds-nav button.active{color:#0F4F42;font-weight:700;background:#D2E8E0}.ds-nav button:focus-visible{outline:2px solid #C88718;outline-offset:-2px}"
+      "css": ".ds-nav{display:flex;height:68px;border-top:1px solid #DCE1EC;background:#fff}.ds-nav button{flex:1;border:0;background:transparent;color:#59635F;font:500 11px Roboto,sans-serif}.ds-nav button.active{color:#18245D;font-weight:700;background:#DDE4FF}.ds-nav button:focus-visible{outline:2px solid #008F7A;outline-offset:-2px}"
     },
     {
       "name": "Status Chip",
       "kind": "chip",
       "description": "紧凑语义状态标签。",
       "html": "<span class=\"ds-chip\">工作日</span>",
-      "css": ".ds-chip{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border:1px solid #D7DEDA;border-radius:6px;background:#F2F4F3;color:#59635F;font:500 12px Roboto,sans-serif}"
+      "css": ".ds-chip{display:inline-flex;align-items:center;min-height:28px;padding:0 10px;border:1px solid #DCE1EC;border-radius:6px;background:#F7F8FC;color:#59635F;font:500 12px Roboto,sans-serif}"
     }
   ],
   "narrative": {
     "northStar": "精密工时仪表",
     "overview": "界面像一台放在明亮办公桌上的精密计时仪器：结构克制、刻度清楚、触点有真实反馈。轻拟物来自表面的内高光、细边和低幅双层阴影，而不是玻璃、渐变或夸张装饰。",
-    "keyCharacteristics": ["冷中性浅底与白色抬升表面", "石墨文字、玉绿主操作、琥珀提醒", "8dp 以内圆角和紧凑 4dp 网格", "数字使用等宽特性，百分位弱化"],
+    "keyCharacteristics": ["冷白画布、浅蓝灰表面与白色抬升表面", "石墨文字、钴蓝操作、青柚完成、莓红特殊提醒、琥珀警告", "8dp 以内圆角和紧凑 4dp 网格", "数字使用等宽特性，百分位弱化"],
     "rules": [
       {"name": "Signal Rarity", "body": "强调色只用于当前选择、主要操作和语义状态，不作为背景装饰。", "section": "colors"},
       {"name": "Counted Digit", "body": "两位小数的百分位统一弱化，且不参与工时和百分比计算。", "section": "typography"},

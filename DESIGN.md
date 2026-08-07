@@ -1,17 +1,20 @@
 ---
 name: 华云工时查询工具
-description: 面向高频工时核对的现代精密仪表界面
+description: 面向高频工时核对的钴蓝青柚精密仪表界面
 colors:
-  primary: "#3D5A57"
-  primary-strong: "#0F4F42"
-  accent: "#B56B45"
+  primary: "#4057E8"
+  primary-strong: "#18245D"
+  secondary: "#008F7A"
+  tertiary: "#C23B63"
+  accent: "#C23B63"
+  warning: "#A66300"
   error: "#BA1A1A"
-  canvas: "#F5F3EF"
-  surface: "#FAFBFA"
+  canvas: "#F7F8FC"
+  surface: "#FFFFFF"
   surface-raised: "#FFFFFF"
   graphite: "#17201E"
   graphite-muted: "#59635F"
-  outline: "#D7DEDA"
+  outline: "#DCE1EC"
   decimal-muted: "#9AA6A1"
 typography:
   headline:
@@ -61,21 +64,21 @@ components:
 
 **Creative North Star: "精密工时仪表"**
 
-界面像一台放在明亮办公桌上的精密计时仪器：结构克制、刻度清楚、触点有真实反馈。轻拟物来自表面的内高光、细边和低幅双层阴影，而不是玻璃、渐变或夸张装饰。信息密度服务于每日核对任务，首屏优先呈现日期、计入工时、完成率和打卡状态。
+界面像一台放在明亮办公桌上的精密计时仪器：结构克制、刻度清楚、触点有真实反馈。钴蓝负责操作和选中，青柚绿负责完成和正常，莓红负责特殊提醒，琥珀只表达警告。轻拟物来自表面的内高光、细边和低幅双层阴影，而不是玻璃、渐变或夸张装饰。信息密度服务于每日核对任务，首屏优先呈现日期、计入工时、完成率和打卡状态。
 
 **Key Characteristics:**
 
-- 冷中性浅底与白色抬升表面
-- 石墨文字、玉绿主操作、琥珀提醒
+- 冷白画布、浅蓝灰表面与白色抬升表面
+- 深钴蓝操作、青柚完成、莓红特殊提醒、琥珀警告
 - 8dp 以内圆角和紧凑 4dp 网格
 - 数字使用等宽特性，百分位弱化
 - 150-220ms 状态动效，不做装饰性循环动画
 
 ## Colors
 
-使用克制的中性色承载高密度数据，玉绿只标记主操作和当前选择，琥珀与红色只表达真实状态。
+使用冷白和浅蓝灰表面承载高密度数据，钴蓝标记主操作和当前选择，青柚绿标记完成与正常，莓红标记特殊提醒，琥珀与红色只表达真实状态。
 
-**The Signal Rarity Rule.** 强调色只用于当前选择、主要操作和语义状态，不作为背景装饰。
+**The Signal Rarity Rule.** 强调色只用于当前选择、主要操作和语义状态，不作为背景装饰；同一语义在每日、月度和设置页必须复用同一角色。
 
 ## Typography
 
@@ -101,7 +104,7 @@ components:
 
 ### Buttons
 
-主要按钮为 48dp 玉绿实心 Material 按钮；次要操作使用轮廓或文本按钮。所有触控目标至少 48dp，按压反馈为轻微下沉、色调加深和触觉反馈。
+主要按钮为 48dp 钴蓝实心 Material 按钮；次要操作使用轮廓或文本按钮。所有触控目标至少 48dp，按压反馈为轻微下沉、色调加深和触觉反馈。
 
 ### Cards / Containers
 
@@ -113,7 +116,7 @@ components:
 
 ### Navigation
 
-紧凑宽度使用三项 Material NavigationBar，当前项用玉绿图标与浅色指示器，未选项保持石墨灰。导航不使用自定义 iOS Home 键隐喻。
+紧凑宽度使用三项 Material NavigationBar，当前项用钴蓝图标与浅色指示器，未选项保持石墨灰。导航不使用自定义 iOS Home 键隐喻。
 
 ### Precision Number
 

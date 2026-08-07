@@ -36,7 +36,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
     ),
     _FeatureItem(
       icon: Icons.calendar_month,
-      color: Colors.teal,
+      color: AppColors.secondary,
       title: '月度统计',
       points: [
         '查看日历视图的月度工时概览',
@@ -60,7 +60,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
     ),
     _FeatureItem(
       icon: Icons.touch_app,
-      color: Colors.purple,
+      color: AppColors.tertiary,
       title: '日期操作',
       points: [
         '点击日历中的日期格子',
@@ -72,7 +72,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
     ),
     _FeatureItem(
       icon: Icons.event_note,
-      color: Colors.indigo,
+      color: AppColors.tertiary,
       title: '节假日管理',
       points: [
         '自动同步海康服务器配置的休息日与节假日',
@@ -84,7 +84,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
     ),
     _FeatureItem(
       icon: Icons.sync,
-      color: Colors.cyan,
+      color: AppColors.primary,
       title: '工时更新',
       points: [
         '海康API不支持按月批量获取工时',
@@ -95,7 +95,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
     ),
     _FeatureItem(
       icon: Icons.category,
-      color: Colors.deepPurple,
+      color: AppColors.tertiary,
       title: '工作日类型',
       points: [
         '工作日：按打卡计算工时，算总工时，算总天数',
@@ -120,7 +120,7 @@ class _FeatureGuidePageState extends State<FeatureGuidePage> {
     ),
     _FeatureItem(
       icon: Icons.notifications_active,
-      color: Colors.amber,
+      color: AppColors.warning,
       title: '打卡提醒',
       points: [
         '在设置中开启打卡提醒',

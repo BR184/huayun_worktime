@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../core/theme/app_colors.dart';
 import '../services/device_brand_service.dart';
 import '../utils/haptic_utils.dart';
 
@@ -97,18 +98,18 @@ class _PhonePermissionGuideState extends State<PhonePermissionGuide> {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.orange[50],
+        color: AppColors.warningLight,
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.orange[300]!),
+        border: Border.all(color: AppColors.warningLight),
       ),
       child: Row(
         children: [
-          Icon(Icons.warning_amber, color: Colors.orange[700], size: 24),
+          Icon(Icons.warning_amber, color: AppColors.warning, size: 24),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
               '国产手机对后台应用限制严格，必须完成以下设置才能保证提醒正常工作',
-              style: TextStyle(fontSize: 13, color: Colors.orange[900]),
+              style: TextStyle(fontSize: 13, color: AppColors.warningDark),
             ),
           ),
         ],
@@ -140,7 +141,7 @@ class _PhonePermissionGuideState extends State<PhonePermissionGuide> {
                   width: 28,
                   height: 28,
                   decoration: BoxDecoration(
-                    color: Colors.blue[700],
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Center(
@@ -178,14 +179,14 @@ class _PhonePermissionGuideState extends State<PhonePermissionGuide> {
                             vertical: 4,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.green[50],
+                            color: AppColors.successLight,
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: Text(
                             step['action'] as String,
                             style: TextStyle(
                               fontSize: 12,
-                              color: Colors.green[700],
+                              color: AppColors.success,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
@@ -217,7 +218,7 @@ class _PhonePermissionGuideState extends State<PhonePermissionGuide> {
             label: const Text('打开应用设置'),
             style: ElevatedButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
-              backgroundColor: Colors.blue[700],
+              backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
             ),
           ),
@@ -240,14 +241,14 @@ class _PhonePermissionGuideState extends State<PhonePermissionGuide> {
         return {
           'name': '小米/Redmi',
           'icon': Icons.phone_android,
-          'color': Colors.orange[700]!,
+          'color': AppColors.warning,
         };
       case 'huawei':
       case 'honor':
         return {
           'name': '华为/荣耀',
           'icon': Icons.phone_android,
-          'color': Colors.red[700]!,
+          'color': AppColors.error,
         };
       case 'oppo':
       case 'realme':
@@ -255,20 +256,20 @@ class _PhonePermissionGuideState extends State<PhonePermissionGuide> {
         return {
           'name': 'OPPO/realme/一加',
           'icon': Icons.phone_android,
-          'color': Colors.green[700]!,
+          'color': AppColors.success,
         };
       case 'vivo':
       case 'iqoo':
         return {
           'name': 'vivo/iQOO',
           'icon': Icons.phone_android,
-          'color': Colors.blue[700]!,
+          'color': AppColors.primary,
         };
       case 'samsung':
         return {
           'name': '三星',
           'icon': Icons.phone_android,
-          'color': Colors.indigo[700]!,
+          'color': AppColors.tertiary,
         };
       default:
         return {

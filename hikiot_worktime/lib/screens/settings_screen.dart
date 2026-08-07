@@ -10,6 +10,7 @@ import '../services/notification_service.dart';
 import '../services/reminder_coordinator.dart';
 import '../services/settings_repository.dart';
 import '../services/team_context_service.dart';
+import '../core/theme/app_colors.dart';
 import '../utils/haptic_utils.dart';
 import '../utils/date_helper.dart';
 import '../widgets/haptic_refresh_indicator.dart';
@@ -133,13 +134,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('设置已保存'), backgroundColor: Colors.green),
+          const SnackBar(
+            content: Text('设置已保存'),
+            backgroundColor: AppColors.success,
+          ),
         );
       }
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('保存失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('保存失败: $e'), backgroundColor: AppColors.error),
         );
       }
     }
@@ -254,7 +258,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildSectionHeader(String title, IconData icon) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: Colors.blue[700]),
+        Icon(icon, size: 20, color: AppColors.primary),
         const SizedBox(width: 8),
         Text(
           title,
@@ -276,7 +280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   ) {
     return Row(
       children: [
-        Icon(icon, size: 20, color: Colors.blue[700]),
+        Icon(icon, size: 20, color: AppColors.primary),
         const SizedBox(width: 8),
         Text(
           title,
@@ -322,7 +326,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.help_outline, color: Colors.blue),
+            Icon(Icons.help_outline, color: AppColors.primary),
             SizedBox(width: 8),
             Text('打卡提醒说明'),
           ],
@@ -360,7 +364,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.orange[50],
+                  color: AppColors.warningLight,
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Row(
@@ -368,7 +372,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Icon(
                       Icons.info_outline,
                       size: 16,
-                      color: Colors.orange[700],
+                      color: AppColors.warning,
                     ),
                     const SizedBox(width: 8),
                     Expanded(
@@ -376,7 +380,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         '周末(除调休上班)和节假日不会发送提醒',
                         style: TextStyle(
                           fontSize: 12,
-                          color: Colors.orange[700],
+                          color: AppColors.warning,
                         ),
                       ),
                     ),
@@ -388,23 +392,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red[50],
+                  color: AppColors.errorLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red[200]!),
+                  border: Border.all(color: AppColors.errorLight),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.science, size: 16, color: Colors.red[700]),
+                        Icon(Icons.science, size: 16, color: AppColors.error),
                         const SizedBox(width: 6),
                         Text(
                           '实验性功能',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: Colors.red[700],
+                            color: AppColors.error,
                           ),
                         ),
                       ],
@@ -412,7 +416,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const SizedBox(height: 6),
                     Text(
                       '此功能采用本地闹钟而非服务器推送，在以下情况可能无法正常提醒：',
-                      style: TextStyle(fontSize: 11, color: Colors.red[700]),
+                      style: TextStyle(fontSize: 11, color: AppColors.error),
                     ),
                     const SizedBox(height: 4),
                     Text(
@@ -420,7 +424,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       '• 应用被系统后台杀死\n'
                       '• 未开启自启动权限\n'
                       '• 开启了电池优化',
-                      style: TextStyle(fontSize: 11, color: Colors.red[600]),
+                      style: TextStyle(fontSize: 11, color: AppColors.error),
                     ),
                     const SizedBox(height: 6),
                     Text(
@@ -428,7 +432,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       style: TextStyle(
                         fontSize: 11,
                         fontWeight: FontWeight.w500,
-                        color: Colors.red[700],
+                        color: AppColors.error,
                       ),
                     ),
                   ],
@@ -497,7 +501,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.track_changes, size: 20, color: Colors.blue[700]),
+                Icon(Icons.track_changes, size: 20, color: AppColors.primary),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -511,7 +515,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     vertical: 6,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.blue[100],
+                    color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Text(
@@ -519,7 +523,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: Colors.blue[700],
+                      color: AppColors.primary,
                     ),
                   ),
                 ),
@@ -551,7 +555,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       baseTarget: _baseTarget,
                     );
                   },
-                  activeThumbColor: Colors.blue[700],
+                  activeThumbColor: AppColors.primary,
                   materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 ),
               ],
@@ -559,11 +563,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             SliderTheme(
               data: SliderTheme.of(context).copyWith(
-                activeTrackColor: Colors.blue[700],
-                inactiveTrackColor: Colors.blue[100],
-                thumbColor: Colors.blue[700],
-                overlayColor: Colors.blue.withValues(alpha: 0.2),
-                valueIndicatorColor: Colors.blue[700],
+                activeTrackColor: AppColors.primary,
+                inactiveTrackColor: AppColors.primaryLight,
+                thumbColor: AppColors.primary,
+                overlayColor: AppColors.primary.withValues(alpha: 0.2),
+                valueIndicatorColor: AppColors.primary,
                 valueIndicatorTextStyle: const TextStyle(
                   color: Colors.white,
                   fontWeight: FontWeight.bold,
@@ -653,7 +657,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // 上班提醒
             Row(
               children: [
-                Icon(Icons.wb_sunny, size: 20, color: Colors.orange[700]),
+                Icon(Icons.wb_sunny, size: 20, color: AppColors.warning),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -664,7 +668,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Switch(
                   value: _morningReminderEnabled,
                   onChanged: (value) => _toggleMorningReminder(value),
-                  activeThumbColor: Colors.orange[700],
+                  activeThumbColor: AppColors.warning,
                 ),
               ],
             ),
@@ -679,7 +683,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.orange[50],
+                    color: AppColors.warningLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -688,7 +692,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Icon(
                         Icons.access_time,
                         size: 16,
-                        color: Colors.orange[700],
+                        color: AppColors.warning,
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -696,7 +700,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.orange[700],
+                          color: AppColors.warning,
                         ),
                       ),
                     ],
@@ -708,7 +712,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             // 下班提醒
             Row(
               children: [
-                Icon(Icons.nightlight, size: 20, color: Colors.indigo[700]),
+                Icon(Icons.nightlight, size: 20, color: AppColors.tertiary),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -719,7 +723,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Switch(
                   value: _eveningReminderEnabled,
                   onChanged: (value) => _toggleEveningReminder(value),
-                  activeThumbColor: Colors.indigo[700],
+                  activeThumbColor: AppColors.tertiary,
                 ),
               ],
             ),
@@ -734,7 +738,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     vertical: 8,
                   ),
                   decoration: BoxDecoration(
-                    color: Colors.indigo[50],
+                    color: AppColors.tertiaryLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -743,7 +747,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Icon(
                         Icons.access_time,
                         size: 16,
-                        color: Colors.indigo[700],
+                        color: AppColors.tertiary,
                       ),
                       const SizedBox(width: 6),
                       Text(
@@ -751,7 +755,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.indigo[700],
+                          color: AppColors.tertiary,
                         ),
                       ),
                     ],
@@ -784,7 +788,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     label: const Text('测试生效'),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 10),
-                      backgroundColor: Colors.teal,
+                      backgroundColor: AppColors.secondary,
                       foregroundColor: Colors.white,
                     ),
                   ),
@@ -795,17 +799,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                  Icon(Icons.info_outline, size: 16, color: AppColors.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '需开启自启动、关闭省电优化才能正常提醒',
-                      style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                      style: TextStyle(fontSize: 12, color: AppColors.primary),
                     ),
                   ),
                 ],
@@ -951,7 +955,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(message), backgroundColor: Colors.red),
+      SnackBar(content: Text(message), backgroundColor: AppColors.error),
     );
   }
 
@@ -1011,7 +1015,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             content: Text(
               '${isMorning ? '上班' : '下班'}提醒时间已设置为 ${_formatTime(picked)}',
             ),
-            backgroundColor: Colors.green,
+            backgroundColor: AppColors.success,
           ),
         );
       }
@@ -1034,7 +1038,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: const Row(
           children: [
-            Icon(Icons.tips_and_updates, color: Colors.orange),
+            Icon(Icons.tips_and_updates, color: AppColors.warning),
             SizedBox(width: 8),
             Text('重要提示'),
           ],
@@ -1056,23 +1060,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: Colors.red[50],
+                  color: AppColors.errorLight,
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: Colors.red[200]!),
+                  border: Border.all(color: AppColors.errorLight),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(Icons.science, size: 16, color: Colors.red[700]),
+                        Icon(Icons.science, size: 16, color: AppColors.error),
                         const SizedBox(width: 6),
                         Text(
                           '实验性功能',
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.bold,
-                            color: Colors.red[700],
+                            color: AppColors.error,
                           ),
                         ),
                       ],
@@ -1081,7 +1085,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Text(
                       '此功能采用本地闹钟而非服务器推送，在国产手机（小米/华为/OPPO/vivo等）上可能因后台管理被系统限制。\n\n'
                       '如按指南设置后仍无法收到提醒，建议使用手机自带闹钟作为备选方案。',
-                      style: TextStyle(fontSize: 11, color: Colors.red[700]),
+                      style: TextStyle(fontSize: 11, color: AppColors.error),
                     ),
                   ],
                 ),
@@ -1140,7 +1144,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.sort, size: 20, color: Colors.purple[700]),
+                Icon(Icons.sort, size: 20, color: AppColors.tertiary),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -1155,7 +1159,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     setState(() => _smartSort = value);
                     await _settingsRepository.saveSmartSort(value);
                   },
-                  activeThumbColor: Colors.purple[700],
+                  activeThumbColor: AppColors.tertiary,
                 ),
               ],
             ),
@@ -1168,17 +1172,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.purple[50],
+                color: AppColors.tertiaryLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.purple[700]),
+                  Icon(Icons.info_outline, size: 16, color: AppColors.tertiary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '置顶目标始终显示在最前面',
-                      style: TextStyle(fontSize: 12, color: Colors.purple[700]),
+                      style: TextStyle(fontSize: 12, color: AppColors.tertiary),
                     ),
                   ),
                 ],
@@ -1202,7 +1206,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.vibration, size: 20, color: Colors.teal[700]),
+                Icon(Icons.vibration, size: 20, color: AppColors.secondary),
                 const SizedBox(width: 8),
                 const Expanded(
                   child: Text(
@@ -1219,7 +1223,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.auto_awesome,
               title: '高级',
               subtitle: '线性马达专属，丰富细腻的触感体验',
-              color: Colors.teal,
+              color: AppColors.secondary,
             ),
             const SizedBox(height: 8),
             _buildHapticOption(
@@ -1227,7 +1231,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               icon: Icons.touch_app,
               title: '基础',
               subtitle: '适用于转子马达，简化的震动反馈',
-              color: Colors.orange,
+              color: AppColors.warning,
             ),
             const SizedBox(height: 8),
             _buildHapticOption(
@@ -1241,17 +1245,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.teal[50],
+                color: AppColors.secondaryLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.teal[700]),
+                  Icon(
+                    Icons.info_outline,
+                    size: 16,
+                    color: AppColors.secondary,
+                  ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '高级模式包含下拉蓄力、释放爆发、边界碰撞等特效',
-                      style: TextStyle(fontSize: 12, color: Colors.teal[700]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.secondary,
+                      ),
                     ),
                   ),
                 ],
@@ -1269,7 +1280,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     required IconData icon,
     required String title,
     required String subtitle,
-    required MaterialColor color,
+    required Color color,
   }) {
     final isSelected = _hapticMode == mode;
 
@@ -1286,10 +1297,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          color: isSelected ? color[50] : Colors.grey[50],
+          color: isSelected ? color.withValues(alpha: 0.10) : Colors.grey[50],
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
-            color: isSelected ? color[400]! : Colors.grey[300]!,
+            color: isSelected ? color : Colors.grey[300]!,
             width: isSelected ? 2 : 1,
           ),
         ),
@@ -1298,13 +1309,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
-                color: isSelected ? color[100] : Colors.grey[200],
+                color: isSelected
+                    ? color.withValues(alpha: 0.16)
+                    : Colors.grey[200],
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 icon,
                 size: 20,
-                color: isSelected ? color[700] : Colors.grey[600],
+                color: isSelected ? color : Colors.grey[600],
               ),
             ),
             const SizedBox(width: 12),
@@ -1317,7 +1330,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     style: TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
-                      color: isSelected ? color[700] : Colors.grey[800],
+                      color: isSelected ? color : Colors.grey[800],
                     ),
                   ),
                   Text(
@@ -1327,8 +1340,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ],
               ),
             ),
-            if (isSelected)
-              Icon(Icons.check_circle, color: color[600], size: 22),
+            if (isSelected) Icon(Icons.check_circle, color: color, size: 22),
           ],
         ),
       ),
@@ -1347,7 +1359,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.restaurant, size: 20, color: Colors.orange[700]),
+                Icon(Icons.restaurant, size: 20, color: AppColors.warning),
                 const SizedBox(width: 8),
                 const Text(
                   '午休时间',
@@ -1392,17 +1404,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.blue[50],
+                color: AppColors.primaryLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
                 children: [
-                  Icon(Icons.info_outline, size: 16, color: Colors.blue[700]),
+                  Icon(Icons.info_outline, size: 16, color: AppColors.primary),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '午休时长: ${_calculateLunchDuration()}分钟',
-                      style: TextStyle(fontSize: 12, color: Colors.blue[700]),
+                      style: TextStyle(fontSize: 12, color: AppColors.primary),
                     ),
                   ),
                 ],
@@ -1426,7 +1438,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.nights_stay, size: 20, color: Colors.indigo[700]),
+                Icon(Icons.nights_stay, size: 20, color: AppColors.tertiary),
                 const SizedBox(width: 8),
                 const Text(
                   '跨天打卡提醒',
@@ -1457,7 +1469,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Icon(
                       Icons.access_time,
                       size: 20,
-                      color: Colors.indigo[600],
+                      color: AppColors.tertiary,
                     ),
                     const SizedBox(width: 12),
                     Text(
@@ -1477,7 +1489,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: Colors.amber[50],
+                color: AppColors.warningLight,
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Row(
@@ -1485,13 +1497,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   Icon(
                     Icons.lightbulb_outline,
                     size: 16,
-                    color: Colors.amber[800],
+                    color: AppColors.warningDark,
                   ),
                   const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       '例：凌晨0:10下班且提醒截止为04:00时，页面会提示你手动补充跨天工时',
-                      style: TextStyle(fontSize: 12, color: Colors.amber[900]),
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: AppColors.warningDark,
+                      ),
                     ),
                   ),
                 ],
@@ -1527,7 +1542,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('跨天提醒截止时间只可设置在00:00-06:00之间'),
-          backgroundColor: Colors.orange,
+          backgroundColor: AppColors.warning,
         ),
       );
       return;
@@ -1543,7 +1558,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text('跨天提醒截止时间已设置为 ${_formatTime(picked)}'),
-        backgroundColor: Colors.green,
+        backgroundColor: AppColors.success,
       ),
     );
   }
@@ -1576,7 +1591,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               style: TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
-                color: Colors.blue[700],
+                color: AppColors.primary,
               ),
             ),
           ],
@@ -1658,14 +1673,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Expanded(
                   child: OutlinedButton.icon(
                     onPressed: _logout,
-                    icon: const Icon(Icons.logout, color: Colors.red),
+                    icon: const Icon(Icons.logout, color: AppColors.error),
                     label: const Text(
                       '退出登录',
-                      style: TextStyle(color: Colors.red),
+                      style: TextStyle(color: AppColors.error),
                     ),
                     style: OutlinedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Colors.red),
+                      side: const BorderSide(color: AppColors.error),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
@@ -1701,12 +1716,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.blue[50],
+                        color: AppColors.primaryLight,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         Icons.menu_book,
-                        color: Colors.blue[700],
+                        color: AppColors.primary,
                         size: 22,
                       ),
                     ),
@@ -1747,12 +1762,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: Colors.orange[50],
+                        color: AppColors.warningLight,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: Icon(
                         Icons.replay,
-                        color: Colors.orange[700],
+                        color: AppColors.warning,
                         size: 22,
                       ),
                     ),
@@ -1806,7 +1821,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('已重置，重启本应用，即可重新体验新手引导'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.success,
           duration: Duration(seconds: 3),
         ),
       );
@@ -1819,7 +1834,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     if (_apiClient == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('请先登录'), backgroundColor: Colors.red),
+        const SnackBar(content: Text('请先登录'), backgroundColor: AppColors.error),
       );
       return;
     }
@@ -1871,7 +1886,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('切换团队失败: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text('切换团队失败: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
     }
@@ -1907,7 +1925,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           TextButton(
             onPressed: () => Navigator.pop(context, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
             child: const Text('退出'),
           ),
         ],
@@ -1931,7 +1949,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _buildDebugToolsHeader() {
     return Row(
       children: [
-        Icon(Icons.developer_mode, size: 20, color: Colors.blue[700]),
+        Icon(Icons.developer_mode, size: 20, color: AppColors.primary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -1950,7 +1968,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             setState(() => _debugToolsEnabled = value);
             await _settingsRepository.saveDebugToolsEnabled(value);
           },
-          activeThumbColor: Colors.red,
+          activeThumbColor: AppColors.error,
         ),
       ],
     );
@@ -1968,7 +1986,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             Row(
               children: [
-                Icon(Icons.bug_report, size: 20, color: Colors.red[700]),
+                Icon(Icons.bug_report, size: 20, color: AppColors.error),
                 const SizedBox(width: 8),
                 const Text(
                   '调试工具',
@@ -1979,7 +1997,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             const SizedBox(height: 8),
             Text(
               '仅供开发测试使用，请谨慎操作',
-              style: TextStyle(fontSize: 12, color: Colors.red[400]),
+              style: TextStyle(fontSize: 12, color: AppColors.error),
             ),
             const SizedBox(height: 16),
             // 生成无效Token按钮
@@ -1987,14 +2005,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _generateInvalidToken,
-                icon: Icon(Icons.vpn_key_off, color: Colors.red[700]),
+                icon: Icon(Icons.vpn_key_off, color: AppColors.error),
                 label: Text(
                   '生成无效Token',
-                  style: TextStyle(color: Colors.red[700]),
+                  style: TextStyle(color: AppColors.error),
                 ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  side: BorderSide(color: Colors.red[300]!),
+                  side: const BorderSide(color: AppColors.errorLight),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -2012,14 +2030,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: _copyCurrentToken,
-                icon: Icon(Icons.content_copy, color: Colors.blue[700]),
+                icon: Icon(Icons.content_copy, color: AppColors.primary),
                 label: Text(
                   '复制当前Token',
-                  style: TextStyle(color: Colors.blue[700]),
+                  style: TextStyle(color: AppColors.primary),
                 ),
                 style: OutlinedButton.styleFrom(
                   padding: const EdgeInsets.symmetric(vertical: 12),
-                  side: BorderSide(color: Colors.blue[300]!),
+                  side: const BorderSide(color: AppColors.primaryLight),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(8),
                   ),
@@ -2047,7 +2065,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
             content: Text('Token为空'),
-            backgroundColor: Colors.orange,
+            backgroundColor: AppColors.warning,
           ),
         );
       }
@@ -2059,7 +2077,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('已复制 (${token.length}字符)'),
-          backgroundColor: Colors.green,
+          backgroundColor: AppColors.success,
         ),
       );
     }
@@ -2075,7 +2093,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context) => AlertDialog(
         title: Row(
           children: [
-            Icon(Icons.warning_amber_rounded, color: Colors.orange[700]),
+            Icon(Icons.warning_amber_rounded, color: AppColors.warning),
             const SizedBox(width: 8),
             const Text('确认操作'),
           ],
@@ -2096,7 +2114,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
+              backgroundColor: AppColors.error,
               foregroundColor: Colors.white,
             ),
             child: const Text('确认生成'),
@@ -2129,7 +2147,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           builder: (context) => AlertDialog(
             title: Row(
               children: [
-                Icon(Icons.check_circle, color: Colors.green[700]),
+                Icon(Icons.check_circle, color: AppColors.success),
                 const SizedBox(width: 8),
                 const Text('Token已替换'),
               ],
@@ -2150,13 +2168,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 ),
                 const Text(
                   'INVALID_TOKEN_FOR_DEBUG...',
-                  style: TextStyle(fontSize: 13, color: Colors.red),
+                  style: TextStyle(fontSize: 13, color: AppColors.error),
                 ),
                 const SizedBox(height: 16),
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: Colors.blue[50],
+                    color: AppColors.primaryLight,
                     borderRadius: BorderRadius.circular(8),
                   ),
                   child: Row(
@@ -2164,7 +2182,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       Icon(
                         Icons.info_outline,
                         size: 16,
-                        color: Colors.blue[700],
+                        color: AppColors.primary,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -2172,7 +2190,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           '返回主页后刷新数据即可触发Token失效流程',
                           style: TextStyle(
                             fontSize: 12,
-                            color: Colors.blue[700],
+                            color: AppColors.primary,
                           ),
                         ),
                       ),
@@ -2206,7 +2224,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('操作失败: $e'), backgroundColor: Colors.red),
+          SnackBar(content: Text('操作失败: $e'), backgroundColor: AppColors.error),
         );
       }
     }
@@ -2251,7 +2269,7 @@ class _TestCountdownDialogState extends State<_TestCountdownDialog> {
     return AlertDialog(
       title: const Row(
         children: [
-          Icon(Icons.timer, color: Colors.teal),
+          Icon(Icons.timer, color: AppColors.secondary),
           SizedBox(width: 8),
           Text('测试提醒'),
         ],
@@ -2270,7 +2288,7 @@ class _TestCountdownDialogState extends State<_TestCountdownDialog> {
             width: 60,
             height: 60,
             decoration: BoxDecoration(
-              color: Colors.teal[50],
+              color: AppColors.secondaryLight,
               borderRadius: BorderRadius.circular(30),
             ),
             child: Center(
@@ -2279,7 +2297,7 @@ class _TestCountdownDialogState extends State<_TestCountdownDialog> {
                 style: TextStyle(
                   fontSize: 28,
                   fontWeight: FontWeight.bold,
-                  color: Colors.teal[700],
+                  color: AppColors.secondary,
                 ),
               ),
             ),
