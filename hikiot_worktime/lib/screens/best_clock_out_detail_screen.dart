@@ -238,11 +238,14 @@ class _BestClockOutDetailScreenState extends State<BestClockOutDetailScreen> {
     );
   }
 
-  /// 实时时钟卡：当前时间（秒级走时）+ 打卡时间 + 现在下班的工时
+  /// 实时时钟卡：当前时间（周几 + 秒级走时）+ 打卡时间 + 现在下班的工时
   Widget _buildClockCard() {
     final now = MockTimeService.instance.now();
     final checkIn = widget.checkInMinutes;
+    // 带周几显示，模拟器随机到周几时直观可见
+    const weekdays = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     final current =
+        '${weekdays[now.weekday - 1]} '
         '${now.hour.toString().padLeft(2, '0')}:'
         '${now.minute.toString().padLeft(2, '0')}:'
         '${now.second.toString().padLeft(2, '0')}';

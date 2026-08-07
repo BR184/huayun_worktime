@@ -624,7 +624,11 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
                   _selectDate();
                 },
                 child: Text(
-                  DateFormat('yyyy年MM月dd日 EEEE', 'zh_CN').format(_selectedDate),
+                  // 模拟开启且未手动选日期时，展示模拟日期（周几可见）
+                  DateFormat(
+                    'yyyy年MM月dd日 EEEE',
+                    'zh_CN',
+                  ).format(_displayDateForSelector()),
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -1918,6 +1922,21 @@ class DailyHoursScreenState extends State<DailyHoursScreen>
           _selectedDate.day == mock.day;
     }
     return DateHelper.isWorkToday(_selectedDate);
+  }
+
+  /// 日期选择器展示的日期：
+  /// 模拟开启且当前选中的就是真实"今天"时，显示模拟日期（周几可见）；
+  /// 手动选了其他日期则显示所选日期。
+  DateTime _displayDateForSelector() {
+    if (MockTimeService.instance.isMocked) {
+      final now = DateTime.now();
+      final isRealToday =
+          _selectedDate.year == now.year &&
+          _selectedDate.month == now.month &&
+          _selectedDate.day == now.day;
+      if (isRealToday) return MockTimeService.instance.now();
+    }
+    return _selectedDate;
   }
 
   /// 构建时间预估信息(基于上班打卡时间计算)

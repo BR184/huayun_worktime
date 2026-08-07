@@ -2198,10 +2198,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  /// 按拖动条小时设置模拟时间并随机生成打卡序列
+  /// 按拖动条小时设置模拟时间并随机生成打卡序列。
+  ///
+  /// 保留已有模拟日期（随机出来的周几），只更新小时；
+  /// 未启用时基准为真实今天。
   void _applyMockTime() {
-    final now = DateTime.now();
-    final mock = DateTime(now.year, now.month, now.day, _mockHour.floor(), 0);
+    final base = MockTimeService.instance.now();
+    final mock = DateTime(
+      base.year,
+      base.month,
+      base.day,
+      _mockHour.floor(),
+      0,
+    );
     MockTimeService.instance.setMock(mock);
     MockTimeService.instance.setPunches(MockPunchGenerator.randomPunches(mock));
   }
